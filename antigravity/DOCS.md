@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.2 — experimental
+# Antigravity Remote 0.1.3 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -119,3 +119,16 @@ Debian Bookworm's AMD64 Nginx passed config/startup checks and denied a
 non-ingress HTTP client. The test required a root-only test override because
 the test environment disallows switching UID; that override is NOT shipped.
 Non-root HAOS startup still requires confirmation on the target machine.
+
+## Version 0.1.3: iPhone sign-in button
+
+Open Web UI now opens a sign-in helper. If the CLI is showing a Google URL,
+tap Sign in with Google. This uses the original terminal text, not OCR.
+If no URL is available, choose Open terminal, complete initial prompts, then
+return and refresh the helper. Copy Google's authorization code and paste it
+into the terminal. Reopening Open Web UI returns to the helper.
+
+The helper is a read-only localhost service behind the same admin-only ingress.
+It checks required OAuth fields and the Google host before displaying a link.
+It does not store or log authentication URLs or authorization codes.
+Restarting the add-on changes the login session: always use its current link.

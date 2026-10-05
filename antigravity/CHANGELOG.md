@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- Add an ingress sign-in page with a tappable Google OAuth link read directly
+  from the current terminal screen, avoiding mobile screenshot/OCR corruption.
+
 ## 0.1.2
 
 - Fix non-root Nginx startup by explicitly placing FastCGI, uWSGI and SCGI
