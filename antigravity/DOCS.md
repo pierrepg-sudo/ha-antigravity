@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.1 — experimental
+# Antigravity Remote 0.1.2 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -110,3 +110,12 @@ The ARM64 HAOS build log confirmed Debian Bookworm has no ttyd installation
 candidate. ttyd is now downloaded from upstream release 1.7.7 with pinned SHA256
 checksums for ARM64 and AMD64. Both downloads were verified; the AMD64 binary
 was executed locally. Full HAOS build and authentication remain unverified.
+
+## Version 0.1.2 startup fix
+
+The HAOS log showed Nginx could not create /var/lib/nginx/fastcgi as the
+non-root agent user. All five Nginx temporary paths now explicitly use /tmp.
+Debian Bookworm's AMD64 Nginx passed config/startup checks and denied a
+non-ingress HTTP client. The test required a root-only test override because
+the test environment disallows switching UID; that override is NOT shipped.
+Non-root HAOS startup still requires confirmation on the target machine.

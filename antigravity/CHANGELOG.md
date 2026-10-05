@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- Fix non-root Nginx startup by explicitly placing FastCGI, uWSGI and SCGI
+  temporary directories under /tmp alongside the existing HTTP/proxy paths.
+
 ## 0.1.1
 
 - Fix installation failure: replace unavailable Debian ttyd package with upstream
