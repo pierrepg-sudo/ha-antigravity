@@ -1,8 +1,10 @@
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash ca-certificates curl git python3 tmux ttyd nginx-light tini util-linux libstdc++6 \
+    bash ca-certificates curl git python3 tmux nginx-light tini util-linux libstdc++6 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 1000 --home-dir /data/home --shell /bin/bash agent
+COPY install-ttyd.sh /tmp/install-ttyd.sh
+RUN bash /tmp/install-ttyd.sh && rm /tmp/install-ttyd.sh
 # Download from Google's official installer; the installer verifies the payload SHA512.
 # The upstream release is rolling, not pinned by this experimental add-on.
 RUN curl --fail --location --retry 3 https://antigravity.google/cli/install.sh -o /tmp/install-agy.sh \

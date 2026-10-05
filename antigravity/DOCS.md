@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.0 — experimental
+# Antigravity Remote 0.1.1 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -103,3 +103,10 @@ https://www.antigravity.google/docs/remote-control/
 https://www.antigravity.google/docs/models/
 https://developers.home-assistant.io/docs/apps/presentation/
 https://developers.home-assistant.io/docs/apps/configuration/
+
+## Version 0.1.1 installation fix
+
+The ARM64 HAOS build log confirmed Debian Bookworm has no ttyd installation
+candidate. ttyd is now downloaded from upstream release 1.7.7 with pinned SHA256
+checksums for ARM64 and AMD64. Both downloads were verified; the AMD64 binary
+was executed locally. Full HAOS build and authentication remain unverified.
