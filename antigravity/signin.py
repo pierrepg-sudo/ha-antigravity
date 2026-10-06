@@ -21,7 +21,33 @@ def tmux(*args, **kwargs):
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kwargs)
 
 
+def paste_text(text):
+    if not isinstance(text, str) or not text or len(text.encode('utf-8')) > 65536:
+        raise ValueError('Paste must contain 1–65536 bytes of text.')
+    text = text.replace('\r\n', '\n').replace('\r', '\n').replace('\t', '    ')
+    if any(ord(c) < 32 and c != '\n' or 127 <= ord(c) <= 159 for c in text):
+        raise ValueError('Terminal control characters are not allowed.')
+    name = 'mobile-' + secrets.token_hex(12)
+    target = 'antigravity:0.0'
+    with LOCK:
+        try:
+            tmux('load-buffer', '-b', name, '-', input=text.encode('utf-8'))
+            # Decide at paste time. Without bracketed paste, newlines must not
+            # become Enter keystrokes. Buffer names are generated, never user input.
+            tmux('if-shell', '-F', '-t', target, '#{bracket_paste_flag}',
+                 f'paste-buffer -p -r -d -b {name} -t {target}',
+                 f"paste-buffer -s ' ' -d -b {name} -t {target}")
+        finally:
+            try:
+                tmux('delete-buffer', '-b', name)
+            except (OSError, subprocess.SubprocessError):
+                pass  # paste-buffer -d normally removed it already.
+    return {'ok': True}
+
+
 def send_input(payload):
+    if set(payload) == {'action', 'text'} and payload['action'] == 'paste':
+        return paste_text(payload['text'])
     if payload == {'action': 'history'}:
         with LOCK:
             result = subprocess.run(
@@ -132,7 +158,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Expected JSON.')
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= (12 * 1024 * 1024 if self.path == '/file-action' else 1024):
+            if not 0 < length <= (12 * 1024 * 1024 if self.path == '/file-action' else 400 * 1024):
                 raise ValueError('Request is empty or too large.')
             self.connection.settimeout(15)
             payload = json.loads(self.rfile.read(length))

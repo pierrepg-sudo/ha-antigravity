@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.11
+
+- Add Paste as the first mobile toolbar button, with a temporary manual-paste dialog when clipboard access is unavailable.
+- Insert text without Enter; use bracketed paste or flatten newlines when unsupported.
+- Bound paste size, reject terminal control characters and clean up temporary buffers.
+
 ## 0.1.10
 
 - Add an iPhone-friendly F4 button for deleting the selected conversation in `/resume`.

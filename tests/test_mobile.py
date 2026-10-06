@@ -35,7 +35,8 @@ class MobileTests(unittest.TestCase):
                 self.assertIn('Shift+Tab',body)
                 self.assertIn('Delete conversation (F4)',body)
                 self.assertIn('/resume',body)
-                self.assertNotIn('<textarea',body)
+                self.assertIn('id="pasteDialog"',body)
+                self.assertIn('id="paste"',body)
                 self.assertNotIn('type="file"',body)
                 self.assertEqual(r.headers['Cache-Control'],'no-store')
             with self.assertRaises(HTTPError) as gone:

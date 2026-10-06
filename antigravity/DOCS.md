@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.10 — experimental
+# Antigravity Remote 0.1.11 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -244,3 +244,18 @@ Deleting a conversation is separate from the in-memory terminal scrollback.
 References:
 - https://www.antigravity.google/docs/cli/commands/resume/
 - https://github.com/google-antigravity/antigravity-cli/blob/main/CHANGELOG.md
+
+## Paste from iPhone (0.1.11)
+
+Copy text, focus the CLI prompt, and tap **Paste**, the first toolbar button.
+Allow clipboard access if iOS asks. If direct clipboard access is unavailable,
+a temporary dialog appears: touch and hold its box, choose Paste, and tap
+**Insert in terminal**. The dialog is cleared when closed; no permanent paste box
+or file-upload control is added to the toolbar.
+
+The button inserts up to 64 KiB of UTF-8 text without sending Enter. Review it
+before tapping Enter. Bracketed paste preserves line breaks when the application
+supports it; otherwise line breaks become spaces to prevent accidental submission.
+Tabs become four spaces. Terminal control characters are rejected. Pasted text
+uses a CSRF-protected request and a temporary tmux buffer, removed after use;
+this helper does not write it to disk or log it. The CLI may retain submitted prompts.

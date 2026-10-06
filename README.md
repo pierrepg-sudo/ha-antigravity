@@ -1,6 +1,6 @@
 # Antigravity Home Assistant add-on
 
-Experimental v0.1.10. HAOS runtime and Google sign-in are not yet verified.
+Experimental v0.1.11. HAOS runtime and Google sign-in are not yet verified.
 
 ## Install
 
