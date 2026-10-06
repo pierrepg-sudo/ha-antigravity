@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+- Remove the paste box and source uploader, including backend handlers.
+- Keep the live terminal, navigation toolbar, and Google sign-in helper.
+- Retain files uploaded previously.
+
 ## 0.1.4
 
 - Add mobile terminal with navigation keys and a normal paste box.

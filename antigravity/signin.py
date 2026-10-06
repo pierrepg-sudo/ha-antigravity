@@ -1,5 +1,4 @@
 """Mobile controls and OAuth helper; localhost behind admin-only HA ingress."""
-import base64
 import json
 import secrets
 import threading
@@ -14,7 +13,6 @@ from urllib.parse import parse_qs, urlsplit
 CSRF = secrets.token_hex(32)
 LOCK = threading.Lock()
 KEYS = {'Tab', 'BTab', 'Up', 'Down', 'Left', 'Right', 'S-Up', 'S-Down', 'Enter', 'Escape', 'BSpace'}
-WORKSPACE = Path('/data/workspace')
 
 
 def tmux(*args, **kwargs):
@@ -26,51 +24,9 @@ def send_input(payload):
     if set(payload) == {'key'} and isinstance(payload['key'], str) and payload['key'] in KEYS:
         with LOCK:
             tmux('send-keys', '-t', 'antigravity:0.0', payload['key'])
-    elif set(payload) == {'text'} and isinstance(payload['text'], str):
-        value = payload['text']
-        if not value or len(value.encode()) > 16384 or any(ord(c) < 32 and c not in '\n\t' for c in value):
-            raise ValueError('Use 1–16384 bytes of text without terminal control characters.')
-        buffer = 'mobile-' + secrets.token_hex(8)
-        with LOCK:
-            try:
-                tmux('load-buffer', '-b', buffer, '-', input=value.encode())
-                tmux('paste-buffer', '-p', '-d', '-b', buffer, '-t', 'antigravity:0.0')
-            finally:
-                try:
-                    tmux('delete-buffer', '-b', buffer)
-                except subprocess.SubprocessError:
-                    pass
     else:
         raise ValueError('Unknown key or input format.')
     return {'ok': True}
-
-
-def upload_file(payload):
-    if set(payload) != {'name', 'data'} or not all(isinstance(v, str) for v in payload.values()):
-        raise ValueError('Invalid upload.')
-    name = payload['name']
-    if not name or len(name) > 150 or '/' in name or '\\' in name or name in {'.', '..'}:
-        raise ValueError('Invalid filename.')
-    name = re.sub(r'[^A-Za-z0-9._-]', '_', name)
-    try:
-        data = base64.b64decode(payload['data'], validate=True)
-        data.decode('utf-8-sig')
-    except (ValueError, UnicodeError):
-        raise ValueError('Select a UTF-8 text/source file.')
-    if len(data) > 2 * 1024 * 1024 or b'\0' in data:
-        raise ValueError('Select a text file up to 2 MiB.')
-    root = WORKSPACE.resolve()
-    uploads = root / 'uploads'
-    uploads.mkdir(exist_ok=True, mode=0o700)
-    if uploads.is_symlink() or uploads.resolve().parent != root:
-        raise ValueError('Upload directory must be inside the workspace.')
-    folder = uploads / secrets.token_hex(12)
-    folder.mkdir(mode=0o700)
-    target = folder / name
-    with target.open('xb') as output:
-        output.write(data)
-    target.chmod(0o600)
-    return {'path': str(target)}
 
 
 def extract_url(screen):
@@ -154,7 +110,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path not in {'/input', '/upload'}:
+        if self.path != '/input':
             self.send_error(404)
             return
         status = 200
@@ -166,19 +122,19 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Expected JSON.')
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 3 * 1024 * 1024:
+            if not 0 < length <= 1024:
                 raise ValueError('Request is empty or too large.')
             self.connection.settimeout(15)
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError('Invalid request.')
-            result = send_input(payload) if self.path == '/input' else upload_file(payload)
+            result = send_input(payload)
         except (ValueError, TypeError):
             status = status if status != 200 else 400
-            result = {'error': 'Invalid request. Refresh controls; use valid keys or UTF-8 text within the size limit.'}
+            result = {'error': 'Invalid request. Refresh controls; use a valid navigation key.'}
         except (OSError, subprocess.SubprocessError):
             status = 503
-            result = {'error': 'Terminal or upload storage unavailable. Check that the add-on is running.'}
+            result = {'error': 'Terminal unavailable. Check that the add-on is running.'}
         body = json.dumps(result).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')

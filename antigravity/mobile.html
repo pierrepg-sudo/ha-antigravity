@@ -10,17 +10,9 @@
 <button data-key="Enter">Enter</button><button data-key="Escape">Esc</button><button data-key="BSpace">⌫</button>
 </nav><section>
 <div id="status" role="status" aria-live="polite"></div>
-<label for="paste">Paste text or an authorization code here</label>
-<textarea id="paste" rows="2" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
-<button id="send">Insert text</button><small>Then tap Enter to submit. Check the terminal’s active prompt first.</small>
-<details><summary>Upload a source file (.c, .h, or other UTF-8 text)</summary>
-<p>Upload saves a copy in the workspace. It does not execute or send the file to the agent.</p>
-<input id="file" type="file"><button id="upload">Upload file</button>
-<p id="path"></p><button id="insertPath" hidden>Insert file path</button>
-<small>Maximum 2 MiB per file. Originals are never overwritten.</small></details>
 <p><a href="./">Full-screen terminal</a></p></section>
 <script>
-const csrf='__CSRF__';let uploaded='';let busy=false;
+const csrf='__CSRF__';let busy=false;
 const status=document.querySelector('#status');
 async function call(route,body){
  if(busy)throw new Error('Wait for the previous action to finish.');
@@ -30,7 +22,4 @@ async function call(route,body){
 }
 async function act(fn){try{await fn();}catch(e){status.textContent=e.message;}}
 document.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>act(async()=>{await call('input',{key:b.dataset.key});status.textContent=b.textContent+' sent';}));
-document.querySelector('#send').onclick=()=>act(async()=>{const el=document.querySelector('#paste');await call('input',{text:el.value});el.value='';status.textContent='Text inserted. Tap Enter when ready.';});
-document.querySelector('#upload').onclick=()=>act(async()=>{const f=document.querySelector('#file').files[0];if(!f)throw new Error('Choose a file first.');if(f.size>2097152)throw new Error('File is larger than 2 MiB.');const bytes=new Uint8Array(await f.arrayBuffer());let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));const d=await call('upload',{name:f.name,data:btoa(s)});uploaded=d.path;document.querySelector('#path').textContent=uploaded;document.querySelector('#insertPath').hidden=false;status.textContent='File saved. Ask the agent to read the displayed path.';});
-document.querySelector('#insertPath').onclick=()=>act(async()=>{await call('input',{text:uploaded});status.textContent='Path inserted; add your instruction, then tap Enter.';});
 </script></html>
