@@ -80,7 +80,14 @@ def change(payload):
     if not isinstance(name, str) or not name or len(name.encode()) > 240 or len(parts(name)) != 1:
         raise ValueError('Use a single filename or folder name.')
     with directory(path) as fd:
-        if action == 'mkdir':
+        if action == 'delete':
+            if payload.get('confirm') is not True:
+                raise ValueError('Delete requires confirmation.')
+            info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError('Only regular files can be deleted.')
+            os.unlink(name, dir_fd=fd)
+        elif action == 'mkdir':
             os.mkdir(name, 0o700, dir_fd=fd)
         elif action == 'upload':
             encoded = payload.get('data')

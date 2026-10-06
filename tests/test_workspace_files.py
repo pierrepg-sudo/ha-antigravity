@@ -35,6 +35,20 @@ class WorkspaceTests(unittest.TestCase):
         with self.assertRaises(OSError):files.read_file('filelink')
         with self.assertRaises(OSError):files.change({'action':'mkdir','path':'link','name':'blocked'})
         with self.assertRaises(ValueError):files.change({'action':'mkdir','path':'','name':'../escape'})
+    def test_delete_requires_confirmation_and_regular_file(self):
+        target=self.root/'delete.c';target.write_text('keep until confirmed')
+        payload={'action':'delete','path':'','name':'delete.c'}
+        with self.assertRaises(ValueError):files.change(payload)
+        self.assertTrue(target.exists())
+        files.change(dict(payload,confirm=True))
+        self.assertFalse(target.exists())
+        folder=self.root/'folder';folder.mkdir()
+        with self.assertRaises(ValueError):files.change(dict(payload,name='folder',confirm=True))
+        outside=Path(self.temp.name)/'keep.c';outside.write_text('keep')
+        (self.root/'link.c').symlink_to(outside)
+        with self.assertRaises(ValueError):files.change(dict(payload,name='link.c',confirm=True))
+        self.assertEqual(outside.read_text(),'keep')
+
     def test_binary_and_preview_limits(self):
         (self.root/'data.bin').write_bytes(b'\0\1\2')
         self.assertEqual(files.read_file('data.bin')[0],b'\0\1\2')

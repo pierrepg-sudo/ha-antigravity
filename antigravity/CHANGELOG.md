@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8
+
+- Add file deletion with a confirmation dialog and CSRF-protected POST.
+- Download through a named file/blob with an iOS Share / Save to Files option.
+- Include both plain and UTF-8 attachment filenames for browser compatibility.
+
 ## 0.1.7
 
 - Add a workspace file manager: browse, create folders, upload, download,

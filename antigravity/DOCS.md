@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.7 — experimental
+# Antigravity Remote 0.1.8 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -175,10 +175,22 @@ to return. File uploads live on this separate screen, not in the terminal toolba
 
 Uploads are limited to 8 MiB each, downloads to 32 MiB, previews to 256 KiB.
 Duplicate filenames are rejected; existing content is never overwritten.
-Files are not executed or submitted to Google just by uploading. No file
-editor or delete action is provided in this first version. Existing workspace
+Files are not executed or submitted to Google just by uploading. Text editing is not provided. Existing workspace
 files are preserved. Symbolic links and special files cannot be opened.
 
 The file manager is behind the existing admin-only Home Assistant ingress.
 Mutations require the page's per-process CSRF token. Files outside the workspace,
 including /data/home authentication data, are not exposed by these endpoints.
+
+## Version 0.1.8: delete and mobile downloads
+
+Tap Delete beside a regular file, then confirm in the dialog. Deletion is
+permanent; folders and symbolic links cannot be deleted with this action.
+The API also requires an explicit confirmation value and the page CSRF token.
+
+Download now fetches the file without navigating the terminal away and opens
+a save dialog. On iPhone tap Share / Save to Files, then Save to Files in the
+system share sheet. If file sharing is unavailable, use Download file.
+Some in-app browsers preview downloaded files even with attachment headers;
+use Share > Save to Files from the preview or open Home Assistant in Safari.
+The file is kept in browser memory until the dialog closes or the page reloads.

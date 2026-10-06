@@ -163,7 +163,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', content_type)
             if route == '/file-download':
-                self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(name, safe=''))
+                self.send_header('Content-Disposition', 'attachment; filename="' + re.sub(r'[^A-Za-z0-9._-]', '_', name) + '"; filename*=UTF-8\'\'' + quote(name, safe=''))
         except (OSError, ValueError):
             body = json.dumps({'error': 'Cannot open this path. Links and special files are blocked; downloads are limited to 32 MiB.'}).encode()
             self.send_response(400)
