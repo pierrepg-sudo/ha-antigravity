@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.5 — experimental
+# Antigravity Remote 0.1.6 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -144,3 +144,24 @@ backend upload and text-insertion support. Existing uploaded files are retained.
 
 Controls remain behind authenticated HA ingress with a per-process CSRF token.
 Only the fixed navigation-key list is accepted by the control endpoint.
+
+## Version 0.1.6: C/C++ development tools
+
+The image now includes GCC/G++, standard development headers, Make, CMake,
+Ninja, pkg-config, GDB, clangd, clang-format, clang-tidy and cppcheck.
+Antigravity can invoke these terminal tools on source in /data/workspace.
+This installs command-line tools; it does not install a VS Code extension
+or automatically connect clangd to the CLI as a language server.
+
+Example prompts: "Compile main.c with gcc -Wall -Wextra -g and explain any
+warnings", or "Configure this CMake project with Ninja and run its tests."
+Native builds target the add-on host (ARM64 on a Raspberry Pi), not a
+microcontroller or Windows. Firmware projects need their own SDK/toolchain.
+GDB is installed, but live debugging may be restricted by container security
+or the CLI sandbox. No privileged mode or ptrace capability has been added.
+
+The image build runs check-c-tools, which compiles and executes C11 and C++17
+samples and checks that the other commands are present. To repeat that check,
+ask the agent to run /usr/local/bin/check-c-tools. The larger toolchain makes
+the initial install/update download and build longer. Full HAOS build still
+requires confirmation on the target device.

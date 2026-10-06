@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6
+
+- Add GCC/G++, Make, CMake, Ninja, pkg-config, GDB, clangd, clang-format,
+  clang-tidy and cppcheck for native C/C++ development.
+- Run C/C++ compile-and-execute checks during image build.
+
 ## 0.1.5
 
 - Remove the paste box and source uploader, including backend handlers.
