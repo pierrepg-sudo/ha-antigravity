@@ -1,4 +1,5 @@
 """Mobile controls and OAuth helper; localhost behind admin-only HA ingress."""
+import workspace_files
 import json
 import secrets
 import threading
@@ -7,7 +8,7 @@ import html
 import re
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlsplit, quote
 
 
 CSRF = secrets.token_hex(32)
@@ -95,11 +96,14 @@ paste it into the authorization-code prompt, and press Return.</p>
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         route = self.path.split('?', 1)[0]
-        if route not in {'/signin', '/controls'}:
+        if route in {'/file-list', '/file-preview', '/file-download'}:
+            self.file_get(route)
+            return
+        if route not in {'/signin', '/controls', '/files'}:
             self.send_error(404)
             return
-        body = (Path(__file__).with_name('mobile.html').read_text().replace('__CSRF__', CSRF).encode()
-                if route == '/controls' else render(current_url()))
+        body = (Path(__file__).with_name('files.html' if route == '/files' else 'mobile.html').read_text().replace('__CSRF__', CSRF).encode()
+                if route in {'/controls', '/files'} else render(current_url()))
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Cache-Control', 'no-store')
@@ -110,7 +114,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path != '/input':
+        if self.path not in {'/input', '/file-action'}:
             self.send_error(404)
             return
         status = 200
@@ -122,23 +126,50 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Expected JSON.')
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 1024:
+            if not 0 < length <= (12 * 1024 * 1024 if self.path == '/file-action' else 1024):
                 raise ValueError('Request is empty or too large.')
             self.connection.settimeout(15)
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError('Invalid request.')
-            result = send_input(payload)
+            result = workspace_files.change(payload) if self.path == '/file-action' else send_input(payload)
+        except FileExistsError:
+            status = 409
+            result = {'error': 'That name already exists. Rename the file before uploading.'}
         except (ValueError, TypeError):
             status = status if status != 200 else 400
-            result = {'error': 'Invalid request. Refresh controls; use a valid navigation key.'}
+            result = {'error': 'Invalid request. Refresh the page and check the name, path or file size.'}
         except (OSError, subprocess.SubprocessError):
             status = 503
-            result = {'error': 'Terminal unavailable. Check that the add-on is running.'}
+            result = {'error': 'Operation unavailable. Check the add-on and workspace permissions.'}
         body = json.dumps(result).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Cache-Control', 'no-store')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def file_get(self, route):
+        try:
+            path = parse_qs(urlsplit(self.path).query, keep_blank_values=True).get('path', [''])[0]
+            if route == '/file-download':
+                body, name = workspace_files.read_file(path)
+                content_type = 'application/octet-stream'
+            else:
+                result = workspace_files.listing(path) if route == '/file-list' else workspace_files.read_file(path, preview=True)
+                body = json.dumps(result).encode()
+                content_type = 'application/json'
+            self.send_response(200)
+            self.send_header('Content-Type', content_type)
+            if route == '/file-download':
+                self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(name, safe=''))
+        except (OSError, ValueError):
+            body = json.dumps({'error': 'Cannot open this path. Links and special files are blocked; downloads are limited to 32 MiB.'}).encode()
+            self.send_response(400)
+            self.send_header('Content-Type', 'application/json')
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)

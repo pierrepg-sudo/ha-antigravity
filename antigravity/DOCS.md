@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.6 — experimental
+# Antigravity Remote 0.1.7 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -165,3 +165,20 @@ samples and checks that the other commands are present. To repeat that check,
 ask the agent to run /usr/local/bin/check-c-tools. The larger toolchain makes
 the initial install/update download and build longer. Full HAOS build still
 requires confirmation on the target device.
+
+## Version 0.1.7: file manager
+
+Open Web UI and tap Files at the top. Browse /data/workspace and subfolders,
+create folders, upload from iPhone Files (including .c/.cpp), preview UTF-8
+text, download files, and copy a path for an Antigravity prompt. Use Terminal
+to return. File uploads live on this separate screen, not in the terminal toolbar.
+
+Uploads are limited to 8 MiB each, downloads to 32 MiB, previews to 256 KiB.
+Duplicate filenames are rejected; existing content is never overwritten.
+Files are not executed or submitted to Google just by uploading. No file
+editor or delete action is provided in this first version. Existing workspace
+files are preserved. Symbolic links and special files cannot be opened.
+
+The file manager is behind the existing admin-only Home Assistant ingress.
+Mutations require the page's per-process CSRF token. Files outside the workspace,
+including /data/home authentication data, are not exposed by these endpoints.

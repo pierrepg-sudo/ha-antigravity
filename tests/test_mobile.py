@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).parents[1] / "antigravity"))
 import base64
 import importlib.util
 import json

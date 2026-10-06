@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7
+
+- Add a workspace file manager: browse, create folders, upload, download,
+  preview text and copy file paths.
+- Confine access to /data/workspace, block symlinks, and prevent overwrite.
+
 ## 0.1.6
 
 - Add GCC/G++, Make, CMake, Ninja, pkg-config, GDB, clangd, clang-format,
