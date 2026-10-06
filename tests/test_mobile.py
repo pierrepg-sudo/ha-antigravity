@@ -42,6 +42,24 @@ class MobileTests(unittest.TestCase):
             with self.assertRaises(HTTPError) as gone:
                 urlopen(Request(base+'/upload',data=b'{}'))
             self.assertEqual(gone.exception.code,404)
+            with urlopen(base+'/conversations') as r:
+                menu=r.read().decode()
+                self.assertIn('Deleted conversations / Undo',menu)
+                self.assertIn(m.CSRF,menu)
+            with patch.object(m.conversation_history,'listing',return_value={'items':[],'trash':[]}) as listing:
+                with urlopen(base+'/conversation-list') as r:
+                    self.assertEqual(json.load(r)['items'],[])
+                    self.assertEqual(r.headers['Cache-Control'],'no-store')
+                listing.assert_called_once()
+            history_data=json.dumps({'action':'delete','id':'12345678-1234-1234-1234-123456789012','confirm':True}).encode()
+            with patch.object(m.conversation_history,'change',return_value={'ok':True}) as change:
+                with self.assertRaises(HTTPError) as forbidden:
+                    urlopen(Request(base+'/conversation-action',data=history_data,headers={'Content-Type':'application/json'}))
+                self.assertEqual(forbidden.exception.code,403)
+                change.assert_not_called()
+                with urlopen(Request(base+'/conversation-action',data=history_data,headers={'Content-Type':'application/json','X-Antigravity-CSRF':m.CSRF})) as r:
+                    self.assertTrue(json.load(r)['ok'])
+                change.assert_called_once_with(json.loads(history_data))
             data=json.dumps({'key':'Tab'}).encode()
             with self.assertRaises(HTTPError) as ctx:
                 urlopen(Request(base+'/input',data=data,headers={'Content-Type':'application/json'}))

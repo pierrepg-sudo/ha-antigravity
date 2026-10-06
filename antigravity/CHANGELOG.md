@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.12
+
+- Add searchable Conversations menu with per-entry Delete confirmation and Undo.
+- Remove local history only while CLI is stopped; retain recovery backups and block active/nested sessions.
+- Recover interrupted moves before starting CLI; leave workspace and artifact files intact.
+
 ## 0.1.11
 
 - Add Paste as the first mobile toolbar button, with a temporary manual-paste dialog when clipboard access is unavailable.

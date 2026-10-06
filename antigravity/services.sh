@@ -5,6 +5,7 @@ export TERM=xterm-256color
 cd /data/workspace
 # A PTY keeps the interactive CLI alive when the setup browser disconnects.
 python3 /usr/local/bin/prepare_settings.py
+python3 /usr/local/bin/conversation_history.py
 tmux -f /etc/antigravity-tmux.conf new-session -d -s antigravity -x 120 -y 35 /usr/local/bin/session.sh
 cleanup() {
     trap - EXIT INT TERM

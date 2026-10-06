@@ -20,7 +20,7 @@ RUN curl --fail --location --retry 3 https://antigravity.google/cli/install.sh -
     && bash /tmp/install-agy.sh --dir /opt/antigravity \
     && test -x /opt/antigravity/agy && rm /tmp/install-agy.sh
 COPY run.sh services.sh session.sh /usr/local/bin/
-COPY signin.py workspace_files.py mobile.html files.html /usr/local/bin/
+COPY signin.py workspace_files.py conversation_history.py mobile.html files.html conversations.html /usr/local/bin/
 COPY nginx.conf /etc/nginx/antigravity.conf
 RUN chmod 755 /usr/local/bin/run.sh /usr/local/bin/services.sh /usr/local/bin/session.sh
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/run.sh"]

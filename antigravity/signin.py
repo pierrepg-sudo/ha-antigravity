@@ -1,5 +1,7 @@
 """Mobile controls and OAuth helper; localhost behind admin-only HA ingress."""
 import workspace_files
+import conversation_history
+import sqlite3
 import json
 import secrets
 import threading
@@ -128,14 +130,17 @@ paste it into the authorization-code prompt, and press Return.</p>
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         route = self.path.split('?', 1)[0]
+        if route == '/conversation-list':
+            self.history_get()
+            return
         if route in {'/file-list', '/file-preview', '/file-download'}:
             self.file_get(route)
             return
-        if route not in {'/signin', '/controls', '/files'}:
+        if route not in {'/signin', '/controls', '/files', '/conversations'}:
             self.send_error(404)
             return
-        body = (Path(__file__).with_name('files.html' if route == '/files' else 'mobile.html').read_text().replace('__CSRF__', CSRF).encode()
-                if route in {'/controls', '/files'} else render(current_url()))
+        body = (Path(__file__).with_name('conversations.html' if route == '/conversations' else 'files.html' if route == '/files' else 'mobile.html').read_text().replace('__CSRF__', CSRF).encode()
+                if route in {'/controls', '/files', '/conversations'} else render(current_url()))
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Cache-Control', 'no-store')
@@ -146,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path not in {'/input', '/file-action'}:
+        if self.path not in {'/input', '/file-action', '/conversation-action'}:
             self.send_error(404)
             return
         status = 200
@@ -164,7 +169,13 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError('Invalid request.')
-            result = workspace_files.change(payload) if self.path == '/file-action' else send_input(payload)
+            result = conversation_history.change(payload) if self.path == '/conversation-action' else workspace_files.change(payload) if self.path == '/file-action' else send_input(payload)
+        except conversation_history.HistoryError as error:
+            status = 409
+            result = {'error': str(error)}
+        except sqlite3.Error:
+            status = 503
+            result = {'error': 'History database unavailable. No overwrite was attempted; check the app log.'}
         except FileExistsError:
             status = 409
             result = {'error': 'That name already exists. Rename the file before uploading.'}
@@ -178,6 +189,22 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Cache-Control', 'no-store')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def history_get(self):
+        status = 200
+        try:
+            result = conversation_history.listing()
+        except (conversation_history.HistoryError, OSError, sqlite3.Error, ValueError):
+            status = 503
+            result = {'error': 'Conversation history is unavailable at the expected location or its schema is unsupported.'}
+        body = json.dumps(result).encode()
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
