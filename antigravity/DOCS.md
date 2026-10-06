@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.9 — experimental
+# Antigravity Remote 0.1.10 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -225,3 +225,22 @@ Open **Files** to download the result. Standard text, tables, code blocks and ma
 are supported; specialist LaTeX packages and all language fonts are not included.
 The image build runs a sample PDF conversion and checks its PDF signature. These
 packages increase the download size, disk usage and update/build time on HAOS.
+
+## Delete saved conversations (0.1.10)
+
+In the CLI, type `/resume` and press Enter. Highlight the conversation with ↑/↓,
+then tap **Delete conversation (F4)** on the mobile toolbar. Review the CLI's
+confirmation and press **Enter** to delete or **Esc** to cancel. Repeat for each
+conversation. The button sends only F4; it does not automatically confirm deletion
+or access conversation database files. Use it only in the conversation picker.
+Custom `item.delete` keybindings can change its behavior.
+
+Google's CLI changelog records F4 replacing Ctrl+Delete in version 1.1.13.
+The older `/resume` documentation still mentions Ctrl+Delete. If your installed
+CLI shows another shortcut, check its version and keybindings. This feature is
+for the add-on terminal; it adds no controls to Google's hosted chat website.
+Deleting a conversation is separate from the in-memory terminal scrollback.
+
+References:
+- https://www.antigravity.google/docs/cli/commands/resume/
+- https://github.com/google-antigravity/antigravity-cli/blob/main/CHANGELOG.md

@@ -1,5 +1,5 @@
 name: Antigravity Remote
-version: "0.1.9"
+version: "0.1.10"
 slug: antigravity_remote
 description: Experimental Antigravity CLI host with a persistent setup terminal
 arch:

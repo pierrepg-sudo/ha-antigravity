@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.10
+
+- Add an iPhone-friendly F4 button for deleting the selected conversation in `/resume`.
+- Keep the CLI confirmation step and include picker instructions in the mobile UI.
+
 ## 0.1.9
 
 - Add touch-scrollable terminal history with page buttons, refresh and return to live.

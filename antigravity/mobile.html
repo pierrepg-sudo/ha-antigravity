@@ -11,7 +11,9 @@
 <button data-key="Up" aria-label="Up">↑</button><button data-key="Down" aria-label="Down">↓</button><button data-key="Left" aria-label="Left">←</button><button data-key="Right" aria-label="Right">→</button>
 <button data-key="S-Up">Shift+↑</button><button data-key="S-Down">Shift+↓</button>
 <button data-key="Enter">Enter</button><button data-key="Escape">Esc</button><button data-key="BSpace">⌫</button>
+<button data-key="F4">Delete conversation (F4)</button>
 </nav><section>
+<details><summary>Delete a saved conversation</summary><p>Type <code>/resume</code> in the CLI and press Enter. Use ↑/↓ to highlight a conversation, then tap <b>Delete conversation (F4)</b>. Check the CLI's confirmation before pressing Enter; Esc cancels.</p><p>This button sends F4 to the active terminal. Use it only while the conversation picker is open. It does not clear the Scroll history snapshot.</p></details>
 <div id="status" role="status" aria-live="polite"></div>
 <p><a href="./">Full-screen terminal</a></p></section>
 <script>
@@ -42,5 +44,5 @@ async function call(route,body){
  finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}
 }
 async function act(fn){try{await fn();}catch(e){status.textContent=e.message;}}
-document.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>act(async()=>{await call('input',{key:b.dataset.key});status.textContent=b.textContent+' sent';}));
+document.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>act(async()=>{await call('input',{key:b.dataset.key});status.textContent=b.dataset.key==='F4'?'F4 sent. Check the CLI confirmation: Enter to delete, Esc to cancel.':b.textContent+' sent';}));
 </script></html>

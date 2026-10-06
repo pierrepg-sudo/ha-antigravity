@@ -33,6 +33,8 @@ class MobileTests(unittest.TestCase):
                 body=r.read().decode()
                 self.assertIn(m.CSRF,body)
                 self.assertIn('Shift+Tab',body)
+                self.assertIn('Delete conversation (F4)',body)
+                self.assertIn('/resume',body)
                 self.assertNotIn('<textarea',body)
                 self.assertNotIn('type="file"',body)
                 self.assertEqual(r.headers['Cache-Control'],'no-store')
