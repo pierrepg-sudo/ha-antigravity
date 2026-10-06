@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.12 — experimental
+# Antigravity Remote 0.1.13 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -260,7 +260,9 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Conversations menu (0.1.12)
+## Legacy offline Conversations menu (0.1.12 — retired)
+
+**Superseded by 0.1.13 below. Offline deletion did not reliably persist in actual use.**
 
 Open **Conversations** from the mobile terminal header to search up to 2,000
 recent local history entries by title or ID. Each entry shows its last-modified
@@ -286,3 +288,23 @@ SQLite commits decide whether an interrupted operation rolls back or completes.
 Startup recovery runs before the CLI. Conflicts block startup without overwriting
 files. Schema changes block unsupported operations. These safeguards are tested
 with fixture databases; actual Antigravity/HAOS behavior still needs verification.
+
+## Native deletion panel (0.1.13)
+
+Conversations → Delete opens a live terminal panel while the CLI runs. At an
+empty prompt, use **Insert /resume**, then **Enter**. Once the picker is open
+with an empty search, tap **Paste conversation ID**. Verify the matching row,
+use **F4 Delete**, then review Antigravity's confirmation before **Enter**.
+**Esc** cancels. **Close & refresh** refreshes the web list. Selection and
+confirmation are deliberately user-controlled; this is a guided native flow,
+not an automatic delete-by-ID API. It honors your configured CLI keybindings.
+
+The menu no longer removes SQLite rows or files for deletion. Requests from
+stale 0.1.12 pages are rejected. Native deletion has no add-on Undo guarantee.
+Existing offline backups are preserved; Undo for those still requires stopping
+the CLI and refuses conflicts. Automatic legacy reconciliation at startup has
+been removed so stale backups cannot interfere with native deletion or startup.
+The exact reason for reappearing conversations has not been established.
+
+Tests cover the retired API guard, routing, and existing recovery code. Native
+end-to-end deletion still needs verification on the user's authenticated CLI.

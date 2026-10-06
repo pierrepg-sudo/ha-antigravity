@@ -127,6 +127,14 @@ paste it into the authorization-code prompt, and press Return.</p>
 <p><a href="https://antigravity.google.com" target="_blank" rel="noopener noreferrer">Open Remote Control</a> after signing in.</p></html>''').encode()
 
 
+def history_action(payload):
+    if payload.get('action') != 'restore':
+        raise conversation_history.HistoryError(
+            'Offline deletion has been retired because conversations can reappear. '
+            'Reopen Conversations and use the native CLI deletion panel.')
+    return conversation_history.change(payload)
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         route = self.path.split('?', 1)[0]
@@ -169,7 +177,7 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError('Invalid request.')
-            result = conversation_history.change(payload) if self.path == '/conversation-action' else workspace_files.change(payload) if self.path == '/file-action' else send_input(payload)
+            result = history_action(payload) if self.path == '/conversation-action' else workspace_files.change(payload) if self.path == '/file-action' else send_input(payload)
         except conversation_history.HistoryError as error:
             status = 409
             result = {'error': str(error)}

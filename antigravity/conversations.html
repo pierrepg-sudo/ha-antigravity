@@ -1,13 +1,17 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Conversations</title><style>
 *{box-sizing:border-box}body{margin:0;padding:14px;background:#17191e;color:#eee;font:16px system-ui}main{max-width:800px;margin:auto}header{display:flex;justify-content:space-between;gap:12px;align-items:center}h1{font-size:24px}a{color:#9bc9ff}button,input{font:inherit;border:1px solid #667085;border-radius:8px;padding:10px;min-height:44px}button{background:#303949;color:white}button:disabled{opacity:.5}input{width:100%;background:#22252d;color:white;margin:12px 0}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #434956;padding:14px 0}.info{min-width:0;overflow-wrap:anywhere;flex:1}.meta{color:#b7bfce;font-size:14px;margin-top:5px}p{line-height:1.5}.delete{border-color:#e69797}#status{color:#b9d9ff;min-height:24px}dialog{width:min(94vw,550px);border:1px solid #667085;border-radius:10px;background:#22252d;color:white}dialog::backdrop{background:#000a}.actions{display:flex;gap:10px;flex-wrap:wrap}#selected{overflow-wrap:anywhere}
+#native{width:min(96vw,950px);max-height:95dvh;overflow:auto}#nativeTerminal{width:100%;height:48dvh;border:0;background:#222}#nativeSelected{overflow-wrap:anywhere}li{margin:8px 0}
 </style><main><header><h1>Conversations</h1><a href="controls">Terminal</a></header>
-<p>To delete or undo: enter <code>/exit</code> in the CLI, leave the add-on running, then refresh here. Restart the add-on when finished.</p>
-<p>Delete removes a chat from local history and keeps an Undo backup. Workspace files and artifacts stay in place.</p>
+<p>Delete opens the live CLI controls below. Use its conversation picker and confirmation while the CLI stays running.</p><p>Offline deletion has been retired. Existing Undo backups remain available with the CLI stopped; new native deletions do not create an add-on Undo backup.</p>
 <button id="refresh">Refresh</button><p id="status" role="status" aria-live="polite"></p>
 <label for="search">Search conversations</label><input id="search" type="search" placeholder="Title or conversation ID" autocomplete="off">
 <div id="list"></div><details><summary>Deleted conversations / Undo</summary><div id="trash"></div></details>
-<dialog id="confirm" aria-labelledby="confirmTitle"><h2 id="confirmTitle"></h2><p id="selected"></p><p id="explain"></p><p id="error" role="alert"></p><div class="actions"><button id="apply"></button><button id="cancel">Cancel</button></div></dialog></main>
+<dialog id="confirm" aria-labelledby="confirmTitle"><h2 id="confirmTitle"></h2><p id="selected"></p><p id="explain"></p><p id="error" role="alert"></p><div class="actions"><button id="apply"></button><button id="cancel">Cancel</button></div></dialog>
+<dialog id="native" aria-labelledby="nativeTitle"><h2 id="nativeTitle">Delete through Antigravity</h2><p id="nativeSelected"></p>
+<ol><li>At an empty CLI prompt, tap <b>Insert /resume</b>, then <b>Enter</b>. If the picker is already open, skip this.</li><li>With the picker search empty, tap <b>Paste conversation ID</b>. Check that the matching conversation is selected.</li><li>Tap <b>F4 Delete</b>. Read Antigravity's confirmation and press <b>Enter</b> only if it names the correct conversation. <b>Esc</b> cancels.</li></ol>
+<iframe id="nativeTerminal" title="Live CLI deletion confirmation"></iframe>
+<div class="actions"><button id="resume">Insert /resume</button><button id="searchId">Paste conversation ID</button><button data-native-key="Up">↑</button><button data-native-key="Down">↓</button><button data-native-key="F4">F4 Delete</button><button data-native-key="Enter">Enter</button><button data-native-key="Escape">Esc</button><button id="nativeClose">Close &amp; refresh</button></div><p id="nativeStatus" role="status"></p></dialog></main>
 <script>
 const csrf='__CSRF__';let data={items:[],trash:[],running:true},pending=null,busy=false;
 const $=id=>document.getElementById(id),modal=$('confirm');
@@ -17,10 +21,10 @@ function row(item,deleted){
  const title=document.createElement('strong');title.textContent=item.title;info.append(title);
  const meta=document.createElement('div');meta.className='meta';meta.textContent=deleted?'Saved for recovery':`${item.steps??0} steps · ${item.modified||'Date unavailable'}`;info.append(meta);
  const id=document.createElement('div');id.className='meta';id.textContent=item.id;info.append(id);
- const reason=item.blocked||(data.running?'Exit the CLI to delete or restore.':'');
+ const reason=deleted?(data.running?'Exit the CLI to restore a legacy backup.':''):(!data.running?'Start the CLI to use native deletion.':'');
  if(reason){const note=document.createElement('div');note.className='meta';note.textContent=reason;info.append(note);}
  const button=document.createElement('button');button.textContent=deleted?'Undo':'Delete';button.className=deleted?'':'delete';button.dataset.blocked=String(Boolean(reason));button.disabled=Boolean(reason)||busy;
- button.onclick=()=>{pending=deleted?{action:'restore',backup:item.backup,confirm:true}:{action:'delete',id:item.id,confirm:true};$('confirmTitle').textContent=deleted?'Restore conversation?':'Delete from history?';$('selected').textContent=item.title+' — '+item.id;$('explain').textContent=deleted?'Restore this conversation to local CLI history.':'Keep an Undo backup and remove this conversation from local CLI history. Workspace files and artifacts remain.';$('apply').textContent=deleted?'Restore':'Delete';$('error').textContent='';modal.showModal();};
+ button.onclick=()=>{if(!deleted){openNative(item);return;}pending=deleted?{action:'restore',backup:item.backup,confirm:true}:{action:'delete',id:item.id,confirm:true};$('confirmTitle').textContent=deleted?'Restore conversation?':'Delete from history?';$('selected').textContent=item.title+' — '+item.id;$('explain').textContent=deleted?'Restore this conversation to local CLI history.':'Keep an Undo backup and remove this conversation from local CLI history. Workspace files and artifacts remain.';$('apply').textContent=deleted?'Restore':'Delete';$('error').textContent='';modal.showModal();};
  el.append(info,button);return el;
 }
 function render(){
@@ -33,8 +37,26 @@ function render(){
 }
 async function refresh(){
  const r=await fetch('conversation-list',{cache:'no-store'}),d=await r.json();if(!r.ok)throw new Error(d.error||'Could not read history');data=d;render();
- $('status').textContent=`${d.items.length} conversations (up to ${d.limit}). `+(d.running?'CLI running — viewing only.':'CLI stopped — deletion and Undo available.');
+ $('status').textContent=`${d.items.length} conversations (up to ${d.limit}). `+(d.running?'CLI running — native deletion available.':'CLI stopped — start it for native deletion; legacy Undo is available.');
 }
+let selectedId=null;
+const native=$('native');
+function openNative(item){
+ selectedId=item.id;$('nativeSelected').textContent=item.title+' — '+item.id;
+ $('nativeStatus').textContent='Use the picker to select this conversation before F4. These buttons control the live terminal; selection is not automatic.';
+ $('nativeTerminal').src='./';native.showModal();
+}
+async function terminalInput(payload){
+ if(busy)return;setBusy(true);
+ try{const r=await fetch('input',{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok)throw new Error(d.error||'Terminal input failed');
+ $('nativeStatus').textContent=payload.key==='F4'?'F4 sent. Review the CLI confirmation before pressing Enter.':payload.key==='Enter'?'Enter sent. Check the CLI result; Close & refresh updates this list.':'Input sent. Check the live terminal.';
+ }catch(e){$('nativeStatus').textContent=e.message;}finally{setBusy(false);}
+}
+$('resume').onclick=()=>terminalInput({action:'paste',text:'/resume'});
+$('searchId').onclick=()=>terminalInput({action:'paste',text:selectedId});
+document.querySelectorAll('[data-native-key]').forEach(b=>b.onclick=()=>terminalInput({key:b.dataset.nativeKey}));
+$('nativeClose').onclick=()=>native.close();
+native.addEventListener('close',()=>{$('nativeTerminal').removeAttribute('src');selectedId=null;load();});
 async function load(){setBusy(true);try{await refresh();}catch(e){$('status').textContent=e.message;}finally{setBusy(false);}}
 $('refresh').onclick=load;$('search').oninput=render;$('cancel').onclick=()=>modal.close();
 modal.addEventListener('cancel',e=>{if(busy)e.preventDefault();});

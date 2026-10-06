@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.13
+
+- Retire unreliable offline deletion and reject stale delete requests.
+- Add a live native CLI deletion panel from each conversation row, with ID paste, F4, Enter and Esc.
+- Keep legacy backups and stop automatic startup reconciliation; no automatic native confirmation.
+
 ## 0.1.12
 
 - Add searchable Conversations menu with per-entry Delete confirmation and Undo.
