@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Antigravity mobile terminal</title><style>
+*{box-sizing:border-box}body{margin:0;background:#17191e;color:#eee;font:16px system-ui}header,section{padding:10px}header{display:flex;justify-content:space-between}a{color:#9bc9ff}iframe{width:100%;height:48dvh;border:0;background:#222}nav{display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:#22252d;position:sticky;top:0}button{font:inherit;min-height:44px;min-width:48px;border:1px solid #667085;border-radius:7px;background:#303949;color:white;padding:9px}button:disabled{opacity:.5}textarea{width:100%;font:16px system-ui;padding:10px;border-radius:7px}#status{min-height:24px;color:#b9d9ff;overflow-wrap:anywhere}input{max-width:100%;font:16px system-ui}p{margin:8px 0}small{color:#c6c9d0}label{display:block;margin-bottom:6px}
+</style><header><b>Antigravity terminal</b><a href="signin">Google sign-in</a></header>
+<iframe src="./" title="Live Antigravity terminal"></iframe>
+<nav aria-label="Terminal keys">
+<button data-key="Tab">Tab</button><button data-key="BTab">Shift+Tab</button>
+<button data-key="Up" aria-label="Up">↑</button><button data-key="Down" aria-label="Down">↓</button><button data-key="Left" aria-label="Left">←</button><button data-key="Right" aria-label="Right">→</button>
+<button data-key="S-Up">Shift+↑</button><button data-key="S-Down">Shift+↓</button>
+<button data-key="Enter">Enter</button><button data-key="Escape">Esc</button><button data-key="BSpace">⌫</button>
+</nav><section>
+<div id="status" role="status" aria-live="polite"></div>
+<label for="paste">Paste text or an authorization code here</label>
+<textarea id="paste" rows="2" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+<button id="send">Insert text</button><small>Then tap Enter to submit. Check the terminal’s active prompt first.</small>
+<details><summary>Upload a source file (.c, .h, or other UTF-8 text)</summary>
+<p>Upload saves a copy in the workspace. It does not execute or send the file to the agent.</p>
+<input id="file" type="file"><button id="upload">Upload file</button>
+<p id="path"></p><button id="insertPath" hidden>Insert file path</button>
+<small>Maximum 2 MiB per file. Originals are never overwritten.</small></details>
+<p><a href="./">Full-screen terminal</a></p></section>
+<script>
+const csrf='__CSRF__';let uploaded='';let busy=false;
+const status=document.querySelector('#status');
+async function call(route,body){
+ if(busy)throw new Error('Wait for the previous action to finish.');
+ busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);
+ try{const r=await fetch(route,{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.error||'Request failed');return d;}
+ finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}
+}
+async function act(fn){try{await fn();}catch(e){status.textContent=e.message;}}
+document.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>act(async()=>{await call('input',{key:b.dataset.key});status.textContent=b.textContent+' sent';}));
+document.querySelector('#send').onclick=()=>act(async()=>{const el=document.querySelector('#paste');await call('input',{text:el.value});el.value='';status.textContent='Text inserted. Tap Enter when ready.';});
+document.querySelector('#upload').onclick=()=>act(async()=>{const f=document.querySelector('#file').files[0];if(!f)throw new Error('Choose a file first.');if(f.size>2097152)throw new Error('File is larger than 2 MiB.');const bytes=new Uint8Array(await f.arrayBuffer());let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));const d=await call('upload',{name:f.name,data:btoa(s)});uploaded=d.path;document.querySelector('#path').textContent=uploaded;document.querySelector('#insertPath').hidden=false;status.textContent='File saved. Ask the agent to read the displayed path.';});
+document.querySelector('#insertPath').onclick=()=>act(async()=>{await call('input',{text:uploaded});status.textContent='Path inserted; add your instruction, then tap Enter.';});
+</script></html>

@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.3 — experimental
+# Antigravity Remote 0.1.4 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -132,3 +132,24 @@ The helper is a read-only localhost service behind the same admin-only ingress.
 It checks required OAuth fields and the Google host before displaying a link.
 It does not store or log authentication URLs or authorization codes.
 Restarting the add-on changes the login session: always use its current link.
+
+## Version 0.1.4: mobile controls and source uploads
+
+Open Web UI now shows the live terminal with Tab, Shift+Tab, arrows,
+Shift+Up/Down, Enter, Esc and Backspace buttons. Paste into the normal text
+box and choose Insert text, then Enter separately. Check which prompt is
+active before inserting; these keys operate the live terminal, even if it
+has returned to a shell. Use Google sign-in at the top to open the login helper.
+
+Upload file accepts UTF-8 source/text files up to 2 MiB (including .c/.h).
+Each copy gets a unique /data/workspace/uploads/<id>/filename path without
+overwriting existing files. Insert file path places that path in the prompt;
+ask the agent to read it. Uploading alone does not run code or submit a prompt.
+Use @ path completion for workspace files when available. Files persist in
+add-on data/backups. Google media attachment pickers are distinct from
+workspace source-file access; this update does not modify Google's remote UI.
+
+Controls are available through authenticated HA ingress only. The helper
+binds to localhost, requires a per-process token on POST requests, does not
+log submitted text/files, and restricts keys to a fixed list. The paste box
+clears after success. Full HAOS/iPhone operation remains a target-device check.

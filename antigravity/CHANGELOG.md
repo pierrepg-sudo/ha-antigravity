@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+- Add mobile terminal with navigation keys and a normal paste box.
+- Add UTF-8 source-file uploads, including .c and .h, into unique workspace folders.
+- Protect control/upload requests with a per-process CSRF token; no automatic Enter.
+
 ## 0.1.3
 
 - Add an ingress sign-in page with a tappable Google OAuth link read directly
