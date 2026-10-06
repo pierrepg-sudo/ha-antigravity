@@ -1,8 +1,11 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Antigravity mobile terminal</title><style>
 *{box-sizing:border-box}body{margin:0;background:#17191e;color:#eee;font:16px system-ui}header,section{padding:10px}header{display:flex;justify-content:space-between}a{color:#9bc9ff}iframe{width:100%;height:48dvh;border:0;background:#222}nav{display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:#22252d;position:sticky;top:0}button{font:inherit;min-height:44px;min-width:48px;border:1px solid #667085;border-radius:7px;background:#303949;color:white;padding:9px}button:disabled{opacity:.5}textarea{width:100%;font:16px system-ui;padding:10px;border-radius:7px}#status{min-height:24px;color:#b9d9ff;overflow-wrap:anywhere}input{max-width:100%;font:16px system-ui}p{margin:8px 0}small{color:#c6c9d0}label{display:block;margin-bottom:6px}
+[hidden]{display:none!important}#history{height:48dvh;overflow:auto;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;background:#222;padding:10px}#history pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:14px monospace}#historyTools{display:flex;flex-wrap:wrap;gap:6px;padding:8px}
 </style><header><b>Antigravity terminal</b><a href="files">Files</a><a href="signin">Google sign-in</a></header>
 <iframe src="./" title="Live Antigravity terminal"></iframe>
+<div id="history" hidden tabindex="0" role="region" aria-label="Terminal output history"><pre id="historyText"></pre></div>
+<div id="historyTools"><button id="showHistory">Scroll history</button><button id="older" hidden>Page up</button><button id="newer" hidden>Page down</button><button id="refreshHistory" hidden>Refresh history</button><button id="live" hidden>Live terminal</button></div>
 <nav aria-label="Terminal keys">
 <button data-key="Tab">Tab</button><button data-key="BTab">Shift+Tab</button>
 <button data-key="Up" aria-label="Up">↑</button><button data-key="Down" aria-label="Down">↓</button><button data-key="Left" aria-label="Left">←</button><button data-key="Right" aria-label="Right">→</button>
@@ -14,6 +17,24 @@
 <script>
 const csrf='__CSRF__';let busy=false;
 const status=document.querySelector('#status');
+const historyView=document.querySelector('#history'), terminal=document.querySelector('iframe'), keyBar=document.querySelector('nav');
+function historyMode(on){
+ historyView.hidden=!on;terminal.hidden=on;keyBar.hidden=on;
+ for(const id of ['older','newer','refreshHistory','live'])document.getElementById(id).hidden=!on;
+ document.querySelector('#showHistory').hidden=on;
+}
+async function showHistory(refresh=false){
+ const position=historyView.scrollTop;
+ const d=await call('input',{action:'history'});
+ document.querySelector('#historyText').textContent=d.text||'(No retained output yet.)';
+ historyMode(true);historyView.scrollTop=refresh?position:historyView.scrollHeight;
+ status.textContent='Swipe up or down, or use Page up. History is a snapshot; tap Refresh for new output.';
+}
+document.querySelector('#showHistory').onclick=()=>act(()=>showHistory());
+document.querySelector('#refreshHistory').onclick=()=>act(()=>showHistory(true));
+document.querySelector('#older').onclick=()=>historyView.scrollBy({top:-historyView.clientHeight*.8});
+document.querySelector('#newer').onclick=()=>historyView.scrollBy({top:historyView.clientHeight*.8});
+document.querySelector('#live').onclick=()=>{historyMode(false);status.textContent='Live terminal';};
 async function call(route,body){
  if(busy)throw new Error('Wait for the previous action to finish.');
  busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);

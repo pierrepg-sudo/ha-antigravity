@@ -22,6 +22,12 @@ def tmux(*args, **kwargs):
 
 
 def send_input(payload):
+    if payload == {'action': 'history'}:
+        with LOCK:
+            result = subprocess.run(
+                ['tmux', 'capture-pane', '-p', '-J', '-S', '-20000', '-t', 'antigravity:0.0'],
+                capture_output=True, text=True, errors='replace', timeout=5, check=True)
+        return {'ok': True, 'text': result.stdout}
     if set(payload) == {'key'} and isinstance(payload['key'], str) and payload['key'] in KEYS:
         with LOCK:
             tmux('send-keys', '-t', 'antigravity:0.0', payload['key'])

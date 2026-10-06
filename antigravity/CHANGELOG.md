@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.9
+
+- Add touch-scrollable terminal history with page buttons, refresh and return to live.
+- Retain 20,000 tmux lines; default adaptive rendering to inline, preserving explicit choices.
+- Include Pandoc, a LaTeX PDF engine and fonts; verify PDF creation during image build.
+
 ## 0.1.8
 
 - Add file deletion with a confirmation dialog and CSRF-protected POST.

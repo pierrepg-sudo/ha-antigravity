@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.8 — experimental
+# Antigravity Remote 0.1.9 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -182,7 +182,7 @@ The file manager is behind the existing admin-only Home Assistant ingress.
 Mutations require the page's per-process CSRF token. Files outside the workspace,
 including /data/home authentication data, are not exposed by these endpoints.
 
-## Version 0.1.8: delete and mobile downloads
+## Version 0.1.9: delete and mobile downloads
 
 Tap Delete beside a regular file, then confirm in the dialog. Deletion is
 permanent; folders and symbolic links cannot be deleted with this action.
@@ -194,3 +194,34 @@ system share sheet. If file sharing is unavailable, use Download file.
 Some in-app browsers preview downloaded files even with attachment headers;
 use Share > Save to Files from the preview or open Home Assistant in Safari.
 The file is kept in browser memory until the dialog closes or the page reloads.
+
+## Scrolling terminal output (0.1.9)
+
+Tap **Scroll history** in the add-on's mobile terminal. Swipe within the output or
+use **Page up / Page down**. **Refresh history** updates the snapshot without
+jumping to the bottom; **Live terminal** returns to typing. Output is displayed as
+plain text, not interpreted as HTML. History requests use the existing ingress
+and CSRF protections and are not cached or logged.
+
+The add-on retains up to 20,000 lines in tmux memory, lost on add-on restart.
+Startup changes an absent or adaptive `altScreenMode` preference to `never`
+(inline mode) so future output can enter scrollback. Other settings and explicit
+`always`/`never` choices are preserved. If you previously forced `always`, set
+Rendering Mode to inline in `/config` and restart the CLI. Previously discarded
+output and full-screen redraws cannot be recovered. This controls the add-on's
+terminal, not Google's Remote Control chat page.
+
+## Creating PDFs (0.1.9)
+
+Pandoc, pdfLaTeX and standard LaTeX fonts/packages are installed. Ask the agent:
+“Create report.md and convert it with Pandoc to /data/workspace/report.pdf.”
+A shell command (run by the agent, or in a shell) is:
+
+```sh
+pandoc /data/workspace/report.md -o /data/workspace/report.pdf
+```
+
+Open **Files** to download the result. Standard text, tables, code blocks and math
+are supported; specialist LaTeX packages and all language fonts are not included.
+The image build runs a sample PDF conversion and checks its PDF signature. These
+packages increase the download size, disk usage and update/build time on HAOS.
