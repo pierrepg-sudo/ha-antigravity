@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.14
+
+- Fully remove offline deletion, Undo, recovery, history mutation routes, locking and their obsolete tests.
+- Keep conversation listing read-only and retain native CLI deletion controls.
+- Preserve existing on-disk backups without scanning or changing them.
+
 ## 0.1.13
 
 - Retire unreliable offline deletion and reject stale delete requests.

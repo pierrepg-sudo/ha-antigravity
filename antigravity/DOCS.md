@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.13 — experimental
+# Antigravity Remote 0.1.14 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -260,35 +260,6 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Legacy offline Conversations menu (0.1.12 — retired)
-
-**Superseded by 0.1.13 below. Offline deletion did not reliably persist in actual use.**
-
-Open **Conversations** from the mobile terminal header to search up to 2,000
-recent local history entries by title or ID. Each entry shows its last-modified
-time, step count and a **Delete** button. Viewing uses SQLite read-only mode.
-
-To delete, finish current work and enter `/exit` in the CLI. Keep the add-on
-running so the menu remains available. Refresh Conversations, choose Delete and
-confirm the title. Use **Undo** under Deleted conversations to restore an entry.
-Restart the add-on when finished to launch the CLI again.
-
-This is recoverable removal from the local CLI history, not Google's native delete
-operation or deletion of cloud/IDE history. The summary row and local conversation
-DB are removed from their active locations. The original row and database are kept
-under `/data/home/.gemini/antigravity-cli/history-trash` for Undo. This retains disk
-usage. Workspace files, generated artifacts, worktrees and other metadata are not
-removed. Active, nested, parent-with-child and nonlocal entries must be managed
-through the CLI's native picker instead. No bulk or permanent purge is provided.
-
-History mutation is blocked while the CLI or its language server runs. A shared
-lock covers the add-on-managed CLI lifetime; history changes require the exclusive
-lock plus a process check. A recovery record is written before moving files, and
-SQLite commits decide whether an interrupted operation rolls back or completes.
-Startup recovery runs before the CLI. Conflicts block startup without overwriting
-files. Schema changes block unsupported operations. These safeguards are tested
-with fixture databases; actual Antigravity/HAOS behavior still needs verification.
-
 ## Native deletion panel (0.1.13)
 
 Conversations → Delete opens a live terminal panel while the CLI runs. At an
@@ -299,12 +270,8 @@ use **F4 Delete**, then review Antigravity's confirmation before **Enter**.
 confirmation are deliberately user-controlled; this is a guided native flow,
 not an automatic delete-by-ID API. It honors your configured CLI keybindings.
 
-The menu no longer removes SQLite rows or files for deletion. Requests from
-stale 0.1.12 pages are rejected. Native deletion has no add-on Undo guarantee.
-Existing offline backups are preserved; Undo for those still requires stopping
-the CLI and refuses conflicts. Automatic legacy reconciliation at startup has
-been removed so stale backups cannot interfere with native deletion or startup.
-The exact reason for reappearing conversations has not been established.
-
-Tests cover the retired API guard, routing, and existing recovery code. Native
-end-to-end deletion still needs verification on the user's authenticated CLI.
+The conversation index is opened read-only. All deletion runs through the native
+CLI. The add-on has no offline deletion, Undo, recovery, writable history endpoint,
+or history lock. Existing backup files from old releases are left on disk without
+being scanned or modified. Native end-to-end deletion still needs verification on
+the user's authenticated CLI.
