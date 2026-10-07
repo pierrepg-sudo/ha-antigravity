@@ -1,4 +1,4 @@
-# Antigravity Remote 0.1.14 — experimental
+# Antigravity Remote 0.1.15 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
@@ -260,18 +260,31 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Native deletion panel (0.1.13)
+## Direct native deletion (0.1.15)
 
-Conversations → Delete opens a live terminal panel while the CLI runs. At an
-empty prompt, use **Insert /resume**, then **Enter**. Once the picker is open
-with an empty search, tap **Paste conversation ID**. Verify the matching row,
-use **F4 Delete**, then review Antigravity's confirmation before **Enter**.
-**Esc** cancels. **Close & refresh** refreshes the web list. Selection and
-confirmation are deliberately user-controlled; this is a guided native flow,
-not an automatic delete-by-ID API. It honors your configured CLI keybindings.
+After updating or restarting the CLI, ask Antigravity:
+“Run /usr/local/bin/antigravity-connect using your terminal tool.”
+Do not run it from a plain shell: it needs the API environment supplied to CLI
+tools. The command validates the CLI ancestor, allows only a loopback address,
+and verifies GetAllCascadeTrajectories before saving a private mode-0600 connection
+file outside the workspace. It never deletes a conversation or prints credentials.
 
-The conversation index is opened read-only. All deletion runs through the native
-CLI. The add-on has no offline deletion, Undo, recovery, writable history endpoint,
-or history lock. Existing backup files from old releases are left on disk without
-being scanned or modified. Native end-to-end deletion still needs verification on
-the user's authenticated CLI.
+Open **Conversations**, refresh, then **Delete → confirm**. No terminal selection,
+F4, exit or restart is needed for deletion. The menu uses the live native listing;
+its scope is whatever GetAllCascadeTrajectories returns. Inclusion of all archived
+or Google-hosted conversations is not established, and no include_archived flag is
+sent. Running and unrecognized states are blocked. Test a disposable conversation
+first: listing was verified on the user's CLI; deletion is not yet device-verified.
+
+Requests go only to the pinned local process/port, without HTTP proxies or redirects.
+The saved process start time is rechecked on every request; a CLI restart requires
+reconnection. Tokens stay on the host and never enter browser responses or logs.
+Browser mutations require CSRF and explicit confirmation, with a fresh native
+lookup and selection revision check. DeleteCascadeTrajectory receives the exact
+cascadeId. A follow-up read must confirm absence before success is reported.
+Failures are not retried automatically; refresh after an uncertain outcome.
+
+The previous SQLite listing and guided terminal deletion panel have been fully
+removed. No history database writes, file deletion fallback, or add-on Undo exists.
+Existing legacy backup files are untouched. Antigravity controls native cleanup of
+associated conversation data. This internal API may change across CLI versions.

@@ -1,7 +1,6 @@
 """Mobile controls and OAuth helper; localhost behind admin-only HA ingress."""
 import workspace_files
 import conversation_history
-import sqlite3
 import json
 import secrets
 import threading
@@ -151,7 +150,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path not in {'/input', '/file-action'}:
+        if self.path not in {'/input', '/file-action', '/conversation-delete'}:
             self.send_error(404)
             return
         status = 200
@@ -169,7 +168,10 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError('Invalid request.')
-            result = workspace_files.change(payload) if self.path == '/file-action' else send_input(payload)
+            result = conversation_history.delete(payload) if self.path == '/conversation-delete' else workspace_files.change(payload) if self.path == '/file-action' else send_input(payload)
+        except conversation_history.HistoryError as error:
+            status = 409
+            result = {'error': str(error)}
         except FileExistsError:
             status = 409
             result = {'error': 'That name already exists. Rename the file before uploading.'}
@@ -191,9 +193,9 @@ class Handler(BaseHTTPRequestHandler):
         status = 200
         try:
             result = conversation_history.listing()
-        except (conversation_history.HistoryError, OSError, sqlite3.Error, ValueError):
+        except conversation_history.HistoryError as error:
             status = 503
-            result = {'error': 'Conversation history is unavailable at the expected location or its schema is unsupported.'}
+            result = {'error': str(error)}
         body = json.dumps(result).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')

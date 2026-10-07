@@ -1,0 +1,11 @@
+#!/usr/bin/python3
+import sys
+from native_connection import NativeError, pair
+try:
+    pair()
+except NativeError as error:
+    print(str(error), file=sys.stderr)
+    sys.exit(1)
+except OSError:
+    print('Could not store the private connection. Check add-on home-directory permissions.', file=sys.stderr)
+    sys.exit(1)

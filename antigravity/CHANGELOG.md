@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.15
+
+- Replace guided deletion and SQLite listing with native API listing and exact-ID deletion.
+- Add private, read-only connection setup through the CLI tool environment.
+- Require confirmation, recheck state/revision and verify absence after deletion; no automatic retries.
+
 ## 0.1.14
 
 - Fully remove offline deletion, Undo, recovery, history mutation routes, locking and their obsolete tests.

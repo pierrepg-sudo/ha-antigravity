@@ -1,60 +1,47 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Conversations</title><style>
-*{box-sizing:border-box}body{margin:0;padding:14px;background:#17191e;color:#eee;font:16px system-ui}main{max-width:800px;margin:auto}header{display:flex;justify-content:space-between;gap:12px;align-items:center}h1{font-size:24px}a{color:#9bc9ff}button,input{font:inherit;border:1px solid #667085;border-radius:8px;padding:10px;min-height:44px}button{background:#303949;color:white}button:disabled{opacity:.5}input{width:100%;background:#22252d;color:white;margin:12px 0}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #434956;padding:14px 0}.info{min-width:0;overflow-wrap:anywhere;flex:1}.meta{color:#b7bfce;font-size:14px;margin-top:5px}p{line-height:1.5}.delete{border-color:#e69797}#status{color:#b9d9ff;min-height:24px}dialog{width:min(94vw,550px);border:1px solid #667085;border-radius:10px;background:#22252d;color:white}dialog::backdrop{background:#000a}.actions{display:flex;gap:10px;flex-wrap:wrap}
-#native{width:min(96vw,950px);max-height:95dvh;overflow:auto}#nativeTerminal{width:100%;height:48dvh;border:0;background:#222}#nativeSelected{overflow-wrap:anywhere}li{margin:8px 0}
+*{box-sizing:border-box}body{margin:0;padding:14px;background:#17191e;color:#eee;font:16px system-ui}main{max-width:800px;margin:auto}header{display:flex;justify-content:space-between;gap:12px;align-items:center}h1{font-size:24px}a{color:#9bc9ff}button,input{font:inherit;border:1px solid #667085;border-radius:8px;padding:10px;min-height:44px}button{background:#303949;color:white}button:disabled{opacity:.5}input{width:100%;background:#22252d;color:white;margin:12px 0}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #434956;padding:14px 0}.info{min-width:0;overflow-wrap:anywhere;flex:1}.meta{color:#b7bfce;font-size:14px;margin-top:5px}p{line-height:1.5}.delete{border-color:#e69797}#status{color:#b9d9ff;min-height:24px}dialog{width:min(94vw,550px);border:1px solid #667085;border-radius:10px;background:#22252d;color:white}dialog::backdrop{background:#000a}.actions{display:flex;gap:10px}#selected{overflow-wrap:anywhere}#error{color:#ffb4b4}
 </style><main><header><h1>Conversations</h1><a href="controls">Terminal</a></header>
-<p>Delete opens the live CLI controls below. Use its conversation picker and confirmation while the CLI stays running.</p><p>Deletion is handled by Antigravity. The add-on reads conversation titles and provides terminal controls.</p>
+<p>Delete a conversation directly through the running CLI's native API. The add-on provides no Undo.</p>
+<details><summary>Connect after a CLI restart</summary><p>Ask Antigravity: <b>Run /usr/local/bin/antigravity-connect using your terminal tool.</b> Then tap Refresh. This checks read-only access and keeps the connection credentials private to the add-on.</p></details>
+<p>Use a disposable conversation for the first deletion test. This internal API can change between CLI versions.</p>
 <button id="refresh">Refresh</button><p id="status" role="status" aria-live="polite"></p>
-<label for="search">Search conversations</label><input id="search" type="search" placeholder="Title or conversation ID" autocomplete="off">
-<div id="list"></div>
-<dialog id="native" aria-labelledby="nativeTitle"><h2 id="nativeTitle">Delete through Antigravity</h2><p id="nativeSelected"></p>
-<ol><li>At an empty CLI prompt, tap <b>Insert /resume</b>, then <b>Enter</b>. If the picker is already open, skip this.</li><li>With the picker search empty, tap <b>Paste conversation ID</b>. Check that the matching conversation is selected.</li><li>Tap <b>F4 Delete</b>. Read Antigravity's confirmation and press <b>Enter</b> only if it names the correct conversation. <b>Esc</b> cancels.</li></ol>
-<iframe id="nativeTerminal" title="Live CLI deletion confirmation"></iframe>
-<div class="actions"><button id="resume">Insert /resume</button><button id="searchId">Paste conversation ID</button><button data-native-key="Up">↑</button><button data-native-key="Down">↓</button><button data-native-key="F4">F4 Delete</button><button data-native-key="Enter">Enter</button><button data-native-key="Escape">Esc</button><button id="nativeClose">Close &amp; refresh</button></div><p id="nativeStatus" role="status"></p></dialog></main>
+<label for="search">Search conversations</label><input id="search" type="search" placeholder="Title or conversation ID" autocomplete="off"><div id="list"></div>
+<dialog id="confirm" aria-labelledby="confirmTitle"><h2 id="confirmTitle">Delete conversation?</h2><p id="selected"></p><p>Antigravity will delete this exact conversation and may clean up associated conversation data. There is no add-on Undo.</p><p id="error" role="alert"></p><div class="actions"><button id="apply" class="delete">Delete</button><button id="cancel">Cancel</button></div></dialog></main>
 <script>
-const csrf='__CSRF__';let data={items:[],running:true},busy=false;
-const $=id=>document.getElementById(id);
+const csrf='__CSRF__';let items=[],busy=false,pending=null;
+const $=id=>document.getElementById(id),dialog=$('confirm');
 function setBusy(value){busy=value;document.querySelectorAll('button').forEach(b=>b.disabled=value||b.dataset.blocked==='true');}
-function row(item){
- const el=document.createElement('div');el.className='row';const info=document.createElement('div');info.className='info';
- const title=document.createElement('strong');title.textContent=item.title;info.append(title);
- const meta=document.createElement('div');meta.className='meta';meta.textContent=`${item.steps??0} steps · ${item.modified||'Date unavailable'}`;info.append(meta);
- const id=document.createElement('div');id.className='meta';id.textContent=item.id;info.append(id);
- const reason=data.running?'':'Start the CLI to use native deletion.';
- if(reason){const note=document.createElement('div');note.className='meta';note.textContent=reason;info.append(note);}
- const button=document.createElement('button');button.textContent='Delete';button.className='delete';button.dataset.blocked=String(Boolean(reason));button.disabled=Boolean(reason)||busy;
- button.onclick=()=>openNative(item);
- el.append(info,button);return el;
-}
 function render(){
- const query=$('search').value.toLocaleLowerCase();$('list').replaceChildren();
- const filtered=data.items.filter(i=>(i.title+' '+i.id).toLocaleLowerCase().includes(query));
- for(const item of filtered)$('list').append(row(item));
+ $('list').replaceChildren();const query=$('search').value.toLocaleLowerCase();
+ const filtered=items.filter(i=>(i.title+' '+i.id).toLocaleLowerCase().includes(query));
+ for(const item of filtered){
+  const el=document.createElement('div');el.className='row';const info=document.createElement('div');info.className='info';
+  const title=document.createElement('strong');title.textContent=item.title;info.append(title);
+  for(const text of [`${item.steps} steps · ${item.modified||'Date unavailable'}`,item.id,item.blocked||'']){
+   if(!text)continue;const line=document.createElement('div');line.className='meta';line.textContent=text;info.append(line);
+  }
+  const button=document.createElement('button');button.textContent='Delete';button.className='delete';button.dataset.blocked=String(Boolean(item.blocked));button.disabled=busy||Boolean(item.blocked);
+  button.onclick=()=>{pending={id:item.id,revision:item.revision,confirm:true};$('selected').textContent=item.title+' — '+item.id;$('error').textContent='';dialog.showModal();};
+  el.append(info,button);$('list').append(el);
+ }
  if(!filtered.length)$('list').textContent='No matching conversations.';
 }
 async function refresh(){
- const r=await fetch('conversation-list',{cache:'no-store'}),d=await r.json();if(!r.ok)throw new Error(d.error||'Could not read history');data=d;render();
- $('status').textContent=`${d.items.length} conversations (up to ${d.limit}). `+(d.running?'CLI running — native deletion available.':'CLI stopped — restart the add-on for native deletion.');
+ const r=await fetch('conversation-list',{cache:'no-store'}),d=await r.json();if(!r.ok){items=[];render();throw new Error(d.error||'Could not read conversations');}
+ items=d.items;render();$('status').textContent=`${items.length} conversations returned by the native API. Running or unrecognized states cannot be deleted.`;
 }
-let selectedId=null;
-const native=$('native');
-function openNative(item){
- selectedId=item.id;$('nativeSelected').textContent=item.title+' — '+item.id;
- $('nativeStatus').textContent='Use the picker to select this conversation before F4. These buttons control the live terminal; selection is not automatic.';
- $('nativeTerminal').src='./';native.showModal();
-}
-async function terminalInput(payload){
- if(busy)return;setBusy(true);
- try{const r=await fetch('input',{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok)throw new Error(d.error||'Terminal input failed');
- $('nativeStatus').textContent=payload.key==='F4'?'F4 sent. Review the CLI confirmation before pressing Enter.':payload.key==='Enter'?'Enter sent. Check the CLI result; Close & refresh updates this list.':'Input sent. Check the live terminal.';
- }catch(e){$('nativeStatus').textContent=e.message;}finally{setBusy(false);}
-}
-$('resume').onclick=()=>terminalInput({action:'paste',text:'/resume'});
-$('searchId').onclick=()=>terminalInput({action:'paste',text:selectedId});
-document.querySelectorAll('[data-native-key]').forEach(b=>b.onclick=()=>terminalInput({key:b.dataset.nativeKey}));
-$('nativeClose').onclick=()=>native.close();
-native.addEventListener('close',()=>{$('nativeTerminal').removeAttribute('src');selectedId=null;load();});
 async function load(){setBusy(true);try{await refresh();}catch(e){$('status').textContent=e.message;}finally{setBusy(false);}}
-$('refresh').onclick=load;$('search').oninput=render;
+$('refresh').onclick=load;$('search').oninput=render;$('cancel').onclick=()=>dialog.close();
+dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault();});dialog.addEventListener('close',()=>{pending=null;});
+$('apply').onclick=async()=>{
+ if(busy||!pending)return;setBusy(true);
+ try{
+  const r=await fetch('conversation-delete',{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(pending)}),d=await r.json();
+  if(!r.ok)throw new Error(d.error||'Deletion could not be verified. Refresh before retrying.');
+  dialog.close();await refresh();$('status').textContent='Deletion confirmed: the conversation is no longer in the native API list.';
+ }catch(e){$('error').textContent=e.message;$('status').textContent=e.message;pending=null;}
+ finally{setBusy(false);if(dialog.open&&!pending)$('apply').disabled=true;}
+};
 load();
 </script></html>

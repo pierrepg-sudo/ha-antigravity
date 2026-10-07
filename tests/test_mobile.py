@@ -44,13 +44,21 @@ class MobileTests(unittest.TestCase):
             self.assertEqual(gone.exception.code,404)
             with urlopen(base+'/conversations') as r:
                 menu=r.read().decode()
-                self.assertIn('Delete through Antigravity',menu)
+                self.assertIn('Delete conversation?',menu)
                 self.assertIn(m.CSRF,menu)
             with patch.object(m.conversation_history,'listing',return_value={'items':[]}) as listing:
                 with urlopen(base+'/conversation-list') as r:
                     self.assertEqual(json.load(r)['items'],[])
                     self.assertEqual(r.headers['Cache-Control'],'no-store')
                 listing.assert_called_once()
+            deletion=json.dumps({'id':'12345678-1234-1234-1234-123456789012','revision':'example','confirm':True}).encode()
+            with patch.object(m.conversation_history,'delete',return_value={'ok':True}) as delete:
+                with self.assertRaises(HTTPError) as forbidden:
+                    urlopen(Request(base+'/conversation-delete',data=deletion,headers={'Content-Type':'application/json'}))
+                self.assertEqual(forbidden.exception.code,403);delete.assert_not_called()
+                with urlopen(Request(base+'/conversation-delete',data=deletion,headers={'Content-Type':'application/json','X-Antigravity-CSRF':m.CSRF})) as response:
+                    self.assertTrue(json.load(response)['ok'])
+                delete.assert_called_once_with(json.loads(deletion))
             data=json.dumps({'key':'Tab'}).encode()
             with self.assertRaises(HTTPError) as ctx:
                 urlopen(Request(base+'/input',data=data,headers={'Content-Type':'application/json'}))
