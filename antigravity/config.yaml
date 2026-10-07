@@ -1,5 +1,5 @@
 name: Antigravity Remote
-version: "0.1.15"
+version: "0.1.16"
 slug: antigravity_remote
 description: Experimental Antigravity CLI host with a persistent setup terminal
 arch:
@@ -17,5 +17,7 @@ panel_title: Antigravity Setup
 panel_admin: true
 timeout: 30
 backup: cold
-options: {}
-schema: {}
+options:
+  permission_profile: balanced
+schema:
+  permission_profile: list(balanced|review)

@@ -1,5 +1,4 @@
 """Mobile controls and OAuth helper; localhost behind admin-only HA ingress."""
-import workspace_files
 import conversation_history
 import json
 import secrets
@@ -9,7 +8,7 @@ import html
 import re
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlsplit, quote
+from urllib.parse import parse_qs, urlsplit
 
 
 CSRF = secrets.token_hex(32)
@@ -108,7 +107,7 @@ def current_url():
 
 def render(url):
     action = ('<a class="button" target="_blank" rel="noopener noreferrer" href="'
-              + html.escape(url, quote=True) + '">Sign in with Google</a>') if url else (
+              + html.escape(url=True) + '">Sign in with Google</a>') if url else (
               '<p>No complete Google sign-in link is visible yet. Open the terminal, '
               'follow its setup prompts, then return here and refresh.</p>')
     return ('''<!doctype html><html lang="en"><meta charset="utf-8">
@@ -132,14 +131,23 @@ class Handler(BaseHTTPRequestHandler):
         if route == '/conversation-list':
             self.history_get()
             return
-        if route in {'/file-list', '/file-preview', '/file-download'}:
-            self.file_get(route)
+        if route == '/profile-status':
+            try:
+                body = (Path.home() / '.gemini/antigravity-cli/ha-profile-status.json').read_bytes()
+            except OSError:
+                body = b'{"message":"Profile status unavailable. Check add-on startup logs."}'
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
             return
-        if route not in {'/signin', '/controls', '/files', '/conversations'}:
+        if route not in {'/signin', '/controls', '/conversations'}:
             self.send_error(404)
             return
-        body = (Path(__file__).with_name('conversations.html' if route == '/conversations' else 'files.html' if route == '/files' else 'mobile.html').read_text().replace('__CSRF__', CSRF).encode()
-                if route in {'/controls', '/files', '/conversations'} else render(current_url()))
+        body = (Path(__file__).with_name('conversations.html' if route == '/conversations' else 'mobile.html').read_text().replace('__CSRF__', CSRF).encode()
+                if route in {'/controls', '/conversations'} else render(current_url()))
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Cache-Control', 'no-store')
@@ -150,7 +158,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path not in {'/input', '/file-action', '/conversation-delete'}:
+        if self.path not in {'/input', '/conversation-delete'}:
             self.send_error(404)
             return
         status = 200
@@ -162,19 +170,16 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Expected JSON.')
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= (12 * 1024 * 1024 if self.path == '/file-action' else 400 * 1024):
+            if not 0 < length <= 400 * 1024:
                 raise ValueError('Request is empty or too large.')
             self.connection.settimeout(15)
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError('Invalid request.')
-            result = conversation_history.delete(payload) if self.path == '/conversation-delete' else workspace_files.change(payload) if self.path == '/file-action' else send_input(payload)
+            result = conversation_history.delete(payload) if self.path == '/conversation-delete' else send_input(payload)
         except conversation_history.HistoryError as error:
             status = 409
             result = {'error': str(error)}
-        except FileExistsError:
-            status = 409
-            result = {'error': 'That name already exists. Rename the file before uploading.'}
         except (ValueError, TypeError):
             status = status if status != 200 else 400
             result = {'error': 'Invalid request. Refresh the page and check the name, path or file size.'}
@@ -199,30 +204,6 @@ class Handler(BaseHTTPRequestHandler):
         body = json.dumps(result).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
-        self.send_header('Cache-Control', 'no-store')
-        self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Content-Length', str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def file_get(self, route):
-        try:
-            path = parse_qs(urlsplit(self.path).query, keep_blank_values=True).get('path', [''])[0]
-            if route == '/file-download':
-                body, name = workspace_files.read_file(path)
-                content_type = 'application/octet-stream'
-            else:
-                result = workspace_files.listing(path) if route == '/file-list' else workspace_files.read_file(path, preview=True)
-                body = json.dumps(result).encode()
-                content_type = 'application/json'
-            self.send_response(200)
-            self.send_header('Content-Type', content_type)
-            if route == '/file-download':
-                self.send_header('Content-Disposition', 'attachment; filename="' + re.sub(r'[^A-Za-z0-9._-]', '_', name) + '"; filename*=UTF-8\'\'' + quote(name, safe=''))
-        except (OSError, ValueError):
-            body = json.dumps({'error': 'Cannot open this path. Links and special files are blocked; downloads are limited to 32 MiB.'}).encode()
-            self.send_response(400)
-            self.send_header('Content-Type', 'application/json')
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Content-Length', str(len(body)))

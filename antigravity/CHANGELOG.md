@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.16
+
+- Add managed balanced/review profiles, bounded namespace preflight and conservative review fallback.
+- Persist only input-read and output-write grants; back up original settings and retain stricter restrictions.
+- Separate protected Inputs and writable Outputs using different non-root service identities.
+- Move file routes completely out of the terminal service; protect the file backend with a private ingress key.
+- Preserve existing workspace content and provide a read-only Existing files view.
+- Show profile startup status; no claim of native sandbox verification on HAOS.
+
 ## 0.1.15
 
 - Replace guided deletion and SQLite listing with native API listing and exact-ID deletion.

@@ -1,8 +1,98 @@
-# Antigravity Remote 0.1.15 — experimental
+# Antigravity Remote 0.1.16 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
 No API key is required by this wrapper. It does not enable paid overages or bypass limits.
+
+## Balanced permissions and separated files (0.1.16)
+
+Update the add-on, leave **Protection mode on**, and restart. Configuration now has
+`permission_profile: balanced` (default) or `review`. Existing installations with
+no option set use balanced. Open Web UI to see the profile status above the terminal.
+Use a **new conversation** for the new Outputs workspace; resumed conversations
+can retain their previous workspace and project-specific settings.
+
+| Location in Files | Absolute path | Purpose |
+| --- | --- | --- |
+| Inputs | `/data/inputs` | Upload originals here. The agent can read them; only the separate file service can directly edit/delete them. |
+| Outputs | `/data/workspace/outputs` | New CLI working directory. Generated files and working copies can be edited here. |
+| Existing files | `/data/workspace` | Previous files remain in place. This menu permits browsing/downloading, not mutations. |
+
+To work on an uploaded source file, copy its path from **Inputs → Path** and ask:
+“Read this input, make a working copy in Outputs, and save the result there.”
+Download generated results from Outputs. Inputs can still be deleted by you through
+Files with confirmation. Existing files are not moved or deleted; their group gets
+read/traverse access for the separate file service. Their old ownership and agent
+write access remain, so they are **not protected originals**. Download and re-upload
+an important original into Inputs when you want that protection.
+
+Balanced runs a five-second Linux user/mount/PID/network namespace prerequisite
+check as the CLI user with no additional privileges. If it passes, startup writes:
+
+```json
+{
+  "enableTerminalSandbox": true,
+  "toolPermission": "proceed-in-sandbox",
+  "allowNonWorkspaceAccess": false,
+  "artifactReviewPolicy": "always-proceed"
+}
+```
+
+This requests native CLI sandboxing; the preflight is **not an end-to-end native
+sandbox test**. The banner explicitly reports verification as pending. If the
+check fails or times out, the effective profile becomes review, sandbox is off,
+`toolPermission` is `request-review`, and artifacts use `asks-for-review`.
+Review explicitly asks for commands. No startup path enables unrestricted execution.
+If native sandbox initialization fails despite the preflight, select **review**
+and restart; do not disable HAOS protection to force it to work.
+
+Both profiles persist exactly two allow rules: `read_file(/data/inputs)` and
+`write_file(/data/workspace/outputs)`. Input writes and tool access to the CLI's
+private settings/authentication directory are denied. Network access, browser
+interaction, MCP tools and sandbox bypass request approval. There are no blanket
+shell, Python, compiler, package-manager, network or unsandboxed allow rules.
+The sandbox can permit commands within its boundaries without adding such grants.
+User deny/ask rules are retained, including an existing `command(*)` ask rule;
+these may keep prompting even in balanced mode.
+
+On first profile application, the original settings are saved privately as
+`/data/home/.gemini/antigravity-cli/settings.before-balanced.json`. Each restart
+replaces the managed security settings and prior allow grants with the narrow
+profile. Unrelated preferences (model, theme, explicit rendering mode) are retained.
+Malformed settings stop CLI startup rather than silently using a permissive default.
+Session approvals, resumed project overrides and changes made in `/config` after
+startup are not continuously policed; the banner describes startup configuration.
+Avoid persistent broad grants and adding other folders as writable workspaces.
+
+The file manager and Nginx run as a different non-root user from the CLI. Inputs
+are owned by that user with only group-read access for the CLI; the root-owned
+parent prevents the CLI from replacing the directory. A per-start private proxy
+key prevents CLI commands from directly invoking the localhost file service to
+change Inputs. Browser mutations also require their separate CSRF token. Nginx
+still accepts only HA ingress. CLI home remains private to the CLI user. The old
+file handlers in the terminal service have been removed, not disabled.
+
+No HA/Supervisor API access, host networking, Docker socket, host mounts, privileged
+mode or new capabilities are added. Both service users have no-new-privileges set.
+This is not total credential isolation: the CLI itself needs authentication, and
+unsandboxed commands can access resources available to its user and potentially
+its tool environment. Approve sandbox bypass only when you intend that access.
+For the existing Conversations connection helper, a one-time unsandboxed approval
+may be needed; no persistent bypass is automatically granted.
+
+Local profile/fallback, file API, CSRF, traversal and conversation regression tests
+pass. Full HAOS image startup, native sandbox enforcement, group ownership on the
+device and Remote Control behavior remain to be verified after updating. For a
+native check, use a disposable new conversation and ask for a sandboxed command
+that reads a disposable Input and creates an Output, then tries to modify that
+Input and reach an unapproved network address. The latter operations must fail;
+do not approve a bypass during the test. Keep review mode if these boundaries do
+not hold. Resuming old conversations is not that test.
+
+Configuration references:
+- https://www.antigravity.google/docs/sandbox/
+- https://www.antigravity.google/docs/permissions?tab=cli
+- https://www.antigravity.google/docs/cli/reference/
 
 ## Status
 
@@ -214,11 +304,11 @@ terminal, not Google's Remote Control chat page.
 ## Creating PDFs (0.1.9)
 
 Pandoc, pdfLaTeX and standard LaTeX fonts/packages are installed. Ask the agent:
-“Create report.md and convert it with Pandoc to /data/workspace/report.pdf.”
+“Create report.md and convert it with Pandoc to /data/workspace/outputs/report.pdf.”
 A shell command (run by the agent, or in a shell) is:
 
 ```sh
-pandoc /data/workspace/report.md -o /data/workspace/report.pdf
+pandoc /data/workspace/outputs/report.md -o /data/workspace/outputs/report.pdf
 ```
 
 Open **Files** to download the result. Standard text, tables, code blocks and math

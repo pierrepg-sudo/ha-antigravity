@@ -4,6 +4,7 @@
 [hidden]{display:none!important}#history{height:48dvh;overflow:auto;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;background:#222;padding:10px}#history pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:14px monospace}#historyTools{display:flex;flex-wrap:wrap;gap:6px;padding:8px}
 dialog{width:min(94vw,600px);border:1px solid #667085;border-radius:10px;background:#22252d;color:#eee}dialog::backdrop{background:#000a}#pasteError{color:#ffb4b4}
 </style><header><b>Antigravity terminal</b><a href="conversations">Conversations</a><a href="files">Files</a><a href="signin">Google sign-in</a></header>
+<section id="profileStatus" role="status">Checking permission profile…</section>
 <iframe src="./" title="Live Antigravity terminal"></iframe>
 <div id="history" hidden tabindex="0" role="region" aria-label="Terminal output history"><pre id="historyText"></pre></div>
 <div id="historyTools"><button id="showHistory">Scroll history</button><button id="older" hidden>Page up</button><button id="newer" hidden>Page down</button><button id="refreshHistory" hidden>Refresh history</button><button id="live" hidden>Live terminal</button></div>
@@ -20,6 +21,7 @@ dialog{width:min(94vw,600px);border:1px solid #667085;border-radius:10px;backgro
 <p><a href="./">Full-screen terminal</a></p></section>
 <dialog id="pasteDialog" aria-labelledby="pasteTitle"><h2 id="pasteTitle">Paste text</h2><p>Touch and hold in the box, then choose Paste.</p><textarea id="pasteText" rows="6" aria-label="Text to paste" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea><p id="pasteError" role="alert"></p><button id="insertPaste">Insert in terminal</button> <button id="cancelPaste">Cancel</button></dialog>
 <script>
+fetch('profile-status').then(r=>{if(!r.ok)throw Error();return r.json();}).then(d=>document.querySelector('#profileStatus').textContent=d.message).catch(()=>document.querySelector('#profileStatus').textContent='Profile status unavailable. Check add-on logs.');
 const csrf='__CSRF__';let busy=false;
 const status=document.querySelector('#status');
 const historyView=document.querySelector('#history'), terminal=document.querySelector('iframe'), keyBar=document.querySelector('nav');

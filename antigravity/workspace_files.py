@@ -4,8 +4,11 @@ import os
 import secrets
 import stat
 from contextlib import contextmanager
+from contextvars import ContextVar
 
-ROOT = '/data/workspace'
+ROOT = '/data/workspace/outputs'
+ACTIVE_ROOT = ContextVar('file_root', default=None)
+INPUT_MODE = ContextVar('input_mode', default=False)
 UPLOAD_LIMIT = 8 * 1024 * 1024
 DOWNLOAD_LIMIT = 32 * 1024 * 1024
 
@@ -24,7 +27,7 @@ def parts(path):
 @contextmanager
 def directory(path):
     names = parts(path)
-    fd = os.open(ROOT, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    fd = os.open(ACTIVE_ROOT.get() or ROOT, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         for name in names:
             child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
@@ -88,7 +91,7 @@ def change(payload):
                 raise ValueError('Only regular files can be deleted.')
             os.unlink(name, dir_fd=fd)
         elif action == 'mkdir':
-            os.mkdir(name, 0o700, dir_fd=fd)
+            os.mkdir(name, 0o2750 if INPUT_MODE.get() else 0o2770, dir_fd=fd)
         elif action == 'upload':
             encoded = payload.get('data')
             if not isinstance(encoded, str):
@@ -97,7 +100,7 @@ def change(payload):
             if len(data) > UPLOAD_LIMIT:
                 raise ValueError('Upload limit is 8 MiB per file.')
             temp = '.upload-' + secrets.token_hex(16)
-            handle = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=fd)
+            handle = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o640 if INPUT_MODE.get() else 0o660, dir_fd=fd)
             try:
                 with os.fdopen(handle, 'wb') as target:
                     target.write(data)
