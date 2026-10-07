@@ -1,8 +1,24 @@
-# Antigravity Remote 0.1.16 — experimental
+# Antigravity Remote 0.1.17 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
 No API key is required by this wrapper. It does not enable paid overages or bypass limits.
+
+## Sandbox diagnostic (0.1.17)
+
+After updating, restart the add-on and open Web UI. Expand **Sandbox diagnostic**
+under the profile banner. Share that text or a screenshot if the prerequisite
+check fails. The same JSON appears as **Sandbox diagnostic:** in the add-on logs.
+It records the fixed probe command, a bounded error message, exit code, UID,
+architecture, kernel version, selected seccomp/no-new-privileges flags and three
+namespace-related sysctl values. Missing kernel flags are marked unavailable.
+It does not read tokens, conversation content or process environments. The probe
+runs with a minimal environment and a five-second timeout. Review mode skips it;
+leave `permission_profile: balanced` selected to collect a startup diagnostic.
+
+A failed probe does not by itself identify the responsible security layer or prove
+that every native CLI sandbox mechanism is incompatible. Diagnostics do not change
+security settings or retry outside existing restrictions. Keep Protection mode on.
 
 ## Balanced permissions and separated files (0.1.16)
 

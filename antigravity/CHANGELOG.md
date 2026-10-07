@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.17
+
+- Record the namespace probe error, exit status and a small allowlist of kernel flags.
+- Show diagnostics in mobile controls and add-on startup logs without exposing credentials or process environments.
+- Keep the same bounded probe and conservative review fallback; do not change HAOS privileges.
+
 ## 0.1.16
 
 - Add managed balanced/review profiles, bounded namespace preflight and conservative review fallback.
