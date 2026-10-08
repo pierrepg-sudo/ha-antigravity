@@ -1,8 +1,24 @@
-# Antigravity Remote 0.1.22 — experimental
+# Antigravity Remote 0.1.23 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
 No API key is required by this wrapper. It does not enable paid overages or bypass limits.
+
+## Proc mount fix (0.1.23)
+
+The new target-device failure was `sbox: mount proc: permission denied`.
+Static inspection confirms an empty source/data, type `proc`, target
+`/dev/shm/setup/root/proc`, and flags `0xe` (nosuid,nodev,noexec; writable).
+The profile now permits only that operation. Existing proc write and sensitive-file
+restrictions also cover this staged path. AppArmor does not itself establish which
+PID namespace a proc mount represents; native namespace behavior still needs
+verification before automatic command execution.
+
+Update to **0.1.23**, retain **Balanced**, save/restart, and run `/usr/bin/true`
+once in a new conversation without bypass or retry. If it fails, tap **Refresh
+diagnostic** in Open Web UI and share **Latest sandbox error**. Do not ask the
+agent to search private logs. No unrestricted mount permission or host capability
+was added; unlisted bind/remount operations remain denied.
 
 ## Read sandbox errors without opening private files (0.1.22)
 

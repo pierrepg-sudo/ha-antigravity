@@ -1,11 +1,14 @@
 # SPDX-FileCopyrightText: Copyright The Moby Authors
 # SPDX-License-Identifier: Apache-2.0
 # Adapted from github.com/moby/profiles/apparmor/template.go.
-# Modifications: standalone add-on name and peer labels; root propagation and two exact sandbox tmpfs exceptions.
-# Experimental profile: root propagation plus verified shm and staging-root mounts.
+# Modifications: standalone add-on name and peer labels; root propagation, two exact tmpfs mounts and one exact proc mount.
+# Experimental profile: verified root propagation, shm, staging-root and proc mounts.
 # Runtime isolation is NOT verified. CLI command approval must remain enabled.
 abi <abi/3.0>,
 #include <tunables/global>
+
+# Apply the same proc protections before and after the sandbox root transition.
+@{AGY_PROC}=@{PROC} /dev/shm/setup/root/proc/
 
 profile antigravity_remote flags=(attach_disconnected,mediate_deleted) {
   # Compatibility baseline modeled on Docker's default container profile.
@@ -41,12 +44,12 @@ profile antigravity_remote flags=(attach_disconnected,mediate_deleted) {
   signal (send,receive) peer=@{profile_name},
   ptrace (trace,tracedby,read,readby) peer=@{profile_name},
 
-  deny @{PROC}/* w,
-  deny @{PROC}/{[^1-9/],[^1-9/][^0-9/],[^1-9s/][^0-9y/][^0-9s/],[^1-9/][^0-9/][^0-9/][^0-9/]*}/** w,
-  deny @{PROC}/sys/[^k]** w,
-  deny @{PROC}/sys/kernel/{?,??,[^s][^h][^m]**} w,
-  deny @{PROC}/sysrq-trigger rwklx,
-  deny @{PROC}/kcore rwklx,
+  deny @{AGY_PROC}/* w,
+  deny @{AGY_PROC}/{[^1-9/],[^1-9/][^0-9/],[^1-9s/][^0-9y/][^0-9s/],[^1-9/][^0-9/][^0-9/][^0-9/]*}/** w,
+  deny @{AGY_PROC}/sys/[^k]** w,
+  deny @{AGY_PROC}/sys/kernel/{?,??,[^s][^h][^m]**} w,
+  deny @{AGY_PROC}/sysrq-trigger rwklx,
+  deny @{AGY_PROC}/kcore rwklx,
   deny /sys/[^f]*/** wklx,
   deny /sys/f[^s]*/** wklx,
   deny /sys/fs/[^c]*/** wklx,
@@ -70,7 +73,10 @@ profile antigravity_remote flags=(attach_disconnected,mediate_deleted) {
   # Literal staging root only: no wildcard for its descendants.
   audit mount fstype=tmpfs options=(rw) -> /dev/shm/setup/root/,
 
+  # CLI 1.3.1 jailMain at 0x69b0a04: type proc, flags 0xe.
+  audit mount fstype=proc options=(rw,nosuid,nodev,noexec) -> /dev/shm/setup/root/proc/,
+
   # All other mount operations are implicitly denied.
   # Do NOT add "deny mount," here: explicit deny would override the exceptions.
-  # No bind/rbind, other tmpfs targets, proc, remount, move or pivot_root grants.
+  # No bind/rbind, other tmpfs/proc targets, remount, move or pivot_root grants.
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.23 — Sandbox proc mount
+
+- Permit proc only at /dev/shm/setup/root/proc/ with exact rw,nosuid,nodev,noexec flags.
+- Verify the call arguments against the official CLI 1.3.1 ARM64 binary.
+- Apply existing proc write/sensitive-file denials to both /proc and the staged proc path.
+- Retain command approvals and deny all unlisted mount operations. Native startup/isolation is still unverified.
+
 ## 0.1.22 — Sanitized sandbox error display
 
 - Show the latest sandbox error through the existing admin-ingress diagnostic UI.

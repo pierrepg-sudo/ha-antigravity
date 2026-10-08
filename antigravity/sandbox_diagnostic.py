@@ -8,7 +8,7 @@ import stat
 LIMIT = 65536
 WORDS = {'mount', 'remount', 'unmount', 'tmpfs', 'proc', 'private', 'root', 'ro', 'bind'}
 PATHS = {'/', '/dev/shm', '/dev/shm/setup', '/dev/shm/setup/root',
-         '/dev/shm/setup/root/dev/shm', '/proc', '/proc/cpuinfo', '/proc/meminfo'}
+         '/dev/shm/setup/root/dev/shm', '/dev/shm/setup/root/proc', '/proc', '/proc/cpuinfo', '/proc/meminfo'}
 ERRORS = {'permission denied', 'operation not permitted', 'read-only file system',
           'invalid argument', 'no such file or directory', 'device or resource busy',
           'function not implemented', 'no space left on device'}

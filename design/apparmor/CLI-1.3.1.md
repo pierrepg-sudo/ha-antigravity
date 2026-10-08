@@ -86,3 +86,26 @@ The new rule is exactly:
 It has the same profile-wide scope and zero-flag limitations described above.
 It does not allow staging descendants or bind/remount operations. This is static
 call-site verification plus a matching target error, not a successful sandbox run.
+
+## Proc call verified for 0.1.23
+
+The target device's latest diagnostic reports `sbox: mount proc: permission denied`.
+In jailMain, 0x69b09c0–0x69b09d8 concatenates the stored staging root with
+`/proc` (pointer 0x4f20800, length 5). The syscall.Mount call at 0x69b0a04 has:
+
+| Registers | Meaning | Value |
+| --- | --- | --- |
+| X0/X1 | source | 0/0 (empty) |
+| X2/X3 | target | concatenated `/dev/shm/setup/root/proc` |
+| X4/X5 | type | 0x4f15c53 / 4 (`proc`) |
+| X6 | flags | 0xe = MS_NOSUID (2) + MS_NODEV (4) + MS_NOEXEC (8) |
+| X7/X8 | data | 0/0 (empty) |
+
+The failure branch at 0x69b0a24 loads `mount proc: %v`. Policy mapping:
+`audit mount fstype=proc options=(rw,nosuid,nodev,noexec) -> /dev/shm/setup/root/proc/,`
+
+The existing proc deny rules now use a variable covering both @{PROC} and the
+literal staged proc root, protecting proc control/sensitive files under either
+path. The mount exception does not prove a fresh PID namespace or credential
+isolation. It retains native flags and is subject to kernel checks; all later
+unlisted mounts remain denied. No native binary was executed during inspection.

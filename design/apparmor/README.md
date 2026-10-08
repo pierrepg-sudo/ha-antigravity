@@ -1,9 +1,10 @@
 # Antigravity add-on AppArmor design
 
-Status: experimental policy packaged in **0.1.21** at
+Status: experimental policy packaged in **0.1.23** at
 [`antigravity/apparmor.txt`](../../antigravity/apparmor.txt). The two root propagation
 exceptions are joined by exact zero-flag tmpfs mounts at `/dev/shm/` and
-`/dev/shm/setup/root/`.
+`/dev/shm/setup/root/`, plus the exact `proc` mount at
+`/dev/shm/setup/root/proc/` with nosuid,nodev,noexec.
 [CLI 1.3.1 inspection evidence](CLI-1.3.1.md) establishes the call arguments.
 This remains an incomplete native sandbox policy; other mount grants are absent.
 
@@ -97,7 +98,7 @@ verified transitions, if upstream supports them.
 
 ## Stage two: only after further native errors identify requirements
 
-Except for the documented `/dev/shm/` and `/dev/shm/setup/root/` tmpfs mounts, bind mounts, temporary filesystems, proc mounts, remounts, mount moves and
+Except for the two documented tmpfs mounts and the staged proc mount, bind mounts, temporary filesystems, proc mounts, remounts, mount moves and
 pivot-root are not pre-authorized. For each required operation record:
 
 - The native error or audit event and exact flags, source, destination and type.
@@ -149,7 +150,7 @@ Before loading any candidate:
    default Docker profile if loading/startup or isolation checks fail; preserve
    `/data`. Do not turn Protection mode off as a rollback shortcut.
 
-Version 0.1.21 packages root propagation and the two verified tmpfs exceptions for target-device testing. A production
+Version 0.1.23 packages root propagation, the two verified tmpfs exceptions and the staged proc mount for target-device testing. A production
 policy and automatic execution can only follow the remaining isolation gates.
 
 ## Sources reviewed 2026-10-07 (Toronto)

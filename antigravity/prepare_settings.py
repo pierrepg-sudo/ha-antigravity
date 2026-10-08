@@ -146,10 +146,10 @@ def prepare(path, profile='balanced', probe=sandbox_prerequisites, domains=None)
     atomic_json(state_path, {'addedAsk': added_ask})
     return {'requested': profile, 'effective': 'sandbox-test' if sandbox else 'chat' if profile == 'chat' else 'review',
             'sandboxPrerequisites': 'passed' if sandbox else 'unavailable' if profile == 'balanced' else 'not-tested',
-            'nativeSandboxVerified': False, 'apparmorStage': 'root-propagation-and-shm', 'diagnostic': diagnostic,
+            'nativeSandboxVerified': False, 'apparmorStage': 'root-propagation-shm-and-proc', 'diagnostic': diagnostic,
             'trustedReadDomains': domains if profile == 'chat' else [],
             'message': 'Chat: input reads and output edits allowed; artifact review off. Commands require approval.' if profile == 'chat' else
-                       'Sandbox test: root-propagation and shm profile active; commands require approval. Native isolation is not verified.' if sandbox else
+                       'Sandbox test: root-propagation, shm and proc profile active; commands require approval. Native isolation is not verified.' if sandbox else
                        'Review: sandbox prerequisites unavailable; commands require approval.' if profile == 'balanced' else
                        'Review: commands require approval.'}
 
