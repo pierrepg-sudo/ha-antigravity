@@ -1,8 +1,62 @@
-# Antigravity Remote 0.1.18 — experimental
+# Antigravity Remote 0.1.19 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
 No API key is required by this wrapper. It does not enable paid overages or bypass limits.
+
+## Chat profile (0.1.19)
+
+For fewer interruptions without relying on the unfinished native sandbox, update
+and set Configuration to:
+
+```yaml
+permission_profile: chat
+trusted_read_domains: []
+```
+
+Save and restart the add-on, keep Protection mode on, refresh Open Web UI and start
+a **new conversation**. The banner should begin **Chat**. Existing installations
+keep their selected Review/Balanced profile until you change it. New installations
+default to Chat.
+
+| Action | Chat behavior |
+| --- | --- |
+| Read uploaded Inputs with file tools | Persistently allowed |
+| Read/write working files in Outputs with file tools | Persistently allowed |
+| Artifact/code review pauses | Disabled; inspect generated output when useful |
+| Read a configured trusted website | Allowed, unless a user Ask/Deny rule overrides it |
+| Other web reads | Ask by default |
+| Shell commands, compilers, PDF commands, package installs | Require approval |
+| Browser actions, MCP tools, sandbox bypass | Require approval |
+| Edit Inputs through agent file tools | Denied; file-service ownership also protects originals |
+
+This reduces artifact and optional repeated website prompts. It does **not** make
+arbitrary terminal work approval-free. `toolPermission` remains `request-review`;
+only `artifactReviewPolicy` becomes `always-proceed`. Native terminal sandboxing is
+off in Chat and no namespace test runs. The enforced outer AppArmor profile remains.
+User-defined Ask/Deny rules are preserved and can cause additional prompts.
+
+To remember a website, add its hostname to `trusted_read_domains` in add-on
+Configuration (maximum 32), for example `docs.python.org`. Save and restart.
+The CLI grant includes that host, its subdomains, and all URL paths; it is not
+limited to documentation pages. Only trust sites you intend the agent to contact
+without another prompt. Reading a URL can send information to that website;
+this is not a network firewall, DNS/private-address filter, or a grant to click,
+submit forms, log in, or execute shell network commands. URLs, IP literals,
+wildcards and common local-only names are rejected. No sites are trusted by default.
+Removing a domain and restarting removes its managed grant. Review and Balanced
+ignore domain grants and continue requesting web-read approval. The add-on removes
+only its own previous web-read Ask wildcard; a user-authored wildcard still wins.
+
+For routine work, ask the agent to use its built-in file tools to read Inputs and
+save results in Outputs. Those tools use the narrow grants; using a shell for the
+same task still needs approval. Existing conversations may retain project overrides.
+Do not use `always-proceed` for the global tool policy to avoid those prompts.
+
+Validation: automated configuration/migration tests pass locally. Chat behavior in
+the target CLI and remote UI still needs an on-device check: read a disposable
+Input, save an edited copy in Outputs, and confirm a shell command still prompts.
+No new AppArmor mount permissions are included in this release.
 
 ## AppArmor stage-one test (0.1.18)
 
@@ -76,8 +130,7 @@ security settings or retry outside existing restrictions. Keep Protection mode o
 ## Balanced permissions and separated files (0.1.16)
 
 Update the add-on, leave **Protection mode on**, and restart. Configuration now has
-`permission_profile: balanced` (default) or `review`. Existing installations with
-no option set use balanced. Open Web UI to see the profile status above the terminal.
+`permission_profile` can be `chat` (new-install default), `balanced`, or `review`. Open Web UI to see the profile status above the terminal.
 Use a **new conversation** for the new Outputs workspace; resumed conversations
 can retain their previous workspace and project-specific settings.
 
@@ -96,7 +149,7 @@ write access remain, so they are **not protected originals**. Download and re-up
 an important original into Inputs when you want that protection.
 
 Before 0.1.18, Balanced ran a five-second Linux user/mount/PID/network namespace prerequisite
-check as the CLI user with no additional privileges. In versions 0.1.16–0.1.17, a pass wrote the following settings. **Version 0.1.18 keeps tool and artifact review enabled instead:**
+check as the CLI user with no additional privileges. In versions 0.1.16–0.1.17, a pass wrote the following settings. **Balanced in 0.1.18 and later keeps tool and artifact review enabled instead:**
 
 ```json
 {
@@ -115,7 +168,7 @@ Review explicitly asks for commands. No startup path enables unrestricted execut
 If native sandbox initialization fails despite the preflight, select **review**
 and restart; do not disable HAOS protection to force it to work.
 
-Both profiles persist exactly two allow rules: `read_file(/data/inputs)` and
+Review and Balanced persist exactly two allow rules: `read_file(/data/inputs)` and
 `write_file(/data/workspace/outputs)`. Input writes and tool access to the CLI's
 private settings/authentication directory are denied. Network access, browser
 interaction, MCP tools and sandbox bypass request approval. There are no blanket

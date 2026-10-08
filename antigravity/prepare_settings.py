@@ -1,5 +1,7 @@
 """Apply the managed permission profile before launching the CLI; fail closed."""
 import json
+import ipaddress
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -10,6 +12,32 @@ DENY = ['write_file(/data/inputs)', 'read_file(/data/home/.ssh)',
         'read_file(/data/home/.gemini/antigravity-cli)',
         'write_file(/data/home)', 'write_file(/run/antigravity)']
 ASK = ['unsandboxed(*)', 'read_url(*)', 'execute_url(*)', 'mcp(*)']
+
+
+def trusted_domains(value):
+    """Accept explicit DNS hostnames only; never URLs, addresses or wildcards."""
+    if not isinstance(value, list) or len(value) > 32:
+        raise ValueError('trusted_read_domains must be a list of at most 32 domains')
+    result = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError('Trusted domains must be strings')
+        domain = item.strip().lower()
+        labels = domain.split('.')
+        if (len(domain) > 253 or len(labels) < 2 or
+                any(not re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', x) for x in labels) or
+                labels[-1] in ('local', 'localhost', 'internal', 'lan', 'home', 'arpa') or
+                not re.search(r'[a-z]', labels[-1])):
+            raise ValueError('Use a public DNS hostname without a scheme, path, port or wildcard')
+        try:
+            ipaddress.ip_address(domain)
+        except ValueError:
+            pass
+        else:
+            raise ValueError('IP addresses cannot be trusted domains')
+        if domain not in result:
+            result.append(domain)
+    return result
 
 
 def atomic_json(path, value):
@@ -75,9 +103,10 @@ def sandbox_prerequisites():
     return report
 
 
-def prepare(path, profile='balanced', probe=sandbox_prerequisites):
-    if profile not in ('balanced', 'review'):
+def prepare(path, profile='balanced', probe=sandbox_prerequisites, domains=None):
+    if profile not in ('balanced', 'review', 'chat'):
         raise ValueError('Unknown permission profile')
+    domains = trusted_domains([] if domains is None else domains)
     settings = json.loads(path.read_text()) if path.exists() else {}
     if not isinstance(settings, dict):
         raise ValueError('Settings must be an object')
@@ -91,34 +120,36 @@ def prepare(path, profile='balanced', probe=sandbox_prerequisites):
     backup = path.with_name('settings.before-balanced.json')
     if not backup.exists():
         atomic_json(backup, settings)
-    diagnostic = probe() if profile == 'balanced' else {'passed': False, 'note': 'Not run: review profile selected.'}
+    diagnostic = probe() if profile == 'balanced' else {'passed': False, 'note': 'Not run: ' + profile + ' profile selected.'}
     sandbox = profile == 'balanced' and diagnostic.get('passed') is True
-    # Stage-one AppArmor testing never enables automatic tool execution.
+    # Shell commands always require approval; Chat only removes artifact review.
     settings.update(enableTerminalSandbox=sandbox,
                     toolPermission='request-review',
                     allowNonWorkspaceAccess=False,
-                    artifactReviewPolicy='asks-for-review')
+                    artifactReviewPolicy='always-proceed' if profile == 'chat' else 'asks-for-review')
     if settings.get('altScreenMode', 'default') == 'default':
         settings['altScreenMode'] = 'never'
     # Replace all prior grants; retain user-authored restrictions. Our own previous
-    # review-only wildcard is removed on a later successful balanced startup.
+    # ask rules are replaced when switching profiles; user restrictions survive.
     state_path = path.with_name('ha-managed-permissions.json')
     previous = json.loads(state_path.read_text()) if state_path.exists() else {}
     previous_ask = previous.get('addedAsk', []) if isinstance(previous, dict) else []
     ask = [x for x in permissions.get('ask', []) if x not in previous_ask]
-    required_ask = ASK + ['command(*)']
+    required_ask = [rule for rule in ASK if profile != 'chat' or rule != 'read_url(*)'] + ['command(*)']
     added_ask = [x for x in required_ask if x not in ask]
     settings['permissions'] = {
-        'allow': list(ALLOW),
+        'allow': list(ALLOW) + ([f'read_url({domain})' for domain in domains] if profile == 'chat' else []),
         'deny': list(dict.fromkeys(permissions.get('deny', []) + DENY)),
         'ask': list(dict.fromkeys(ask + required_ask)),
     }
     atomic_json(path, settings)
     atomic_json(state_path, {'addedAsk': added_ask})
-    return {'requested': profile, 'effective': 'sandbox-test' if sandbox else 'review',
+    return {'requested': profile, 'effective': 'sandbox-test' if sandbox else 'chat' if profile == 'chat' else 'review',
             'sandboxPrerequisites': 'passed' if sandbox else 'unavailable' if profile == 'balanced' else 'not-tested',
             'nativeSandboxVerified': False, 'apparmorStage': 'root-propagation-only', 'diagnostic': diagnostic,
-            'message': 'Sandbox test: root-propagation profile active; commands require approval. Native isolation is not verified.' if sandbox else
+            'trustedReadDomains': domains if profile == 'chat' else [],
+            'message': 'Chat: input reads and output edits allowed; artifact review off. Commands require approval.' if profile == 'chat' else
+                       'Sandbox test: root-propagation profile active; commands require approval. Native isolation is not verified.' if sandbox else
                        'Review: sandbox prerequisites unavailable; commands require approval.' if profile == 'balanced' else
                        'Review: commands require approval.'}
 
@@ -126,7 +157,9 @@ def prepare(path, profile='balanced', probe=sandbox_prerequisites):
 if __name__ == '__main__':
     try:
         profile = Path('/run/antigravity/profile').read_text().strip()
-        status = prepare(Path.home() / '.gemini/antigravity-cli/settings.json', profile)
+        domains_path = Path('/run/antigravity/trusted-read-domains.json')
+        domains = json.loads(domains_path.read_text())
+        status = prepare(Path.home() / '.gemini/antigravity-cli/settings.json', profile, domains=domains)
         atomic_json(Path('/data/home/.gemini/antigravity-cli/ha-profile-status.json'), status)
         print(status['message'], flush=True)
         print('Sandbox diagnostic: ' + json.dumps(status['diagnostic'], ensure_ascii=True), flush=True)

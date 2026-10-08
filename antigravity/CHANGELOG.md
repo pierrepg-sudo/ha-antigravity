@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.19 — Chat profile
+
+- Add Chat mode with artifact review disabled and existing narrow input/output grants.
+- Add persistent, validated trusted_read_domains for optional web-read approvals in Chat.
+- Replace the managed web-read Ask wildcard in Chat so chosen domain grants can take effect; retain user-authored Ask/Deny rules.
+- Keep shell, sandbox bypass, browser actions and MCP tools under approval; do not enable the failing native sandbox in Chat.
+- Default new installations to Chat. Existing selected profiles remain unchanged.
+- Preserve AppArmor, HAOS privileges and the separate file-service boundary.
+
 ## 0.1.18 — AppArmor stage-one test
 
 - Install an add-on-specific enforced profile with only private/rprivate root mount exceptions.

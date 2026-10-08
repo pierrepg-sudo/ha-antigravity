@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import stat
 import secrets
+from prepare_settings import trusted_domains
 
 
 def managed_directory(path, uid, gid, mode):
@@ -53,8 +54,12 @@ def prepare(base=Path('/data'), runtime=Path('/run/antigravity')):
     managed_directory(runtime, 0, 0, 0o755)
     options = json.loads((base / 'options.json').read_text()) if (base / 'options.json').exists() else {}
     profile = options.get('permission_profile', 'balanced')
-    if profile not in ('balanced', 'review'):
+    if profile not in ('balanced', 'review', 'chat'):
         raise ValueError('Invalid permission_profile')
+    domains = trusted_domains(options.get('trusted_read_domains', []))
+    domain_path = runtime / 'trusted-read-domains.json'
+    domain_path.write_text(json.dumps(domains) + '\n')
+    domain_path.chmod(0o644)
     target = runtime / 'profile'
     # Runtime directory is root-owned and not agent-writable.
     target.write_text(profile + '\n')

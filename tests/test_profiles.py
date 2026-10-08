@@ -62,6 +62,56 @@ class ProfileTests(unittest.TestCase):
             profiles.prepare(path, probe=lambda: {'passed': True})
             self.assertIn('command(*)', json.loads(path.read_text())['permissions']['ask'])
 
+    def test_chat_reduces_artifact_and_selected_web_prompts_without_shell_bypass(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'settings.json'
+            profiles.prepare(path, 'review')
+            with patch.object(profiles, 'sandbox_prerequisites', side_effect=AssertionError('no probe')):
+                status = profiles.prepare(path, 'chat', probe=lambda: self.fail('probe ran'),
+                                          domains=['Docs.Python.org', 'docs.python.org'])
+            result = json.loads(path.read_text())
+            self.assertEqual(status['effective'], 'chat')
+            self.assertFalse(result['enableTerminalSandbox'])
+            self.assertEqual(result['toolPermission'], 'request-review')
+            self.assertEqual(result['artifactReviewPolicy'], 'always-proceed')
+            self.assertEqual(result['permissions']['allow'], profiles.ALLOW + ['read_url(docs.python.org)'])
+            self.assertNotIn('read_url(*)', result['permissions']['ask'])
+            for rule in ('command(*)', 'unsandboxed(*)', 'execute_url(*)', 'mcp(*)'):
+                self.assertIn(rule, result['permissions']['ask'])
+            self.assertIn('write_file(/data/inputs)', result['permissions']['deny'])
+            profiles.prepare(path, 'review', domains=['docs.python.org'])
+            result = json.loads(path.read_text())
+            self.assertEqual(result['artifactReviewPolicy'], 'asks-for-review')
+            self.assertEqual(result['permissions']['allow'], profiles.ALLOW)
+            self.assertIn('read_url(*)', result['permissions']['ask'])
+
+    def test_chat_preserves_user_restrictions_and_revokes_removed_domains(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'settings.json'
+            path.write_text(json.dumps({'permissions': {'ask': ['read_url(*)'],
+                                                        'deny': ['read_url(example.org)']}}))
+            for _ in range(2):
+                profiles.prepare(path, 'chat', domains=['example.org'])
+            result = json.loads(path.read_text())
+            self.assertIn('read_url(*)', result['permissions']['ask'])
+            self.assertIn('read_url(example.org)', result['permissions']['deny'])
+            profiles.prepare(path, 'chat', domains=[])
+            self.assertEqual(json.loads(path.read_text())['permissions']['allow'], profiles.ALLOW)
+
+    def test_invalid_domains_leave_settings_unchanged(self):
+        invalid_values = ['example.org', [None], ['*'], ['*.example.org'],
+                          ['https://example.org'], ['example.org/path'], ['example.org:443'],
+                          ['localhost'], ['homeassistant.local'], ['127.0.0.1'],
+                          ['[::1]'], ['example.org)'], ['example.org\nread_url(*)'],
+                          ['-bad.example.org'], ['a' * 64 + '.org'], ['a.org'] * 33]
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'settings.json'
+            path.write_text('{}')
+            for domains in invalid_values:
+                with self.assertRaises(ValueError):
+                    profiles.prepare(path, 'chat', domains=domains)
+                self.assertEqual(path.read_text(), '{}')
+
     def test_invalid_settings_stop_instead_of_using_permissive_defaults(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'settings.json'
