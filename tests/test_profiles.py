@@ -25,14 +25,15 @@ class ProfileTests(unittest.TestCase):
             self.assertIn('command(sudo)', result['permissions']['deny'])
             self.assertIn('command(git push)', result['permissions']['ask'])
             self.assertIn('unsandboxed(*)', result['permissions']['ask'])
-            self.assertNotIn('command(*)', result['permissions']['ask'])
+            self.assertIn('command(*)', result['permissions']['ask'])
             self.assertTrue(result['enableTerminalSandbox'])
-            self.assertEqual(result['toolPermission'], 'proceed-in-sandbox')
-            self.assertEqual(result['artifactReviewPolicy'], 'always-proceed')
+            self.assertEqual(result['toolPermission'], 'request-review')
+            self.assertEqual(result['artifactReviewPolicy'], 'asks-for-review')
             self.assertEqual(result['altScreenMode'], 'always')
             self.assertEqual(result['model'], 'keep-me')
             self.assertFalse(result['allowNonWorkspaceAccess'])
             self.assertFalse(status['nativeSandboxVerified'])
+            self.assertEqual(status['effective'], 'sandbox-test')
             backup = path.with_name('settings.before-balanced.json')
             self.assertEqual(json.loads(backup.read_text()), original)
             self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
@@ -51,7 +52,7 @@ class ProfileTests(unittest.TestCase):
                 self.assertEqual(result['artifactReviewPolicy'], 'asks-for-review')
                 self.assertIn('command(*)', result['permissions']['ask'])
             profiles.prepare(path, probe=lambda: {'passed': True})
-            self.assertNotIn('command(*)', json.loads(path.read_text())['permissions']['ask'])
+            self.assertIn('command(*)', json.loads(path.read_text())['permissions']['ask'])
 
     def test_user_command_review_survives_profile_switch(self):
         with tempfile.TemporaryDirectory() as folder:

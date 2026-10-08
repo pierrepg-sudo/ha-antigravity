@@ -65,6 +65,10 @@ def sandbox_prerequisites():
             report[label] = int(value)
         except (OSError, ValueError):
             report[label] = 'unavailable'
+    try:
+        report['apparmorProfile'] = Path('/proc/self/attr/current').read_text().strip()[:160]
+    except OSError:
+        report['apparmorProfile'] = 'unavailable'
     report['note'] = ('This tests namespace prerequisites only. An operation-not-permitted error '
                       'does not identify whether seccomp, AppArmor, or another host restriction caused it. '
                       'No protection settings were changed.')
@@ -89,10 +93,11 @@ def prepare(path, profile='balanced', probe=sandbox_prerequisites):
         atomic_json(backup, settings)
     diagnostic = probe() if profile == 'balanced' else {'passed': False, 'note': 'Not run: review profile selected.'}
     sandbox = profile == 'balanced' and diagnostic.get('passed') is True
+    # Stage-one AppArmor testing never enables automatic tool execution.
     settings.update(enableTerminalSandbox=sandbox,
-                    toolPermission='proceed-in-sandbox' if sandbox else 'request-review',
+                    toolPermission='request-review',
                     allowNonWorkspaceAccess=False,
-                    artifactReviewPolicy='always-proceed' if sandbox else 'asks-for-review')
+                    artifactReviewPolicy='asks-for-review')
     if settings.get('altScreenMode', 'default') == 'default':
         settings['altScreenMode'] = 'never'
     # Replace all prior grants; retain user-authored restrictions. Our own previous
@@ -101,7 +106,7 @@ def prepare(path, profile='balanced', probe=sandbox_prerequisites):
     previous = json.loads(state_path.read_text()) if state_path.exists() else {}
     previous_ask = previous.get('addedAsk', []) if isinstance(previous, dict) else []
     ask = [x for x in permissions.get('ask', []) if x not in previous_ask]
-    required_ask = ASK + ([] if sandbox else ['command(*)'])
+    required_ask = ASK + ['command(*)']
     added_ask = [x for x in required_ask if x not in ask]
     settings['permissions'] = {
         'allow': list(ALLOW),
@@ -110,10 +115,10 @@ def prepare(path, profile='balanced', probe=sandbox_prerequisites):
     }
     atomic_json(path, settings)
     atomic_json(state_path, {'addedAsk': added_ask})
-    return {'requested': profile, 'effective': 'balanced' if sandbox else 'review',
+    return {'requested': profile, 'effective': 'sandbox-test' if sandbox else 'review',
             'sandboxPrerequisites': 'passed' if sandbox else 'unavailable' if profile == 'balanced' else 'not-tested',
-            'nativeSandboxVerified': False, 'diagnostic': diagnostic,
-            'message': 'Balanced: sandbox requested; native isolation still needs device verification.' if sandbox else
+            'nativeSandboxVerified': False, 'apparmorStage': 'root-propagation-only', 'diagnostic': diagnostic,
+            'message': 'Sandbox test: root-propagation profile active; commands require approval. Native isolation is not verified.' if sandbox else
                        'Review: sandbox prerequisites unavailable; commands require approval.' if profile == 'balanced' else
                        'Review: commands require approval.'}
 

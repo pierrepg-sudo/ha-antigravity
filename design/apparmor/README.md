@@ -1,9 +1,26 @@
 # Antigravity add-on AppArmor design
 
-Status: reviewable stage-one candidate, not deployed. Runtime remains v0.1.17.
-The adjacent `.apparmor` file is outside the add-on directory and is not named
-`apparmor.txt`; Supervisor will not automatically install it. No configuration,
-image, capability, HAOS setting, permission profile or user data is changed.
+Status: stage-one experimental policy packaged in **0.1.18** at
+[`antigravity/apparmor.txt`](../../antigravity/apparmor.txt). The separate draft
+file was removed to avoid maintaining two policy copies. Only the two propagation
+exceptions have been added. This remains an incomplete native sandbox policy;
+no extra mount grants were guessed.
+
+The parser successfully compiled it with AppArmor 4.0.1 / ABI 3.0 without kernel
+loading, including repository-prefixed and local profile-name variants. HAOS
+runtime validation is outstanding. Command/artifact review stays enabled even
+when the namespace probe succeeds, and startup refuses an unexpected profile.
+See [the test and rollback instructions](../../antigravity/DOCS.md).
+
+Supervisor source inspected at commit
+`9ce1060ba7cfb833899d0ba81d8dbaf9fa4eed15` confirms that `adjust_profile` rewrites
+only the profile declaration. Consequently peer rules now use `@{profile_name}`,
+not the original literal declaration name. `App.hostname` derives from the full
+slug with underscores replaced by hyphens; `verify_profile.py` reverses that
+mapping and requires the exact `(enforce)` label. Supervisor's Docker integration
+selects the full slug when the custom profile exists. The guard rejects its
+possible default/unconfined fallbacks. This was source-verified, not tested on a
+live Supervisor from this environment.
 
 ## Evidence and goal
 
@@ -104,12 +121,10 @@ Before loading any candidate:
    export of the device's loaded policy. Preserve applicable protocol, proc/sys,
    signal and ptrace restrictions. Verify the host daemon signal label too.
 2. Compile without loading using an AppArmor parser compatible with HAOS. Check
-   the network family vocabulary, includes, flags and mount-rule encoding. No
-   parser is installed in the development environment used to write this design;
-   syntax compilation and runtime validation have **not** been completed.
-3. Verify Supervisor's loaded profile name and any rewrite behavior. The proposed
-   name is `antigravity_remote`; signal/ptrace peer labels must match the actual
-   label. Do not broaden peer permissions to fix an unexplained mismatch.
+   the network family vocabulary, includes, flags and mount-rule encoding. Offline compilation now passes with parser 4.0.1 / ABI 3.0.
+   HAOS loading and enforcement have **not** been verified.
+3. Verify Supervisor's loaded profile name and any rewrite behavior. The source declaration is `antigravity_remote`; dynamic `@{profile_name}`
+   signal/ptrace peers follow Supervisor's renamed label. Do not broaden peer permissions to fix an unexplained mismatch.
 4. Prepare a separate experimental build using the supported add-on-local
    `apparmor.txt` mechanism; no global Docker daemon policy changes. Validate
    lifecycle and stop signals, uploads/downloads, Inputs protections, login,
@@ -133,8 +148,8 @@ Before loading any candidate:
    default Docker profile if loading/startup or isolation checks fail; preserve
    `/data`. Do not turn Protection mode off as a rollback shortcut.
 
-No current release version is bumped and no active `apparmor.txt` is included.
-A production policy can only be finalized after these target-device gates.
+Version 0.1.18 packages only stage one for target-device testing. A production
+policy and automatic execution can only follow the remaining isolation gates.
 
 ## Sources reviewed 2026-10-07 (Toronto)
 

@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 umask 077
+python3 /usr/local/bin/verify_profile.py
 python3 /usr/local/bin/prepare_storage.py
 # The CLI owns only its home and outputs; never recursively chown /data.
 runuser -u agent -- mkdir -p /data/home/.local/bin

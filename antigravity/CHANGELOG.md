@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.18 — AppArmor stage-one test
+
+- Install an add-on-specific enforced profile with only private/rprivate root mount exceptions.
+- Use dynamic AppArmor peer labels compatible with Supervisor profile renaming.
+- Refuse CLI startup if the expected enforced profile is absent, including default/unconfined fallback.
+- Keep command and artifact review enabled even when sandbox prerequisites pass.
+- Show the active AppArmor label in diagnostics; native isolation remains unverified.
+
 ## 0.1.17
 
 - Record the namespace probe error, exit status and a small allowlist of kernel flags.

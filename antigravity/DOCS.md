@@ -1,8 +1,61 @@
-# Antigravity Remote 0.1.17 — experimental
+# Antigravity Remote 0.1.18 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
 No API key is required by this wrapper. It does not enable paid overages or bypass limits.
+
+## AppArmor stage-one test (0.1.18)
+
+This release intentionally changes the add-on's outer AppArmor policy. It keeps
+HAOS Protection mode on, the existing capability set, non-root service users,
+Inputs/Outputs separation and ingress restrictions. It adds only the private and
+recursive-private root mount-propagation exceptions. Other mount operations stay
+implicitly denied. This is an experimental compatibility test, not verified native
+sandbox protection or an equivalent-security guarantee.
+
+Before updating, create a Home Assistant backup of this add-on and its data and
+keep it available for rollback. Update to **0.1.18**, keep **Protection mode on**,
+leave `permission_profile: balanced`, and restart. Supervisor loads the add-on's
+`apparmor.txt` and renames its declaration to the repository-prefixed add-on slug.
+Startup checks `/proc/self/attr/current` against the expected exact enforced label
+before preparing storage or starting services. Unexpected labels, `docker-default`,
+`unconfined`, complain mode, missing identity and unreadable status stop startup.
+Do not disable AppArmor or Protection mode to get around that check. This checks
+profile identity/mode, not a cryptographic fingerprint of the kernel-loaded rules.
+
+If the namespace probe now succeeds, the banner says **Sandbox test**. Native
+sandbox mode is requested, but both commands and artifacts still require review.
+The former automatic transition to `proceed-in-sandbox` is removed from this test
+release. If prerequisites fail, the normal review fallback remains. The explicit
+`review` option keeps the native sandbox off, but the outer AppArmor profile still
+applies to the add-on.
+
+In a new conversation, ask:
+
+```text
+Run /usr/bin/true once through your native sandboxed terminal tool.
+Do not bypass the sandbox or retry outside it. Report the exit code or complete
+sandbox initialization error. Do not infer isolation from a successful exit.
+```
+
+Approve only that sandboxed command. If startup fails at another mount operation,
+share the native error and relevant redacted CLI log lines; additional mount rules
+will not be granted without identifying the required operation and paths. A
+successful command is still not sufficient to enable automatic execution: input
+protection, output writes, private credentials, process visibility and network
+boundaries require separate tests with disposable fixtures.
+
+If the add-on will not start, send the add-on/Supervisor log error. Restore the
+previous add-on backup if needed; do not uninstall/delete `/data`. Restoring a
+working earlier release also requires Supervisor to restore its earlier AppArmor
+configuration. Keep command approvals active after rollback.
+
+Validation completed here: AppArmor parser 4.0.1 compiled the profile offline
+against ABI 3.0, including both repository-prefixed and local Supervisor name
+variants; no policy was loaded into this environment's kernel. All 31 Python tests
+passed, including profile identity rejection and review retention after a
+successful namespace probe. Shell syntax checks passed. A full image build, HAOS
+policy loading, lifecycle behavior and native sandbox isolation remain unverified.
 
 ## Sandbox diagnostic (0.1.17)
 
@@ -42,8 +95,8 @@ read/traverse access for the separate file service. Their old ownership and agen
 write access remain, so they are **not protected originals**. Download and re-upload
 an important original into Inputs when you want that protection.
 
-Balanced runs a five-second Linux user/mount/PID/network namespace prerequisite
-check as the CLI user with no additional privileges. If it passes, startup writes:
+Before 0.1.18, Balanced ran a five-second Linux user/mount/PID/network namespace prerequisite
+check as the CLI user with no additional privileges. In versions 0.1.16–0.1.17, a pass wrote the following settings. **Version 0.1.18 keeps tool and artifact review enabled instead:**
 
 ```json
 {
