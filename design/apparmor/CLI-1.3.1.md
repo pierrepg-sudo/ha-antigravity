@@ -61,3 +61,28 @@ permit it. It is an outer-policy relaxation, not proof of an equally strong poli
 
 Offline parser validation must pass before publishing. Live success and filesystem,
 network, process and credential isolation still require on-device verification.
+
+## Staging-root call verified for 0.1.21
+
+The target-device result after 0.1.20 is:
+`sbox: mount tmpfs /dev/shm/setup/root: permission denied`.
+
+In the same inspected binary, jailMain concatenates `/dev/shm/setup`
+(pointer 0x4fe6012, length 14) and `/root` (pointer 0x4f207fb, length 5)
+at 0x69b0550–0x69b056c, then saves the target at stack offsets 0x418/0x2d8.
+Following directory creation, the Mount call at 0x69b06e8 has:
+
+| Registers | Meaning | Value |
+| --- | --- | --- |
+| X0/X1 | source | 0/0 (empty) |
+| X2/X3 | target | saved `/dev/shm/setup/root`, length 19 |
+| X4/X5 | type | 0x4f207f6 / 5 (`tmpfs`) |
+| X6 | flags | 0 |
+| X7/X8 | data | 0/0 (empty) |
+
+The new rule is exactly:
+`audit mount fstype=tmpfs options=(rw) -> /dev/shm/setup/root/,`
+
+It has the same profile-wide scope and zero-flag limitations described above.
+It does not allow staging descendants or bind/remount operations. This is static
+call-site verification plus a matching target error, not a successful sandbox run.

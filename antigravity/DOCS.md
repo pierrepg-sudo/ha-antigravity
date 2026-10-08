@@ -1,8 +1,24 @@
-# Antigravity Remote 0.1.20 — experimental
+# Antigravity Remote 0.1.21 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
 No API key is required by this wrapper. It does not enable paid overages or bypass limits.
+
+## Staging-root fix (0.1.21)
+
+The 0.1.20 device test progressed to `sbox: mount tmpfs /dev/shm/setup/root:
+permission denied`. Version 0.1.21 allows this one additional literal directory
+with exact zero flags. Static inspection of the same official ARM64 1.3.1 binary
+confirms the target, tmpfs type, empty source/data, and flags=0. No paths beneath
+this target are granted by this rule; subsequent bind and remount operations remain
+unverified and denied unless covered by another explicit rule.
+
+Back up and update to **0.1.21**, leave Protection mode on, select **Balanced**,
+save and restart. In a new conversation run `/usr/bin/true` once in the native
+sandbox with no bypass or retry. If it fails, obtain only the first new `sbox:`
+error from the latest log; do not ask the agent to explore the filesystem or run
+additional test commands. Commands continue to require approval. A successful
+`true` is not sufficient to enable automatic execution or claim isolation.
 
 ## Sandbox startup fix (0.1.20)
 

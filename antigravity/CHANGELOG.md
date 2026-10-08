@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.21 — Sandbox staging-root mount
+
+- Permit tmpfs at exactly /dev/shm/setup/root/ with zero mount flags (rw).
+- Match the newly observed denial and independently verified CLI 1.3.1 ARM64 call arguments.
+- No descendant wildcard, bind/remount grants, new capabilities or automatic command execution.
+- Full sandbox startup and isolation remain unverified; later operations may still fail.
+
 ## 0.1.20 — Initial sandbox shared-memory mount
 
 - Add one exact tmpfs mount rule for /dev/shm, with zero mount flags (rw).
