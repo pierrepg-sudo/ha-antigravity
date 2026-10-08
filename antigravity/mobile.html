@@ -4,9 +4,8 @@
 [hidden]{display:none!important}#history{height:48dvh;overflow:auto;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;background:#222;padding:10px}#history pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:14px monospace}#historyTools{display:flex;flex-wrap:wrap;gap:6px;padding:8px}
 dialog{width:min(94vw,600px);border:1px solid #667085;border-radius:10px;background:#22252d;color:#eee}dialog::backdrop{background:#000a}#pasteError{color:#ffb4b4}
 </style><header><b>Antigravity terminal</b><a href="conversations">Conversations</a><a href="files">Files</a><a href="signin">Google sign-in</a></header>
-<section><b>Latest sandbox error</b><pre id="sandboxError" style="white-space:pre-wrap;overflow-wrap:anywhere">Loading…</pre><button id="refreshDiagnostic">Refresh diagnostic</button></section>
-<section id="profileStatus" role="status">Checking permission profile…</section>
-<details style="padding:10px"><summary>Sandbox diagnostic</summary><pre id="sandboxDiagnostic" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px">Loading…</pre></details>
+<section id="workerStatus" role="status">Checking restricted worker…</section>
+<section><button id="refreshWorker">Refresh worker status</button></section>
 <iframe src="./" title="Live Antigravity terminal"></iframe>
 <div id="history" hidden tabindex="0" role="region" aria-label="Terminal output history"><pre id="historyText"></pre></div>
 <div id="historyTools"><button id="showHistory">Scroll history</button><button id="older" hidden>Page up</button><button id="newer" hidden>Page down</button><button id="refreshHistory" hidden>Refresh history</button><button id="live" hidden>Live terminal</button></div>
@@ -23,20 +22,13 @@ dialog{width:min(94vw,600px);border:1px solid #667085;border-radius:10px;backgro
 <p><a href="./">Full-screen terminal</a></p></section>
 <dialog id="pasteDialog" aria-labelledby="pasteTitle"><h2 id="pasteTitle">Paste text</h2><p>Touch and hold in the box, then choose Paste.</p><textarea id="pasteText" rows="6" aria-label="Text to paste" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea><p id="pasteError" role="alert"></p><button id="insertPaste">Insert in terminal</button> <button id="cancelPaste">Cancel</button></dialog>
 <script>
-function refreshDiagnostic(){
-fetch('profile-status', {cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(d=>{
- document.querySelector('#profileStatus').textContent=d.message;
- document.querySelector('#sandboxError').textContent=d.latestSandboxError?JSON.stringify(d.latestSandboxError,null,2):'No error summary available. Update the add-on.';
- const diag=d.diagnostic;
- document.querySelector('#sandboxDiagnostic').textContent=diag?JSON.stringify(diag,null,2):'No diagnostic recorded. Update and restart the add-on.';
-}).catch(()=>{
- document.querySelector('#sandboxError').textContent='Could not load sandbox error. Tap Refresh diagnostic to retry.';
- document.querySelector('#profileStatus').textContent='Profile status unavailable. Check add-on logs.';
- document.querySelector('#sandboxDiagnostic').textContent='Could not load diagnostics. Check add-on logs.';
-});
+function refreshWorker(){
+fetch('worker-status', {cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(d=>{
+ document.querySelector('#workerStatus').textContent=d.message+(d.error?' '+d.error:'');
+}).catch(()=>{ document.querySelector('#workerStatus').textContent='Restricted worker status unavailable. Check add-on logs.'; });
 }
-document.querySelector('#refreshDiagnostic').addEventListener('click', refreshDiagnostic);
-refreshDiagnostic();
+document.querySelector('#refreshWorker').addEventListener('click', refreshWorker);
+refreshWorker();
 const csrf='__CSRF__';let busy=false;
 const status=document.querySelector('#status');
 const historyView=document.querySelector('#history'), terminal=document.querySelector('iframe'), keyBar=document.querySelector('nav');

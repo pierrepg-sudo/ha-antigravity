@@ -1,3 +1,7 @@
+> Historical investigation for releases through 0.1.23. The native mount
+> exceptions and profile selection described here were removed in 0.2.0.
+> See antigravity/DOCS.md for the current restricted-worker design.
+
 # CLI 1.3.1 ARM64 mount inspection
 
 Inspected 2026-10-08. Static inspection only: the binary was not executed, no

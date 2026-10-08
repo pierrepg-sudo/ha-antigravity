@@ -3,7 +3,7 @@ set -euo pipefail
 export PATH="/data/home/.local/bin:$PATH"
 export TERM=xterm-256color
 umask 007
-cd /data/workspace/outputs
+cd /opt/antigravity-workspace
 # A PTY keeps the interactive CLI alive when the setup browser disconnects.
 python3 /usr/local/bin/prepare_settings.py
 tmux -f /etc/antigravity-tmux.conf new-session -d -s antigravity -x 120 -y 35 /usr/local/bin/session.sh

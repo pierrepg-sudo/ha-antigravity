@@ -1,6 +1,6 @@
 # Antigravity Home Assistant add-on
 
-Experimental v0.1.23. HAOS runtime and Google sign-in are not yet verified.
+Experimental v0.2.0. Restricted-worker runtime needs verification on HAOS.
 
 ## Install
 
@@ -12,20 +12,13 @@ Install Antigravity Remote, start it, then select Open Web UI.
 
 Read [setup instructions and limitations](antigravity/DOCS.md).
 
-Version 0.1.19 adds **Chat** mode: persistent input-read/output-write permissions,
-no artifact-review pauses, and optional trusted website domains. Terminal commands,
-browser actions and MCP tools still need approval. Native sandbox compatibility is
-unfinished; Chat does not depend on it. Existing installations must select `chat`
-in Configuration to use the new profile. Keep Protection mode on.
-See [configuration and limits](antigravity/DOCS.md).
+Version 0.2.0 replaces Chat/Balanced/Review with one managed policy. Native shell
+commands are blocked. A dedicated MCP worker runs local builds and document
+processing as a separate user with an AppArmor child profile and seccomp filter:
+read-only inputs, writable outputs, no command networking or CLI credentials.
+It must pass real isolation checks before accepting work; failure leaves commands
+blocked. Existing data and user-authored permission restrictions are preserved.
 
-Version 0.1.21 permits the native sandbox's tmpfs mounts at exactly
-`/dev/shm` and `/dev/shm/setup/root`, both with zero flags. This is a targeted startup fix, not confirmation
-that the complete sandbox works. See [test instructions](antigravity/DOCS.md).
-
-Version 0.1.22 displays a sanitized latest sandbox error in Open Web UI, with a
-Refresh diagnostic button. Private CLI file permissions remain unchanged.
-
-Version 0.1.23 also allows the verified `proc` mount at exactly
-`/dev/shm/setup/root/proc` with `nosuid,nodev,noexec`, extending the existing proc
-protections to this path. The full native sandbox still requires device testing.
+After updating, restart and check **Restricted commands ready** in Open Web UI.
+HAOS runtime transition and CLI MCP integration still need verification on the
+device. Keep Protection mode enabled. See the setup instructions for limits.

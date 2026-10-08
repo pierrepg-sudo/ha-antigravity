@@ -1,6 +1,5 @@
 """Mobile controls and OAuth helper; localhost behind admin-only HA ingress."""
 import conversation_history
-import sandbox_diagnostic
 import json
 import secrets
 import threading
@@ -132,13 +131,12 @@ class Handler(BaseHTTPRequestHandler):
         if route == '/conversation-list':
             self.history_get()
             return
-        if route == '/profile-status':
+        if route == '/worker-status':
             try:
-                status = json.loads((Path.home() / '.gemini/antigravity-cli/ha-profile-status.json').read_text())
-                status['latestSandboxError'] = sandbox_diagnostic.latest()
+                status = json.loads(Path('/run/antigravity-worker/status.json').read_text())
                 body = json.dumps(status).encode()
             except (OSError, ValueError, TypeError):
-                body = b'{"message":"Profile status unavailable. Check add-on startup logs."}'
+                body = b'{"message":"Restricted worker starting or unavailable. Check add-on logs."}'
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Cache-Control', 'no-store')

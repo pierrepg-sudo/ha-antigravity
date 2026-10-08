@@ -1,3 +1,7 @@
+> Historical investigation for releases through 0.1.23. The native mount
+> exceptions and profile selection described here were removed in 0.2.0.
+> See antigravity/DOCS.md for the current restricted-worker design.
+
 # Antigravity add-on AppArmor design
 
 Status: experimental policy packaged in **0.1.23** at

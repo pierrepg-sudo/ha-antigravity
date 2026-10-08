@@ -53,17 +53,21 @@ def prepare(base=Path('/data'), runtime=Path('/run/antigravity')):
                 path.chmod(stat.S_IMODE(info.st_mode) | (0o2070 if stat.S_ISDIR(info.st_mode) else 0o60))
     managed_directory(runtime, 0, 0, 0o755)
     options = json.loads((base / 'options.json').read_text()) if (base / 'options.json').exists() else {}
-    profile = options.get('permission_profile', 'balanced')
-    if profile not in ('balanced', 'review', 'chat'):
-        raise ValueError('Invalid permission_profile')
     domains = trusted_domains(options.get('trusted_read_domains', []))
     domain_path = runtime / 'trusted-read-domains.json'
     domain_path.write_text(json.dumps(domains) + '\n')
     domain_path.chmod(0o644)
-    target = runtime / 'profile'
-    # Runtime directory is root-owned and not agent-writable.
-    target.write_text(profile + '\n')
-    target.chmod(0o644)
+    # Remove obsolete runtime state only; never delete private settings/history.
+    for obsolete in ('profile',):
+        (runtime / obsolete).unlink(missing_ok=True)
+    canary = runtime / 'worker-deny-canary'
+    canary.write_text('Non-secret isolation check.\n')
+    canary.chmod(0o644)
+    worker_runtime = runtime.with_name(runtime.name + '-worker')
+    managed_directory(worker_runtime, 1002, 1000, 0o750)
+    for name in ('worker.sock', 'status.json'):
+        (worker_runtime / name).unlink(missing_ok=True)
+    managed_directory(Path('/tmp/agy-worker'), 1002, 1000, 0o700)
     private = runtime.with_name(runtime.name + '-files')
     managed_directory(private, 1001, 1000, 0o700)
     key = secrets.token_hex(32)

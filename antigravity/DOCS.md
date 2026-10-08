@@ -1,293 +1,78 @@
-# Antigravity Remote 0.1.23 — experimental
+# Antigravity Remote
 
-This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
-Use your Google AI Pro account for the models and quota available to that account.
-No API key is required by this wrapper. It does not enable paid overages or bypass limits.
+## Restricted commands (0.2.0)
 
-## Proc mount fix (0.1.23)
+There is one managed permission policy. The Chat, Balanced and Review options,
+their branches, namespace probe and old native-sandbox diagnostic UI are removed.
+The native sandbox mount exceptions are also removed from AppArmor. No historical
+conversation, upload, generated file or settings backup is deleted.
 
-The new target-device failure was `sbox: mount proc: permission denied`.
-Static inspection confirms an empty source/data, type `proc`, target
-`/dev/shm/setup/root/proc`, and flags `0xe` (nosuid,nodev,noexec; writable).
-The profile now permits only that operation. Existing proc write and sensitive-file
-restrictions also cover this staged path. AppArmor does not itself establish which
-PID namespace a proc mount represents; native namespace behavior still needs
-verification before automatic command execution.
+Update the add-on and restart with Protection mode **on**. The old
+`permission_profile` configuration option no longer exists; if HA retains an
+unknown option in the YAML editor, remove that key and save. The code ignores any
+stale value rather than implementing a hidden compatibility profile.
 
-Update to **0.1.23**, retain **Balanced**, save/restart, and run `/usr/bin/true`
-once in a new conversation without bypass or retry. If it fails, tap **Refresh
-diagnostic** in Open Web UI and share **Latest sandbox error**. Do not ask the
-agent to search private logs. No unrestricted mount permission or host capability
-was added; unlisted bind/remount operations remain denied.
+Open Web UI shows the worker's startup check result. **Restricted commands ready**
+means its separate user, child AppArmor label, syscall filter, denied file/socket
+access, writable outputs and child execution passed checks on this device. A
+failed check blocks all worker commands. There is no automatic unconfined fallback.
+The status button reads the startup result; it does not rerun a test.
 
-## Read sandbox errors without opening private files (0.1.22)
+Start a new conversation after upgrading. In `/mcp`, look for
+`ha-restricted-worker` and its `run` tool. Ask it to use that tool to create a small
+text file in `/data/workspace/outputs`. The built-in terminal tool is deliberately
+blocked. This integration uses Google's documented global MCP config and exact
+`mcp(ha-restricted-worker/run)` grant; device-level CLI discovery remains to be
+verified. No global Always-proceed setting is used.
 
-Open Web UI now shows **Latest sandbox error** and a **Refresh diagnostic** button.
-After one native sandbox test, tap Refresh diagnostic and share that summary.
-There is no need to ask the agent to read its private settings/log directory.
-The existing deny rule stays in place. Refresh only reads the current log and does
-not run commands, initialize a sandbox, change settings or expose the full log.
+### Boundaries
 
-The helper checks the `cli.log` link's timestamped target inside `log/`, refuses
-symlink targets and non-regular files, and reads at most the final 64 KiB. Only
-mount/remount/unmount errors with recognized errno text are summarized. Known
-system paths are preserved; other arguments are redacted. Unknown error formats
-are withheld. The file modification time is shown for context, not as the exact
-error timestamp. An error may predate the latest test, and restarting may select
-a new log without the previous error. No match means no matching line was found
-in that bounded tail, not that sandbox operation succeeded.
+- CLI remains UID 1000; the broker and jobs use UID 1002, group 1000. The file
+  manager retains UID 1001. The broker accepts only CLI-UID clients over a Unix
+  socket, with no published endpoint. Jobs inherit neither that socket nor the
+  CLI's environment/credentials.
+- Each job transitions into the enforced `command_worker` AppArmor child profile,
+  verifies its label and UID, sets no-new-privileges, closes other descriptors,
+  installs seccomp, then starts a shell. Failure at any stage stops the job.
+- Inputs `/data/inputs` are read-only. Outputs `/data/workspace/outputs` and private
+  per-job temporary storage are writable. System binaries/libraries/fonts and a
+  small set of non-secret configuration files are readable. CLI home, private
+  runtime files and arbitrary proc files have no AppArmor grant.
+- All command socket creation is blocked, including internet, LAN and local Unix
+  sockets. Command network access cannot be enabled by trusted website domains.
+  The CLI's built-in web tools remain separate, with their normal review controls.
+- Native shell and unsandboxed commands are denied by CLI policy. Input reads,
+  output edits and the single worker tool have persistent grants. User-authored
+  ask/deny rules remain and can still cause prompts. Other MCP tools do not receive
+  automatic grants.
+- The CLI starts in a root-owned control workspace, separate from generated
+  outputs, so output files cannot install active workspace hooks or MCP servers.
+  Do not add generated/untrusted directories as active CLI workspaces.
+- Jobs run serially, at most 90 seconds, 60 CPU seconds per process, 512 MiB virtual
+  memory per process, 32 processes for the worker UID, 32 MiB per file and 256 KiB
+  captured output. Descendants are killed on completion/timeout and temporary
+  storage is removed. These are not aggregate RAM or disk quotas. Commands can
+  modify/delete outputs, and many small files can still consume storage.
 
-## Staging-root fix (0.1.21)
+This reduces approvals for local compilation, Python processing and Pandoc PDFs.
+Network package installation, Git pushes, debugging with ptrace, persistent
+servers and interactive/background jobs are not supported in the worker. Use the
+preinstalled offline tools. Rootless execution and the HAOS protection boundary
+remain in place; no host mounts, Docker socket or extra capabilities are requested.
 
-The 0.1.20 device test progressed to `sbox: mount tmpfs /dev/shm/setup/root:
-permission denied`. Version 0.1.21 allows this one additional literal directory
-with exact zero flags. Static inspection of the same official ARM64 1.3.1 binary
-confirms the target, tmpfs type, empty source/data, and flags=0. No paths beneath
-this target are granted by this rule; subsequent bind and remount operations remain
-unverified and denied unless covered by another explicit rule.
+### Settings and migration
 
-Back up and update to **0.1.21**, leave Protection mode on, select **Balanced**,
-save and restart. In a new conversation run `/usr/bin/true` once in the native
-sandbox with no bypass or retry. If it fails, obtain only the first new `sbox:`
-error from the latest log; do not ask the agent to explore the filesystem or run
-additional test commands. Commands continue to require approval. A successful
-`true` is not sufficient to enable automatic execution or claim isolation.
+Only `trusted_read_domains` remains configurable. It lists explicit public DNS
+hostnames for built-in web-read permissions, not a firewall rule. An empty list
+keeps default web approval behavior. Persistent grants are replaced with the
+managed narrow set on startup; unrelated CLI preferences and user ask/deny rules
+are retained. A private `settings.before-restricted-worker.json` backup is created
+once. Existing unrelated MCP definitions are retained without new grants.
 
-## Sandbox startup fix (0.1.20)
-
-The native CLI's first tmpfs mount is now allowed at exactly `/dev/shm/`, with
-`fstype=tmpfs` and exact `options=(rw)` (mount flags zero). This follows static
-inspection of the official CLI 1.3.1 ARM64 release, not a guessed flag set. It
-addresses the recorded mount denial but does not establish successful startup or
-isolation. The host audit log remains unavailable. See the
-[inspection evidence](../design/apparmor/CLI-1.3.1.md).
-
-Back up the add-on and update to 0.1.20. For one sandbox test, select
-`permission_profile: balanced`, save and restart with Protection mode on. Start a
-new conversation, ask it to run `/usr/bin/true` once using the native sandbox,
-and explicitly forbid bypass/retry outside the sandbox. Approve that command.
-Report the result and, if it fails, the first underlying `sbox:` log line.
-Balanced still requires command and artifact approval even if the probe passes.
-Chat/Review keep sandbox off; selecting them cannot test this fix.
-
-The rule applies to all processes in the add-on's profile subject to kernel
-permission checks, not only authenticated sandbox setup. It permits a writable
-executable tmpfs at this one target, matching the native zero flags; it does not
-add nosuid/nodev/noexec restrictions the binary did not request. No additional
-capabilities, broad mount grants, or host access are added. Later mounts are still
-implicitly denied. Keep Chat for normal use if the next startup operation fails.
-
-## Chat profile (0.1.19)
-
-For fewer interruptions without relying on the unfinished native sandbox, update
-and set Configuration to:
-
-```yaml
-permission_profile: chat
-trusted_read_domains: []
-```
-
-Save and restart the add-on, keep Protection mode on, refresh Open Web UI and start
-a **new conversation**. The banner should begin **Chat**. Existing installations
-keep their selected Review/Balanced profile until you change it. New installations
-default to Chat.
-
-| Action | Chat behavior |
-| --- | --- |
-| Read uploaded Inputs with file tools | Persistently allowed |
-| Read/write working files in Outputs with file tools | Persistently allowed |
-| Artifact/code review pauses | Disabled; inspect generated output when useful |
-| Read a configured trusted website | Allowed, unless a user Ask/Deny rule overrides it |
-| Other web reads | Ask by default |
-| Shell commands, compilers, PDF commands, package installs | Require approval |
-| Browser actions, MCP tools, sandbox bypass | Require approval |
-| Edit Inputs through agent file tools | Denied; file-service ownership also protects originals |
-
-This reduces artifact and optional repeated website prompts. It does **not** make
-arbitrary terminal work approval-free. `toolPermission` remains `request-review`;
-only `artifactReviewPolicy` becomes `always-proceed`. Native terminal sandboxing is
-off in Chat and no namespace test runs. The enforced outer AppArmor profile remains.
-User-defined Ask/Deny rules are preserved and can cause additional prompts.
-
-To remember a website, add its hostname to `trusted_read_domains` in add-on
-Configuration (maximum 32), for example `docs.python.org`. Save and restart.
-The CLI grant includes that host, its subdomains, and all URL paths; it is not
-limited to documentation pages. Only trust sites you intend the agent to contact
-without another prompt. Reading a URL can send information to that website;
-this is not a network firewall, DNS/private-address filter, or a grant to click,
-submit forms, log in, or execute shell network commands. URLs, IP literals,
-wildcards and common local-only names are rejected. No sites are trusted by default.
-Removing a domain and restarting removes its managed grant. Review and Balanced
-ignore domain grants and continue requesting web-read approval. The add-on removes
-only its own previous web-read Ask wildcard; a user-authored wildcard still wins.
-
-For routine work, ask the agent to use its built-in file tools to read Inputs and
-save results in Outputs. Those tools use the narrow grants; using a shell for the
-same task still needs approval. Existing conversations may retain project overrides.
-Do not use `always-proceed` for the global tool policy to avoid those prompts.
-
-Validation: automated configuration/migration tests pass locally. Chat behavior in
-the target CLI and remote UI still needs an on-device check: read a disposable
-Input, save an edited copy in Outputs, and confirm a shell command still prompts.
-No new AppArmor mount permissions are included in this release.
-
-## AppArmor stage-one test (0.1.18)
-
-This release intentionally changes the add-on's outer AppArmor policy. It keeps
-HAOS Protection mode on, the existing capability set, non-root service users,
-Inputs/Outputs separation and ingress restrictions. It adds only the private and
-recursive-private root mount-propagation exceptions. Other mount operations stay
-implicitly denied. This is an experimental compatibility test, not verified native
-sandbox protection or an equivalent-security guarantee.
-
-Before updating, create a Home Assistant backup of this add-on and its data and
-keep it available for rollback. Update to **0.1.18**, keep **Protection mode on**,
-leave `permission_profile: balanced`, and restart. Supervisor loads the add-on's
-`apparmor.txt` and renames its declaration to the repository-prefixed add-on slug.
-Startup checks `/proc/self/attr/current` against the expected exact enforced label
-before preparing storage or starting services. Unexpected labels, `docker-default`,
-`unconfined`, complain mode, missing identity and unreadable status stop startup.
-Do not disable AppArmor or Protection mode to get around that check. This checks
-profile identity/mode, not a cryptographic fingerprint of the kernel-loaded rules.
-
-If the namespace probe now succeeds, the banner says **Sandbox test**. Native
-sandbox mode is requested, but both commands and artifacts still require review.
-The former automatic transition to `proceed-in-sandbox` is removed from this test
-release. If prerequisites fail, the normal review fallback remains. The explicit
-`review` option keeps the native sandbox off, but the outer AppArmor profile still
-applies to the add-on.
-
-In a new conversation, ask:
-
-```text
-Run /usr/bin/true once through your native sandboxed terminal tool.
-Do not bypass the sandbox or retry outside it. Report the exit code or complete
-sandbox initialization error. Do not infer isolation from a successful exit.
-```
-
-Approve only that sandboxed command. If startup fails at another mount operation,
-share the native error and relevant redacted CLI log lines; additional mount rules
-will not be granted without identifying the required operation and paths. A
-successful command is still not sufficient to enable automatic execution: input
-protection, output writes, private credentials, process visibility and network
-boundaries require separate tests with disposable fixtures.
-
-If the add-on will not start, send the add-on/Supervisor log error. Restore the
-previous add-on backup if needed; do not uninstall/delete `/data`. Restoring a
-working earlier release also requires Supervisor to restore its earlier AppArmor
-configuration. Keep command approvals active after rollback.
-
-Validation completed here: AppArmor parser 4.0.1 compiled the profile offline
-against ABI 3.0, including both repository-prefixed and local Supervisor name
-variants; no policy was loaded into this environment's kernel. All 31 Python tests
-passed, including profile identity rejection and review retention after a
-successful namespace probe. Shell syntax checks passed. A full image build, HAOS
-policy loading, lifecycle behavior and native sandbox isolation remain unverified.
-
-## Sandbox diagnostic (0.1.17)
-
-After updating, restart the add-on and open Web UI. Expand **Sandbox diagnostic**
-under the profile banner. Share that text or a screenshot if the prerequisite
-check fails. The same JSON appears as **Sandbox diagnostic:** in the add-on logs.
-It records the fixed probe command, a bounded error message, exit code, UID,
-architecture, kernel version, selected seccomp/no-new-privileges flags and three
-namespace-related sysctl values. Missing kernel flags are marked unavailable.
-It does not read tokens, conversation content or process environments. The probe
-runs with a minimal environment and a five-second timeout. Review mode skips it;
-leave `permission_profile: balanced` selected to collect a startup diagnostic.
-
-A failed probe does not by itself identify the responsible security layer or prove
-that every native CLI sandbox mechanism is incompatible. Diagnostics do not change
-security settings or retry outside existing restrictions. Keep Protection mode on.
-
-## Balanced permissions and separated files (0.1.16)
-
-Update the add-on, leave **Protection mode on**, and restart. Configuration now has
-`permission_profile` can be `chat` (new-install default), `balanced`, or `review`. Open Web UI to see the profile status above the terminal.
-Use a **new conversation** for the new Outputs workspace; resumed conversations
-can retain their previous workspace and project-specific settings.
-
-| Location in Files | Absolute path | Purpose |
-| --- | --- | --- |
-| Inputs | `/data/inputs` | Upload originals here. The agent can read them; only the separate file service can directly edit/delete them. |
-| Outputs | `/data/workspace/outputs` | New CLI working directory. Generated files and working copies can be edited here. |
-| Existing files | `/data/workspace` | Previous files remain in place. This menu permits browsing/downloading, not mutations. |
-
-To work on an uploaded source file, copy its path from **Inputs → Path** and ask:
-“Read this input, make a working copy in Outputs, and save the result there.”
-Download generated results from Outputs. Inputs can still be deleted by you through
-Files with confirmation. Existing files are not moved or deleted; their group gets
-read/traverse access for the separate file service. Their old ownership and agent
-write access remain, so they are **not protected originals**. Download and re-upload
-an important original into Inputs when you want that protection.
-
-Before 0.1.18, Balanced ran a five-second Linux user/mount/PID/network namespace prerequisite
-check as the CLI user with no additional privileges. In versions 0.1.16–0.1.17, a pass wrote the following settings. **Balanced in 0.1.18 and later keeps tool and artifact review enabled instead:**
-
-```json
-{
-  "enableTerminalSandbox": true,
-  "toolPermission": "proceed-in-sandbox",
-  "allowNonWorkspaceAccess": false,
-  "artifactReviewPolicy": "always-proceed"
-}
-```
-
-This requests native CLI sandboxing; the preflight is **not an end-to-end native
-sandbox test**. The banner explicitly reports verification as pending. If the
-check fails or times out, the effective profile becomes review, sandbox is off,
-`toolPermission` is `request-review`, and artifacts use `asks-for-review`.
-Review explicitly asks for commands. No startup path enables unrestricted execution.
-If native sandbox initialization fails despite the preflight, select **review**
-and restart; do not disable HAOS protection to force it to work.
-
-Review and Balanced persist exactly two allow rules: `read_file(/data/inputs)` and
-`write_file(/data/workspace/outputs)`. Input writes and tool access to the CLI's
-private settings/authentication directory are denied. Network access, browser
-interaction, MCP tools and sandbox bypass request approval. There are no blanket
-shell, Python, compiler, package-manager, network or unsandboxed allow rules.
-The sandbox can permit commands within its boundaries without adding such grants.
-User deny/ask rules are retained, including an existing `command(*)` ask rule;
-these may keep prompting even in balanced mode.
-
-On first profile application, the original settings are saved privately as
-`/data/home/.gemini/antigravity-cli/settings.before-balanced.json`. Each restart
-replaces the managed security settings and prior allow grants with the narrow
-profile. Unrelated preferences (model, theme, explicit rendering mode) are retained.
-Malformed settings stop CLI startup rather than silently using a permissive default.
-Session approvals, resumed project overrides and changes made in `/config` after
-startup are not continuously policed; the banner describes startup configuration.
-Avoid persistent broad grants and adding other folders as writable workspaces.
-
-The file manager and Nginx run as a different non-root user from the CLI. Inputs
-are owned by that user with only group-read access for the CLI; the root-owned
-parent prevents the CLI from replacing the directory. A per-start private proxy
-key prevents CLI commands from directly invoking the localhost file service to
-change Inputs. Browser mutations also require their separate CSRF token. Nginx
-still accepts only HA ingress. CLI home remains private to the CLI user. The old
-file handlers in the terminal service have been removed, not disabled.
-
-No HA/Supervisor API access, host networking, Docker socket, host mounts, privileged
-mode or new capabilities are added. Both service users have no-new-privileges set.
-This is not total credential isolation: the CLI itself needs authentication, and
-unsandboxed commands can access resources available to its user and potentially
-its tool environment. Approve sandbox bypass only when you intend that access.
-For the existing Conversations connection helper, a one-time unsandboxed approval
-may be needed; no persistent bypass is automatically granted.
-
-Local profile/fallback, file API, CSRF, traversal and conversation regression tests
-pass. Full HAOS image startup, native sandbox enforcement, group ownership on the
-device and Remote Control behavior remain to be verified after updating. For a
-native check, use a disposable new conversation and ask for a sandboxed command
-that reads a disposable Input and creates an Output, then tries to modify that
-Input and reach an unapproved network address. The latter operations must fail;
-do not approve a bypass during the test. Keep review mode if these boundaries do
-not hold. Resuming old conversations is not that test.
-
-Configuration references:
-- https://www.antigravity.google/docs/sandbox/
-- https://www.antigravity.google/docs/permissions?tab=cli
-- https://www.antigravity.google/docs/cli/reference/
+Local checks cover settings migration, MCP message handling, broker time/output
+bounds, syscall denials, source compilation and offline AppArmor compilation.
+They do not establish that the AppArmor transition or CLI discovery works on your
+HAOS installation; the startup checks and the first MCP call establish that.
 
 ## Status
 
@@ -354,7 +139,8 @@ A reboot creates a new CLI session; it does not promise automatic conversation
 resumption. Saved files/settings under the home directory remain available.
 
 /data/home: persistent CLI binary, configuration and any file-backed authentication.
-/data/workspace: isolated project directory. Both are in the add-on's private data.
+/data/workspace/outputs: generated files; /data/inputs: protected originals.
+/opt/antigravity-workspace: root-owned CLI control workspace.
 Keyring-only credentials may not persist; this is part of the pending login test.
 
 Stopping the add-on disconnects Remote Control and terminates its running tasks.

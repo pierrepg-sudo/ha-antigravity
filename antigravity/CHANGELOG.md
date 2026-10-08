@@ -1,3 +1,15 @@
+## 0.2.0
+
+- Replace all three permission profiles with one managed policy; remove their
+  implementation, configuration, namespace probes, diagnostic endpoint/UI and tests.
+- Add a separate-UID, offline MCP command worker with a restricted AppArmor child
+  profile, seccomp filter, bounded jobs and fail-closed runtime checks.
+- Deny native shell execution; grant only the worker tool, input reads and output
+  edits. Preserve user-authored restrictions and existing data.
+- Separate the immutable CLI control workspace from generated outputs; remove
+  native-sandbox mount exceptions.
+- HAOS transition and CLI MCP discovery require device verification after update.
+
 # Changelog
 
 ## 0.1.23 — Sandbox proc mount
