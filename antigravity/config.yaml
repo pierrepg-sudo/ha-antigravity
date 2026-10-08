@@ -1,5 +1,5 @@
 name: Antigravity Remote
-version: "0.2.2"
+version: "0.2.3"
 slug: antigravity_remote
 description: Experimental Antigravity CLI host with a persistent setup terminal
 arch:
@@ -10,6 +10,8 @@ boot: manual
 init: false
 stage: experimental
 apparmor: true
+devices:
+  - /dev/net/tun
 ingress: true
 ingress_port: 8099
 ingress_entry: /controls

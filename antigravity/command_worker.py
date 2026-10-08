@@ -29,8 +29,7 @@ def execute(command, label, timeout=90):
     truncated = False
     try:
         process = subprocess.Popen(
-            ['/usr/bin/aa-exec', '-p', label, '--', '/usr/local/bin/restricted-exec',
-             label + ' (enforce)', job, command], stdin=subprocess.DEVNULL,
+            ['/usr/bin/python3', '-I', '/usr/local/bin/network_job.py', label, job, command], stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
             close_fds=True, env={'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8'})
         with selectors.DefaultSelector() as poll:
@@ -72,7 +71,9 @@ def self_test(label):
     """Actual child checks, not a namespace preflight. No real secrets are read."""
     script = r'''/usr/bin/python3 -I - <<'PY'
 import errno, os, socket, subprocess, tempfile
-assert os.getuid() == 1002
+assert os.getuid() == 0
+assert open('/proc/self/uid_map').read().split() == ['0', '1002', '1']
+assert 'CapEff:\t0000000000000000' in open('/proc/self/status').read()
 status = open('/proc/self/status').read()
 assert 'NoNewPrivs:\t1' in status and 'Seccomp:\t2' in status
 # A world-readable root-owned canary tests AppArmor, not just DAC.
@@ -85,7 +86,7 @@ for path, mode in [('/run/antigravity/worker-deny-canary', 'rb'),
     else:
         f.close()
         raise AssertionError('Filesystem boundary failed')
-for family in (socket.AF_INET, socket.AF_INET6, socket.AF_UNIX):
+for family in (socket.AF_UNIX, socket.AF_NETLINK, socket.AF_PACKET):
     try:
         s = socket.socket(family)
     except PermissionError:
@@ -93,6 +94,22 @@ for family in (socket.AF_INET, socket.AF_INET6, socket.AF_UNIX):
     else:
         s.close()
         raise AssertionError('Socket boundary failed')
+# Reject destinations without relying on a missing listener or a timeout.
+for family, host in [(socket.AF_INET, '127.0.0.1'), (socket.AF_INET, '192.168.1.1'),
+                     (socket.AF_INET, '169.254.169.254'), (socket.AF_INET6, '::1'),
+                     (socket.AF_INET6, 'fc00::1')]:
+    for kind in (socket.SOCK_STREAM, socket.SOCK_DGRAM):
+        with socket.socket(family, kind) as s:
+            s.settimeout(1)
+            try:
+                if kind == socket.SOCK_STREAM:
+                    s.connect((host, 443))
+                else:
+                    s.sendto(b'worker-check', (host, 443))
+            except OSError as e:
+                assert e.errno in (errno.EPERM, errno.EACCES), 'Destination filter not verified'
+            else:
+                raise AssertionError('Local network boundary failed')
 with tempfile.TemporaryFile(dir='/data/workspace/outputs') as f:
     f.write(b'worker-check')
     f.seek(0)
@@ -107,7 +124,7 @@ else:
     raise AssertionError('Process containment failed')
 print('WORKER_ISOLATION_OK')
 PY'''
-    result = execute(script, label, timeout=15)
+    result = execute(script, label, timeout=40)
     ready = result['exitCode'] == 0 and not result['timedOut'] and result['output'].strip() == 'WORKER_ISOLATION_OK'
     # This output is solely from the fixed check above, not user commands or logs.
     return ready, '' if ready else result['output'][:2048] or 'Isolation check timed out or exited without a result.'
@@ -146,7 +163,7 @@ def main():
         ready, error = self_test(label)
     except (OSError, ValueError, subprocess.SubprocessError):
         ready, error = False, 'Cannot launch the isolation check.'
-    message = ('Restricted commands ready: inputs read-only; outputs writable; command networking blocked.'
+    message = ('Restricted commands ready: inputs read-only; outputs writable; public internet enabled; private/local networks blocked.'
                if ready else 'Restricted commands unavailable: isolation checks failed. Commands remain blocked.')
     STATUS.write_text(json.dumps({'ready': ready, 'message': message, 'error': error})+'\n')
     STATUS.chmod(0o640)

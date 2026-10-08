@@ -5,6 +5,9 @@
 #include <linux/audit.h>
 #include <linux/filter.h>
 #include <linux/seccomp.h>
+#include <linux/capability.h>
+#include <linux/securebits.h>
+#include <sys/socket.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,8 +40,20 @@ static void install_filter(void) {
         /* Reject x32 and unknown high syscall namespaces as well as compat arch. */
         BPF_JUMP(BPF_JMP|BPF_JGE|BPF_K, 0x40000000U, 0, 1),
         BPF_STMT(BPF_RET|BPF_K, SECCOMP_RET_KILL_PROCESS),
-        BLOCK(socket), BLOCK(connect), BLOCK(bind), BLOCK(listen), BLOCK(accept), BLOCK(accept4),
-        BLOCK(sendto), BLOCK(sendmsg), BLOCK(sendmmsg),
+        /* Only TCP/UDP IP sockets inside the already-filtered job namespace.
+         * Unix, netlink, packet/raw and other socket families cannot be opened. */
+        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, __NR_socket, 0, 10),
+        BPF_STMT(BPF_LD|BPF_W|BPF_ABS, offsetof(struct seccomp_data, args[0])),
+        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, AF_INET, 2, 0),
+        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, AF_INET6, 1, 0),
+        BPF_STMT(BPF_RET|BPF_K, SECCOMP_RET_ERRNO|EPERM),
+        BPF_STMT(BPF_LD|BPF_W|BPF_ABS, offsetof(struct seccomp_data, args[1])),
+        BPF_STMT(BPF_ALU|BPF_AND|BPF_K, ~(SOCK_CLOEXEC|SOCK_NONBLOCK)),
+        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, SOCK_STREAM, 2, 0),
+        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, SOCK_DGRAM, 1, 0),
+        BPF_STMT(BPF_RET|BPF_K, SECCOMP_RET_ERRNO|EPERM),
+        BPF_STMT(BPF_RET|BPF_K, SECCOMP_RET_ALLOW),
+        BLOCK(listen), BLOCK(accept), BLOCK(accept4),
         BLOCK(ptrace), BLOCK(process_vm_readv), BLOCK(process_vm_writev),
         BLOCK(pidfd_getfd), BLOCK(pidfd_send_signal), BLOCK(kill), BLOCK(tkill), BLOCK(tgkill),
         BLOCK(rt_sigqueueinfo), BLOCK(rt_tgsigqueueinfo),
@@ -63,7 +78,26 @@ static void install_filter(void) {
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &program)) fail("syscall filter failed");
 }
 int main(int argc, char **argv) {
-    if (argc != 4 || getuid() != 1002 || geteuid() != 1002) fail("invalid worker identity");
+    if (argc != 4 || getuid() != 0 || geteuid() != 0) fail("invalid worker identity");
+    /* Namespace-root maps only to the unprivileged worker on HAOS. Never accept
+     * real container root, or a namespace with additional mapped identities. */
+    char mapping[128] = {0}, extra;
+    unsigned inside_uid, outside_uid, count;
+    int mapfd = open("/proc/self/uid_map", O_RDONLY|O_CLOEXEC);
+    if (mapfd < 0) fail("cannot verify user namespace");
+    ssize_t maplen = read(mapfd, mapping, sizeof(mapping)-1); close(mapfd);
+    if (maplen <= 0 || sscanf(mapping, "%u %u %u %c", &inside_uid, &outside_uid, &count, &extra) != 3 ||
+        inside_uid != 0 || outside_uid != 1002 || count != 1) fail("invalid user namespace");
+    int secure = prctl(PR_GET_SECUREBITS);
+    if (secure < 0 || (secure & (SECBIT_NOROOT|SECBIT_NOROOT_LOCKED)) !=
+        (SECBIT_NOROOT|SECBIT_NOROOT_LOCKED)) fail("root capability restoration not locked");
+    struct __user_cap_header_struct header = {_LINUX_CAPABILITY_VERSION_3, 0};
+    struct __user_cap_data_struct caps[2] = {{0}};
+    if (syscall(SYS_capget, &header, caps)) fail("cannot verify capabilities");
+    for (int i=0; i<2; i++)
+        if (caps[i].effective || caps[i].permitted || caps[i].inheritable) fail("capabilities not dropped");
+    for (int i=0; i<=CAP_LAST_CAP; i++)
+        if (prctl(PR_CAPBSET_READ, i, 0, 0, 0) != 0) fail("capability bounding set not empty");
     /* Read identity before filtering. A successful aa-exec alone is not sufficient. */
     char label[256] = {0};
     int f = open("/proc/self/attr/current", O_RDONLY|O_CLOEXEC);

@@ -31,7 +31,7 @@ class WorkerTests(unittest.TestCase):
         # A test-only stand-in for aa-exec lets us verify broker pipe/timeout logic
         # without claiming AppArmor enforcement in this development environment.
         def spawn(argv, **kwargs):
-            self.assertEqual(argv[:4],['/usr/bin/aa-exec','-p','outer//command_worker','--'])
+            self.assertEqual(argv[:4],['/usr/bin/python3','-I','/usr/local/bin/network_job.py','outer//command_worker'])
             self.assertTrue(kwargs['close_fds'])
             self.assertEqual(set(kwargs['env']),{'PATH','LANG'})
             return real_spawn(['/bin/bash','-c',argv[-1]],**kwargs)
@@ -44,7 +44,7 @@ class WorkerTests(unittest.TestCase):
             self.assertTrue(result['timedOut'])
             self.assertEqual(list(Path(d).iterdir()),[])
 
-    def test_real_syscall_filter_denies_network_and_process_escape(self):
+    def test_real_syscall_filter_allows_ip_but_denies_escape(self):
         source=Path(__file__).parents[1]/'antigravity/restricted_exec.c'
         with tempfile.TemporaryDirectory() as d:
             harness=Path(d)/'filter.c'
@@ -53,8 +53,11 @@ class WorkerTests(unittest.TestCase):
             harness.write_text('#define main worker_entry\n#include '+json.dumps(str(source))+'\n#undef main\n'
                 '#include <sys/socket.h>\nint main(void) {\n'
                 'if(prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0)){return 2;} install_filter();\n'
-                'if(socket(AF_INET,SOCK_STREAM,0)!=-1 || errno!=EPERM)return 3;\n'
+                'int s=socket(AF_INET,SOCK_STREAM,0);if(s<0)return 3;close(s);\n'
                 'if(socket(AF_UNIX,SOCK_STREAM,0)!=-1 || errno!=EPERM)return 4;\n'
+                'if(socket(AF_NETLINK,SOCK_RAW,0)!=-1 || errno!=EPERM)return 8;\n'
+                'if(socket(AF_INET,SOCK_RAW,0)!=-1 || errno!=EPERM)return 9;\n'
+                's=socket(AF_INET6,SOCK_DGRAM|SOCK_CLOEXEC,0);if(s<0)return 10;close(s);\n'
                 'if(setsid()!=-1 || errno!=EPERM)return 5;\n'
                 'if(setpgid(0,0)!=-1 || errno!=EPERM)return 6;\n'
                 'execl("/usr/bin/true","true",(char*)0);return 7; }\n')

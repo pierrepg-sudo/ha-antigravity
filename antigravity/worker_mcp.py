@@ -5,7 +5,7 @@ import sys
 
 SOCKET = '/run/antigravity-worker/worker.sock'
 TOOL = {'name': 'run',
-        'description': 'Run local C/C++ builds, Python, Pandoc/PDF generation and file processing in the restricted worker. Working directory: /data/workspace/outputs. Read originals from /data/inputs. No network, credentials, private CLI files, or interactive/background sessions. Maximum 90 seconds, 256 KiB output, 32 MiB per file. Use this instead of the blocked native terminal tool.',
+        'description': 'Run local C/C++ builds, Python, Pandoc/PDF generation and file processing in the restricted worker. Working directory: /data/workspace/outputs. Read originals from /data/inputs. Public outbound TCP/UDP internet is allowed. Private/local networks, inbound listeners, CLI credentials, private CLI files and interactive/background sessions are blocked. Maximum 90 seconds, 256 KiB output, 32 MiB per file. Use this instead of the blocked native terminal tool.',
         'inputSchema': {'type': 'object', 'properties': {'command': {'type': 'string', 'maxLength': 32768}},
                         'required': ['command'], 'additionalProperties': False}}
 
@@ -15,7 +15,7 @@ def dispatch(request):
     params = request.get('params', {})
     if method == 'initialize':
         return {'protocolVersion': '2024-11-05', 'capabilities': {'tools': {}},
-                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.2.0'}}
+                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.2.3'}}
     if method == 'ping':
         return {}
     if method == 'tools/list':

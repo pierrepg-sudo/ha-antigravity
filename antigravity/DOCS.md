@@ -1,5 +1,56 @@
 # Antigravity Remote
 
+## Public outbound internet (0.2.3)
+
+Worker commands can use public TCP/UDP destinations on any port, including HTTPS,
+WebSockets, package downloads and public APIs. No per-domain worker permission
+prompt is added. Native terminal tools remain denied; use `ha-restricted-worker`.
+This applies to worker commands, not the CLI's separate built-in web tools.
+
+Each job creates a rootless user/network namespace, installs an nftables firewall,
+and uses slirp4netns for outbound traffic. Private, loopback, link-local, CGNAT,
+multicast, reserved/documentation ranges, IPv6 translation/tunnel ranges and the
+add-on's connected subnets are blocked. IPv6 public unicast is supported when the
+host has IPv6 connectivity. The filter checks packet destinations, so direct IPs,
+redirects and DNS rebinding do not exempt private addresses. The command cannot
+open raw/netlink/Unix sockets, change the firewall, join another namespace or start
+an inbound TCP listener. No ports are published.
+
+For DNS, configured nonpublic resolver addresses are redirected **inside the job**
+to a temporary DNS stub, which forwards only to public resolver **1.1.1.1**. The
+original local/Home Assistant resolver is not contacted. Public DNS destinations
+remain usable directly. The only local socket exception is this job-private DNS
+stub on port 53; it does not expose HAOS or any other add-on. Private/internal
+hostnames will not work. The stub, network relay and descendants are killed at job
+completion or the 90-second deadline. No separate persistent service is installed.
+
+Protection mode stays on. The update maps `/dev/net/tun` and adds user-space
+networking/firewall packages; it does not request host NET_ADMIN/SYS_ADMIN,
+Docker/Supervisor access, host networking or new mounts. The setup process has
+capabilities only in its own new user/network namespace. Commands see namespace
+UID 0 mapped exclusively to host UID 1002, with all capabilities removed and root
+capability restoration locked off; this is not HAOS/container root.
+
+After updating and restarting, check **Restricted commands ready**. Startup checks
+must verify enforced AppArmor, empty capabilities, seccomp, denied credential/file
+access, writable outputs, and blocked local TCP/UDP destinations before any user
+command runs. Every job must independently install its firewall. Any failure stops
+execution; no unrestricted fallback exists. The status is an isolation check, not
+an external connectivity test. Start a new CLI conversation to refresh the MCP tool
+description, then test a public HTTPS request using that tool.
+
+The full namespace/TUN/firewall path could not be run in the development
+environment, which prohibits creating the required user namespace. It must pass
+these checks on HAOS. If unavailable, share the worker status error; do not disable
+Protection mode or AppArmor to force it to start.
+
+All public internet access means commands can send readable workspace contents to
+public services. Existing CLI credentials remain unavailable, but any API keys you
+place in readable inputs/outputs are available to those commands. The firewall
+cannot identify a private service deliberately published through a public reverse
+proxy or your router's public address. Long-running traders, background daemons
+and interactive sessions remain unsupported by the 90-second worker.
+
 ## MCP configuration correction (0.2.2)
 
 Empty global MCP config files are treated as unused placeholders. UTF-8 byte-order
@@ -37,7 +88,7 @@ unknown option in the YAML editor, remove that key and save. The code ignores an
 stale value rather than implementing a hidden compatibility profile.
 
 Open Web UI shows the worker's startup check result. **Restricted commands ready**
-means its separate user, child AppArmor label, syscall filter, denied file/socket
+means its separate user, child AppArmor label, syscall filter, denied file/local-network
 access, writable outputs and child execution passed checks on this device. A
 failed check blocks all worker commands. There is no automatic unconfined fallback.
 The status button reads the startup result; it does not rerun a test.
@@ -46,25 +97,25 @@ Start a new conversation after upgrading. In `/mcp`, look for
 `ha-restricted-worker` and its `run` tool. Ask it to use that tool to create a small
 text file in `/data/workspace/outputs`. The built-in terminal tool is deliberately
 blocked. This integration uses Google's documented global MCP config and exact
-`mcp(ha-restricted-worker/run)` grant; device-level CLI discovery remains to be
-verified. No global Always-proceed setting is used.
+`mcp(ha-restricted-worker/run)` grant; the basic worker call has been verified on the user's device. No global Always-proceed setting is used.
 
 ### Boundaries
 
-- CLI remains UID 1000; the broker and jobs use UID 1002, group 1000. The file
+- CLI remains UID 1000; the broker and jobs map to host UID 1002, group 1000. The file
   manager retains UID 1001. The broker accepts only CLI-UID clients over a Unix
   socket, with no published endpoint. Jobs inherit neither that socket nor the
   CLI's environment/credentials.
 - Each job transitions into the enforced `command_worker` AppArmor child profile,
-  verifies its label and UID, sets no-new-privileges, closes other descriptors,
+  verifies its label, UID mapping and dropped capabilities, sets no-new-privileges, closes other descriptors,
   installs seccomp, then starts a shell. Failure at any stage stops the job.
 - Inputs `/data/inputs` are read-only. Outputs `/data/workspace/outputs` and private
   per-job temporary storage are writable. System binaries/libraries/fonts and a
   small set of non-secret configuration files are readable. CLI home, private
   runtime files and arbitrary proc files have no AppArmor grant.
-- All command socket creation is blocked, including internet, LAN and local Unix
-  sockets. Command network access cannot be enabled by trusted website domains.
-  The CLI's built-in web tools remain separate, with their normal review controls.
+- Public outbound TCP/UDP is permitted through the per-job firewall described
+  above; private/local networks and Unix sockets are blocked. Trusted website
+  domains do not modify this firewall. Built-in web tools retain their own review
+  controls.
 - Native shell and unsandboxed commands are denied by CLI policy. Input reads,
   output edits and the single worker tool have persistent grants. User-authored
   ask/deny rules remain and can still cause prompts. Other MCP tools do not receive
@@ -79,10 +130,11 @@ verified. No global Always-proceed setting is used.
   modify/delete outputs, and many small files can still consume storage.
 
 This reduces approvals for local compilation, Python processing and Pandoc PDFs.
-Network package installation, Git pushes, debugging with ptrace, persistent
-servers and interactive/background jobs are not supported in the worker. Use the
-preinstalled offline tools. Rootless execution and the HAOS protection boundary
-remain in place; no host mounts, Docker socket or extra capabilities are requested.
+Network-dependent commands must finish within the existing limits. Package
+installation must target writable outputs or temporary storage. Debugging with
+ptrace, persistent servers and interactive/background jobs remain unsupported.
+The HAOS protection boundary remains in place; no host mounts, Docker socket or
+extra host capabilities are requested.
 
 ### Settings and migration
 
@@ -95,8 +147,9 @@ once. Existing unrelated MCP definitions are retained without new grants.
 
 Local checks cover settings migration, MCP message handling, broker time/output
 bounds, syscall denials, source compilation and offline AppArmor compilation.
-They do not establish that the AppArmor transition or CLI discovery works on your
-HAOS installation; the startup checks and the first MCP call establish that.
+The prior AppArmor transition and basic MCP call were verified on the user's HAOS
+installation. The new namespace/TUN/firewall path requires device verification;
+local tests do not establish that it works on HAOS.
 
 ## Status
 

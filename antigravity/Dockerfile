@@ -1,6 +1,6 @@
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    apparmor bash ca-certificates curl git python3 tmux nginx-light tini util-linux libstdc++6 \
+    slirp4netns nftables iproute2 apparmor bash ca-certificates curl git python3 tmux nginx-light tini util-linux libstdc++6 \
     build-essential cmake ninja-build pkg-config gdb \
     clangd clang-format clang-tidy cppcheck \
     pandoc texlive-latex-base texlive-latex-recommended texlive-fonts-recommended lmodern \
@@ -18,7 +18,7 @@ RUN chmod 755 /usr/local/bin/check-c-tools && /usr/local/bin/check-c-tools
 COPY check-pdf.sh /usr/local/bin/check-pdf
 RUN chmod 755 /usr/local/bin/check-pdf && /usr/local/bin/check-pdf
 COPY tmux.conf /etc/antigravity-tmux.conf
-COPY verify_profile.py prepare_storage.py file_server.py prepare_settings.py command_worker.py worker_mcp.py /usr/local/bin/
+COPY verify_profile.py prepare_storage.py file_server.py prepare_settings.py command_worker.py network_job.py job_dns.py worker_mcp.py /usr/local/bin/
 COPY install-ttyd.sh /tmp/install-ttyd.sh
 RUN bash /tmp/install-ttyd.sh && rm /tmp/install-ttyd.sh
 # Download from Google's official installer; the installer verifies the payload SHA512.

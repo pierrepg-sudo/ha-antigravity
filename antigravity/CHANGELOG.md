@@ -1,3 +1,19 @@
+## 0.2.3
+
+- Permit public outbound TCP/UDP in a fresh user/network namespace for each worker
+  command. Filter nonpublic IPv4/IPv6 destinations and add-on-connected subnets
+  using nftables before starting the command; DNS changes cannot bypass IP rules.
+- Add per-job slirp networking and a bounded DNS relay to public DNS (1.1.1.1).
+  No standalone/persistent service, inbound ports, host networking or extra host
+  capabilities. Map only the TUN device needed by rootless networking.
+- Drop all namespace capabilities before command execution; preserve enforced
+  AppArmor, seccomp, file isolation, denied native tools and 90-second cleanup.
+- Replace the all-sockets-denied checks with IP/socket-family and local-destination
+  checks. Fail closed if namespace, relay, firewall or confinement setup fails.
+- Local unit/filter/AppArmor compilation checks pass; complete networking requires
+  device verification because the development environment cannot create user
+  namespaces or expose a TUN device.
+
 ## 0.2.2
 
 - Accept empty/whitespace-only global MCP configuration placeholders and UTF-8
