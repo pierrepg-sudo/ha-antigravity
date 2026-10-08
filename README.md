@@ -1,6 +1,6 @@
 # Antigravity Home Assistant add-on
 
-Experimental v0.1.21. HAOS runtime and Google sign-in are not yet verified.
+Experimental v0.1.22. HAOS runtime and Google sign-in are not yet verified.
 
 ## Install
 
@@ -22,3 +22,6 @@ See [configuration and limits](antigravity/DOCS.md).
 Version 0.1.21 permits the native sandbox's tmpfs mounts at exactly
 `/dev/shm` and `/dev/shm/setup/root`, both with zero flags. This is a targeted startup fix, not confirmation
 that the complete sandbox works. See [test instructions](antigravity/DOCS.md).
+
+Version 0.1.22 displays a sanitized latest sandbox error in Open Web UI, with a
+Refresh diagnostic button. Private CLI file permissions remain unchanged.

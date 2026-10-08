@@ -1,8 +1,25 @@
-# Antigravity Remote 0.1.21 — experimental
+# Antigravity Remote 0.1.22 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
 No API key is required by this wrapper. It does not enable paid overages or bypass limits.
+
+## Read sandbox errors without opening private files (0.1.22)
+
+Open Web UI now shows **Latest sandbox error** and a **Refresh diagnostic** button.
+After one native sandbox test, tap Refresh diagnostic and share that summary.
+There is no need to ask the agent to read its private settings/log directory.
+The existing deny rule stays in place. Refresh only reads the current log and does
+not run commands, initialize a sandbox, change settings or expose the full log.
+
+The helper checks the `cli.log` link's timestamped target inside `log/`, refuses
+symlink targets and non-regular files, and reads at most the final 64 KiB. Only
+mount/remount/unmount errors with recognized errno text are summarized. Known
+system paths are preserved; other arguments are redacted. Unknown error formats
+are withheld. The file modification time is shown for context, not as the exact
+error timestamp. An error may predate the latest test, and restarting may select
+a new log without the previous error. No match means no matching line was found
+in that bounded tail, not that sandbox operation succeeded.
 
 ## Staging-root fix (0.1.21)
 

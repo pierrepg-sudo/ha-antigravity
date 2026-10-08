@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.22 — Sanitized sandbox error display
+
+- Show the latest sandbox error through the existing admin-ingress diagnostic UI.
+- Read at most the last 64 KiB of the current timestamped CLI log; no arbitrary file selection.
+- Return only allowlisted mount operations, known paths and errno text; redact unknown arguments and suppress other free-form errors.
+- Add manual Refresh diagnostic without executing commands or rerunning the sandbox.
+- Keep private CLI directory denies and all sandbox permissions unchanged.
+
 ## 0.1.21 — Sandbox staging-root mount
 
 - Permit tmpfs at exactly /dev/shm/setup/root/ with zero mount flags (rw).
