@@ -1,8 +1,32 @@
-# Antigravity Remote 0.1.19 — experimental
+# Antigravity Remote 0.1.20 — experimental
 
 This package hosts Google's Antigravity CLI, not Claude Code or the Claude iOS app.
 Use your Google AI Pro account for the models and quota available to that account.
 No API key is required by this wrapper. It does not enable paid overages or bypass limits.
+
+## Sandbox startup fix (0.1.20)
+
+The native CLI's first tmpfs mount is now allowed at exactly `/dev/shm/`, with
+`fstype=tmpfs` and exact `options=(rw)` (mount flags zero). This follows static
+inspection of the official CLI 1.3.1 ARM64 release, not a guessed flag set. It
+addresses the recorded mount denial but does not establish successful startup or
+isolation. The host audit log remains unavailable. See the
+[inspection evidence](../design/apparmor/CLI-1.3.1.md).
+
+Back up the add-on and update to 0.1.20. For one sandbox test, select
+`permission_profile: balanced`, save and restart with Protection mode on. Start a
+new conversation, ask it to run `/usr/bin/true` once using the native sandbox,
+and explicitly forbid bypass/retry outside the sandbox. Approve that command.
+Report the result and, if it fails, the first underlying `sbox:` log line.
+Balanced still requires command and artifact approval even if the probe passes.
+Chat/Review keep sandbox off; selecting them cannot test this fix.
+
+The rule applies to all processes in the add-on's profile subject to kernel
+permission checks, not only authenticated sandbox setup. It permits a writable
+executable tmpfs at this one target, matching the native zero flags; it does not
+add nosuid/nodev/noexec restrictions the binary did not request. No additional
+capabilities, broad mount grants, or host access are added. Later mounts are still
+implicitly denied. Keep Chat for normal use if the next startup operation fails.
 
 ## Chat profile (0.1.19)
 

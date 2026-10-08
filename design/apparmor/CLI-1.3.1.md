@@ -1,0 +1,63 @@
+# CLI 1.3.1 ARM64 mount inspection
+
+Inspected 2026-10-08. Static inspection only: the binary was not executed, no
+credentials were supplied, and no profile was loaded in the inspection environment.
+
+Official installer: https://antigravity.google/cli/install.sh
+
+Manifest: https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/linux_arm64.json
+
+Payload: https://storage.googleapis.com/antigravity-public/antigravity-cli/1.3.1-4582356770750464/linux-arm/cli_linux_arm64.tar.gz
+
+Payload SHA512 (verified before extraction):
+`c41b8cd8c526eb043fa0b019377ab8109190b547624f17f5255868ace79cd8e9195a60ac7b89478101127effbe049341c4108ed0ead4b160968704a8b79d8799`
+
+Extracted binary SHA256: `6bf15f830ecc1c42822ffa690378c53e56d154c93d80acaca342ee5afe1d6408`
+
+The release version/architecture match the user's screenshot; the installed file's
+hash has not been compared. This finding does not cover other upstream releases.
+The add-on still uses the rolling installer, so future versions need revalidation.
+
+## Verified call site
+
+Go pclntab at file offset `0x1442400`; Go text base from the ELF module relocation
+is `0x5bab0b0`. Function:
+`google3/devtools/ai/sandbox/exebox.jailMain`, virtual address `0x69b0070`.
+
+At `0x69b0458` through `0x69b0484`, the ARM64 Go register ABI arguments to
+`syscall.Mount` (`0x5c94730`) are:
+
+| Registers | Meaning | Value |
+| --- | --- | --- |
+| X0/X1 | source string pointer/length | 0/0: empty string |
+| X2/X3 | target string pointer/length | 0x4f5595f / 8: `/dev/shm` |
+| X4/X5 | filesystem pointer/length | 0x4f207f6 / 5: `tmpfs` |
+| X6 | flags | 0 |
+| X7/X8 | data pointer/length | 0/0: empty string |
+
+The following error branch calls log.Fatalf with `mount tmpfs %s: %v`, producing
+the user's recorded error. The earlier root propagation call uses `0x44000`
+(MS_PRIVATE | MS_REC). The prerequisite unshare probe remains a separate consumer
+of the profile's root propagation rules.
+
+A later Mount call at `0x69b1964` targets the staging root plus `/dev/shm`, also
+with tmpfs and zero flags. It is not covered by the new rule; no staging mount
+permissions are inferred from the abbreviated error text. Native startup also
+contains bind/remount operations, so this initial exception may reveal another
+denial. It does not establish the full sandbox's compatibility with HAOS.
+
+## Policy mapping and limitations
+
+`audit mount fstype=tmpfs options=(rw) -> /dev/shm/,`
+
+The destination is the directory lookup form. Exact options=(rw) expresses the
+zero-flag read/write mount; it does not authorize bind/remount/move options.
+The source is unspecified in the AppArmor rule because tmpfs has no backing
+source device, and the native source is empty, not the string `tmpfs`.
+
+This deliberately allows native zero flags; it does not assert nosuid/nodev/noexec.
+The exception applies profile-wide wherever kernel namespace/capability checks
+permit it. It is an outer-policy relaxation, not proof of an equally strong policy.
+
+Offline parser validation must pass before publishing. Live success and filesystem,
+network, process and credential isolation still require on-device verification.

@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: Copyright The Moby Authors
 # SPDX-License-Identifier: Apache-2.0
 # Adapted from github.com/moby/profiles/apparmor/template.go.
-# Modifications: standalone add-on name and peer labels; root propagation exceptions.
-# Experimental stage-one profile: only root propagation mount exceptions.
+# Modifications: standalone add-on name and peer labels; root propagation and /dev/shm tmpfs exceptions.
+# Experimental profile: root propagation plus the verified initial shm mount.
 # Runtime isolation is NOT verified. CLI command approval must remain enabled.
 abi <abi/3.0>,
 #include <tunables/global>
@@ -55,14 +55,19 @@ profile antigravity_remote flags=(attach_disconnected,mediate_deleted) {
   deny /sys/devices/virtual/powercap/** rwklx,
   deny /sys/kernel/security/** rwklx,
 
-  # The only proposed mount exceptions in stage 1.
+  # Root propagation exceptions required by native startup and the namespace probe.
   # Exact option sets: no "in (...)" wildcard combinations.
   # Log text does not distinguish MS_PRIVATE from MS_PRIVATE|MS_REC;
   # retain only the variant(s) shown necessary by native/probe audit evidence.
   audit mount options=(private) -> /,
   audit mount options=(rprivate) -> /,
 
+  # CLI 1.3.1 ARM64 jailMain: syscall.Mount("", "/dev/shm", "tmpfs", 0, "").
+  # options=(rw) matches zero mount flags; no bind/remount/move variants.
+  # No device source is involved for tmpfs. See design/apparmor/CLI-1.3.1.md.
+  audit mount fstype=tmpfs options=(rw) -> /dev/shm/,
+
   # All other mount operations are implicitly denied.
   # Do NOT add "deny mount," here: explicit deny would override the exceptions.
-  # No bind/rbind, tmpfs, proc, remount, move, pivot_root or mount wildcard grants.
+  # No bind/rbind, other tmpfs targets, proc, remount, move or pivot_root grants.
 }

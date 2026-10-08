@@ -1,6 +1,6 @@
 # Antigravity Home Assistant add-on
 
-Experimental v0.1.19. HAOS runtime and Google sign-in are not yet verified.
+Experimental v0.1.20. HAOS runtime and Google sign-in are not yet verified.
 
 ## Install
 
@@ -18,3 +18,7 @@ browser actions and MCP tools still need approval. Native sandbox compatibility 
 unfinished; Chat does not depend on it. Existing installations must select `chat`
 in Configuration to use the new profile. Keep Protection mode on.
 See [configuration and limits](antigravity/DOCS.md).
+
+Version 0.1.20 additionally permits the native sandbox's initial tmpfs mount at
+`/dev/shm` with exact zero flags. This is a targeted startup fix, not confirmation
+that the complete sandbox works. See [test instructions](antigravity/DOCS.md).

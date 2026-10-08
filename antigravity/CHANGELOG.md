@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.20 — Initial sandbox shared-memory mount
+
+- Add one exact tmpfs mount rule for /dev/shm, with zero mount flags (rw).
+- Establish the required flags from the checksum-verified official CLI 1.3.1 ARM64 binary; record inspection evidence.
+- Retain command approval during sandbox testing. No new capabilities or host access.
+- This addresses the identified startup denial; later native sandbox mounts and isolation remain unverified.
+
 ## 0.1.19 — Chat profile
 
 - Add Chat mode with artifact review disabled and existing narrow input/output grants.
