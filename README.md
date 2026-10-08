@@ -1,6 +1,6 @@
 # Antigravity Home Assistant add-on
 
-Experimental v0.2.1. Restricted-worker runtime needs verification on HAOS.
+Experimental v0.2.2. Restricted-worker runtime needs verification on HAOS.
 
 ## Install
 

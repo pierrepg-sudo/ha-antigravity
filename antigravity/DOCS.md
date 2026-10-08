@@ -1,5 +1,15 @@
 # Antigravity Remote
 
+## MCP configuration correction (0.2.2)
+
+Empty global MCP config files are treated as unused placeholders. UTF-8 byte-order
+marks are accepted. The original bytes are saved once as
+`~/.gemini/config/mcp_config.before-restricted-worker.json` with private permissions
+before adding the worker. Existing valid server definitions are retained.
+Nonempty malformed JSON still stops startup with a redacted location; it is not
+silently discarded. An error at line 1, column 1 alone does not prove which format
+problem the file contains.
+
 ## Startup correction (0.2.1)
 
 The trusted broker starts as non-root without prematurely setting

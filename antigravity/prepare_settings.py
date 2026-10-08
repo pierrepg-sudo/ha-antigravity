@@ -60,9 +60,12 @@ class ConfigurationError(ValueError):
     """Safe diagnostic: fixed stage names and error codes, never file contents."""
 
 
-def read_config(path, label, optional=True):
+def read_config(path, label, optional=True, allow_empty=False):
     try:
-        return json.loads(path.read_text())
+        text = path.read_text(encoding='utf-8-sig')
+        if allow_empty and not text.strip():
+            return {}
+        return json.loads(text)
     except FileNotFoundError:
         if optional:
             return {}
@@ -80,6 +83,28 @@ def write_config(path, value, label):
         atomic_json(path, value)
     except OSError as error:
         raise ConfigurationError(f'{label}: cannot write (errno={error.errno})') from None
+
+
+def backup_mcp(path):
+    """Keep the original bytes privately before our first MCP configuration edit."""
+    backup = path.with_name('mcp_config.before-restricted-worker.json')
+    try:
+        try:
+            original = path.read_bytes()
+        except FileNotFoundError:
+            return
+        try:
+            fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            return
+        try:
+            with os.fdopen(fd, 'wb') as target:
+                target.write(original)
+        except OSError:
+            backup.unlink(missing_ok=True)
+            raise
+    except OSError as error:
+        raise ConfigurationError(f'Global MCP backup: cannot preserve original (errno={error.errno})') from None
 
 
 def prepare(path, domains=None):
@@ -100,7 +125,7 @@ def prepare(path, domains=None):
     if not isinstance(previous_ask, list) or not all(isinstance(x, str) for x in previous_ask):
         raise ConfigurationError('Managed permission state: addedAsk must be a string list')
     config_path = path.parent.parent / 'config/mcp_config.json'
-    config = read_config(config_path, 'Global MCP configuration')
+    config = read_config(config_path, 'Global MCP configuration', allow_empty=True)
     if not isinstance(config, dict) or not isinstance(config.get('mcpServers', {}), dict):
         raise ConfigurationError('Global MCP configuration: mcpServers must be an object')
     backup = path.with_name('settings.before-restricted-worker.json')
@@ -126,6 +151,7 @@ def prepare(path, domains=None):
     write_config(state_path, {'addedAsk': added_ask}, 'Managed permission state')
     # The fixed CLI workspace is root-owned: generated outputs cannot install
     # auto-loaded workspace hooks or MCP configurations into the active workspace.
+    backup_mcp(config_path)
     config.setdefault('mcpServers', {})['ha-restricted-worker'] = {
         'command': '/usr/bin/python3', 'args': ['-I', '/usr/local/bin/worker_mcp.py']}
     write_config(config_path, config, 'Global MCP configuration')

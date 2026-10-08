@@ -86,3 +86,34 @@ class PolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(policy.ConfigurationError, 'not valid UTF-8') as error:
                 policy.read_config(path,'CLI settings')
             self.assertNotIn('SECRET_TOKEN',str(error.exception))
+
+    def test_empty_and_bom_mcp_are_preserved_and_initialized(self):
+        for original in (b'', b' \n\t ', b'\xef\xbb\xbf', b'\xef\xbb\xbf{"mcpServers":{"kept":{"command":"existing"}}}'):
+            with self.subTest(original=original), tempfile.TemporaryDirectory() as d:
+                path=Path(d)/'.gemini/antigravity-cli/settings.json'
+                path.parent.mkdir(parents=True)
+                mcp=path.parent.parent/'config/mcp_config.json';mcp.parent.mkdir()
+                mcp.write_bytes(original)
+                policy.prepare(path)
+                servers=json.loads(mcp.read_text())['mcpServers']
+                self.assertIn('ha-restricted-worker',servers)
+                if b'kept' in original:self.assertIn('kept',servers)
+                backup=mcp.with_name('mcp_config.before-restricted-worker.json')
+                self.assertEqual(backup.read_bytes(),original)
+                self.assertEqual(backup.stat().st_mode & 0o777,0o600)
+                policy.prepare(path)
+                self.assertEqual(backup.read_bytes(),original)
+
+    def test_nonempty_invalid_mcp_is_never_replaced(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'.gemini/antigravity-cli/settings.json';path.parent.mkdir(parents=True)
+            mcp=path.parent.parent/'config/mcp_config.json';mcp.parent.mkdir()
+            mcp.write_text('not valid JSON')
+            with self.assertRaises(policy.ConfigurationError):policy.prepare(path)
+            self.assertEqual(mcp.read_text(),'not valid JSON')
+            self.assertFalse(path.exists())
+
+    def test_empty_security_settings_remain_an_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'settings.json';path.write_text('')
+            with self.assertRaises(policy.ConfigurationError):policy.prepare(path)

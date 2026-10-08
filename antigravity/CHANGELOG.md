@@ -1,3 +1,10 @@
+## 0.2.2
+
+- Accept empty/whitespace-only global MCP configuration placeholders and UTF-8
+  byte-order marks. Keep strict validation for nonempty malformed content.
+- Preserve the original MCP configuration bytes in a private, one-time backup
+  before installing the managed worker entry; retain existing valid servers.
+
 ## 0.2.1
 
 - Move no-new-privileges enforcement to the restricted helper, after the AppArmor
