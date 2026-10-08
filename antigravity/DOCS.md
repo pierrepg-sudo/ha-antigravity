@@ -1,5 +1,19 @@
 # Antigravity Remote
 
+## Startup correction (0.2.1)
+
+The trusted broker starts as non-root without prematurely setting
+no-new-privileges, which can prevent AppArmor profile transitions. Each command
+still must enter the restricted child profile, verify its identity, and enable
+no-new-privileges and seccomp before the shell runs. No unconfined command fallback
+exists. If the container itself inherits NNP from HAOS, the startup check may still
+reject the transition; do not disable HAOS protections to override it.
+
+Settings errors now identify the failing stage (CLI settings, managed state,
+backup, global MCP config or trusted domains) and errno/JSON coordinates without
+printing values. The generic error in the earlier log did not identify its cause.
+Share the new startup error if preparation still fails.
+
 ## Restricted commands (0.2.0)
 
 There is one managed permission policy. The Chat, Balanced and Review options,

@@ -54,3 +54,35 @@ class PolicyTests(unittest.TestCase):
                 self.assertEqual(json.loads(path.read_text()),value)
             for domains in (['*'], ['http://example.org'], ['127.0.0.1'], ['host.local'], ['example.org/path']):
                 with self.assertRaises(ValueError):policy.trusted_domains(domains)
+
+    def test_invalid_mcp_fails_before_settings_change(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'.gemini/antigravity-cli/settings.json';path.parent.mkdir(parents=True)
+            path.write_text('{}')
+            mcp=path.parent.parent/'config/mcp_config.json';mcp.parent.mkdir()
+            mcp.write_text('{"mcpServers": null}')
+            with self.assertRaisesRegex(policy.ConfigurationError, 'Global MCP configuration'):
+                policy.prepare(path)
+            self.assertEqual(path.read_text(),'{}')
+
+    def test_diagnostics_never_include_configuration_contents(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'settings.json'
+            path.write_text('{"SECRET_TOKEN": sensitive-value}')
+            with self.assertRaisesRegex(policy.ConfigurationError, 'invalid JSON at line 1') as error:
+                policy.read_config(path,'CLI settings')
+            self.assertNotIn('SECRET_TOKEN',str(error.exception))
+            self.assertNotIn('sensitive-value',str(error.exception))
+            with patch.object(Path,'read_text',side_effect=PermissionError(13,'SECRET_TOKEN')):
+                with self.assertRaisesRegex(policy.ConfigurationError, 'cannot read \\(errno=13\\)') as error:
+                    policy.read_config(path,'CLI settings')
+                self.assertNotIn('SECRET_TOKEN',str(error.exception))
+
+    def test_invalid_encoding_is_redacted(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'settings.json'
+            path.write_bytes(b'SECRET_TOKEN=\xff')
+            with self.assertRaisesRegex(policy.ConfigurationError, 'not valid UTF-8') as error:
+                policy.read_config(path,'CLI settings')
+            self.assertNotIn('SECRET_TOKEN',str(error.exception))

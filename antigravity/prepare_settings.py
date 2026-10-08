@@ -56,9 +56,35 @@ def atomic_json(path, value):
             os.unlink(temp)
 
 
+class ConfigurationError(ValueError):
+    """Safe diagnostic: fixed stage names and error codes, never file contents."""
+
+
+def read_config(path, label, optional=True):
+    try:
+        return json.loads(path.read_text())
+    except FileNotFoundError:
+        if optional:
+            return {}
+        raise ConfigurationError(label + ': file missing') from None
+    except json.JSONDecodeError as error:
+        raise ConfigurationError(f'{label}: invalid JSON at line {error.lineno}, column {error.colno}') from None
+    except UnicodeError:
+        raise ConfigurationError(label + ': file is not valid UTF-8') from None
+    except OSError as error:
+        raise ConfigurationError(f'{label}: cannot read (errno={error.errno})') from None
+
+
+def write_config(path, value, label):
+    try:
+        atomic_json(path, value)
+    except OSError as error:
+        raise ConfigurationError(f'{label}: cannot write (errno={error.errno})') from None
+
+
 def prepare(path, domains=None):
     domains = trusted_domains([] if domains is None else domains)
-    settings = json.loads(path.read_text()) if path.exists() else {}
+    settings = read_config(path, 'CLI settings')
     if not isinstance(settings, dict):
         raise ValueError('Settings must be an object')
     permissions = settings.get('permissions', {})
@@ -68,9 +94,18 @@ def prepare(path, domains=None):
         rules = permissions.get(key, [])
         if not isinstance(rules, list) or not all(isinstance(rule, str) for rule in rules):
             raise ValueError('Permission rules must be string lists')
+    state_path = path.with_name('ha-managed-permissions.json')
+    previous = read_config(state_path, 'Managed permission state')
+    previous_ask = previous.get('addedAsk', []) if isinstance(previous, dict) else None
+    if not isinstance(previous_ask, list) or not all(isinstance(x, str) for x in previous_ask):
+        raise ConfigurationError('Managed permission state: addedAsk must be a string list')
+    config_path = path.parent.parent / 'config/mcp_config.json'
+    config = read_config(config_path, 'Global MCP configuration')
+    if not isinstance(config, dict) or not isinstance(config.get('mcpServers', {}), dict):
+        raise ConfigurationError('Global MCP configuration: mcpServers must be an object')
     backup = path.with_name('settings.before-restricted-worker.json')
     if not backup.exists():
-        atomic_json(backup, settings)
+        write_config(backup, settings, 'Settings backup')
     settings.update(enableTerminalSandbox=False,
                     toolPermission='request-review',
                     allowNonWorkspaceAccess=False,
@@ -79,9 +114,6 @@ def prepare(path, domains=None):
         settings['altScreenMode'] = 'never'
     # Replace all prior grants; retain user-authored restrictions. Our own previous
     # ask rules are replaced when upgrading the policy; user restrictions survive.
-    state_path = path.with_name('ha-managed-permissions.json')
-    previous = json.loads(state_path.read_text()) if state_path.exists() else {}
-    previous_ask = previous.get('addedAsk', []) if isinstance(previous, dict) else []
     ask = [x for x in permissions.get('ask', []) if x not in previous_ask]
     required_ask = list(ASK)
     added_ask = [x for x in required_ask if x not in ask]
@@ -90,25 +122,24 @@ def prepare(path, domains=None):
         'deny': list(dict.fromkeys(permissions.get('deny', []) + DENY)),
         'ask': list(dict.fromkeys(ask + required_ask)),
     }
-    atomic_json(path, settings)
-    atomic_json(state_path, {'addedAsk': added_ask})
+    write_config(path, settings, 'CLI settings')
+    write_config(state_path, {'addedAsk': added_ask}, 'Managed permission state')
     # The fixed CLI workspace is root-owned: generated outputs cannot install
     # auto-loaded workspace hooks or MCP configurations into the active workspace.
-    config_path = path.parent.parent / 'config/mcp_config.json'
-    config = json.loads(config_path.read_text()) if config_path.exists() else {}
-    if not isinstance(config, dict) or not isinstance(config.get('mcpServers', {}), dict):
-        raise ValueError('Invalid MCP configuration')
     config.setdefault('mcpServers', {})['ha-restricted-worker'] = {
         'command': '/usr/bin/python3', 'args': ['-I', '/usr/local/bin/worker_mcp.py']}
-    atomic_json(config_path, config)
+    write_config(config_path, config, 'Global MCP configuration')
     return {'message': 'One managed policy: native shell blocked; use the restricted worker for commands.',
             'trustedReadDomains': domains}
 
 
 if __name__ == '__main__':
     try:
-        domains = json.loads(Path('/run/antigravity/trusted-read-domains.json').read_text())
+        domains = read_config(Path('/run/antigravity/trusted-read-domains.json'), 'Trusted domains', optional=False)
         status = prepare(Path.home() / '.gemini/antigravity-cli/settings.json', domains=domains)
         print(status['message'], flush=True)
-    except (OSError, ValueError):
-        raise SystemExit('Cannot apply managed permissions. CLI startup stopped; check settings and add-on options.')
+    except ValueError as error:
+        # All ValueErrors here have fixed messages or redacted JSON coordinates.
+        raise SystemExit('Cannot apply managed permissions: ' + str(error) + '. CLI startup stopped.')
+    except OSError as error:
+        raise SystemExit(f'Cannot apply managed permissions: filesystem operation failed (errno={error.errno}). CLI startup stopped.')

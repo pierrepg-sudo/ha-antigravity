@@ -1,3 +1,13 @@
+## 0.2.1
+
+- Move no-new-privileges enforcement to the restricted helper, after the AppArmor
+  transition and before any command. The broker remains non-root. All command
+  identity, filesystem and syscall checks remain mandatory.
+- Report the exact settings preparation stage and safe error code/JSON location
+  instead of hiding all causes behind one startup error. No configuration values,
+  tokens or credentials are logged.
+- Validate MCP and managed-state structures before updating settings.
+
 ## 0.2.0
 
 - Replace all three permission profiles with one managed policy; remove their

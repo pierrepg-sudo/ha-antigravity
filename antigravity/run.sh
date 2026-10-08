@@ -15,7 +15,9 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 0' INT TERM
-runuser -u worker -- setpriv --no-new-privs python3 /usr/local/bin/command_worker.py &
+# Enter the child AppArmor profile before setting no-new-privileges.
+# restricted-exec requires that profile, then installs NNP/seccomp before the shell.
+runuser -u worker -- python3 /usr/local/bin/command_worker.py &
 worker_pid=$!
 runuser -u files -- setpriv --no-new-privs python3 /usr/local/bin/file_server.py &
 files_pid=$!
