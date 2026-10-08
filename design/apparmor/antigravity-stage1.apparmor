@@ -1,0 +1,68 @@
+# SPDX-FileCopyrightText: Copyright The Moby Authors
+# SPDX-License-Identifier: Apache-2.0
+# Adapted from github.com/moby/profiles/apparmor/template.go.
+# Modifications: standalone add-on name and peer labels; root propagation exceptions.
+# DESIGN CANDIDATE ONLY — not installed or loaded by this repository.
+# Read README.md beside this file before use. Not a complete working sandbox policy.
+# AppArmor parser and HAOS runtime validation are outstanding.
+#include <tunables/global>
+
+profile antigravity_remote flags=(attach_disconnected,mediate_deleted) {
+  # Compatibility baseline modeled on Docker's default container profile.
+  # Reconcile against the target Docker version before any test deployment.
+  # These AppArmor permissions do not grant Linux capabilities or bypass DAC.
+  #include <abstractions/base>
+  network,
+  capability,
+  file,
+  umount,
+
+  # Preserve the upstream protocol restrictions represented in the reviewed template.
+  deny network ax25,
+  deny network ipx,
+  deny network appletalk,
+  deny network netrom,
+  deny network rose,
+  deny network econet,
+  deny network atmsvc,
+  deny network irda,
+  deny network wanpipe,
+  deny network isdn,
+  deny network caif,
+  deny network alg,
+  deny network vsock,
+
+  # Host runtime may stop the container; peers remain within this profile.
+  # Supervisor's final loaded profile label must be checked before deployment.
+  signal (receive) peer=unconfined,
+  signal (receive) peer=runc,
+  signal (receive) peer=crun,
+  signal (receive) peer=hassio-supervisor,
+  signal (send,receive) peer=antigravity_remote,
+  ptrace (trace,tracedby,read,readby) peer=antigravity_remote,
+
+  deny @{PROC}/* w,
+  deny @{PROC}/{[^1-9/],[^1-9/][^0-9/],[^1-9s/][^0-9y/][^0-9s/],[^1-9/][^0-9/][^0-9/][^0-9/]*}/** w,
+  deny @{PROC}/sys/[^k]** w,
+  deny @{PROC}/sys/kernel/{?,??,[^s][^h][^m]**} w,
+  deny @{PROC}/sysrq-trigger rwklx,
+  deny @{PROC}/kcore rwklx,
+  deny /sys/[^f]*/** wklx,
+  deny /sys/f[^s]*/** wklx,
+  deny /sys/fs/[^c]*/** wklx,
+  deny /sys/fs/c[^g]*/** wklx,
+  deny /sys/firmware/** rwklx,
+  deny /sys/devices/virtual/powercap/** rwklx,
+  deny /sys/kernel/security/** rwklx,
+
+  # The only proposed mount exceptions in stage 1.
+  # Exact option sets: no "in (...)" wildcard combinations.
+  # Log text does not distinguish MS_PRIVATE from MS_PRIVATE|MS_REC;
+  # retain only the variant(s) shown necessary by native/probe audit evidence.
+  audit mount options=(private) -> /,
+  audit mount options=(rprivate) -> /,
+
+  # All other mount operations are implicitly denied.
+  # Do NOT add "deny mount," here: explicit deny would override the exceptions.
+  # No bind/rbind, tmpfs, proc, remount, move, pivot_root or mount wildcard grants.
+}
