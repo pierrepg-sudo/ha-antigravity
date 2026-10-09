@@ -73,12 +73,26 @@ def rules(policy):
         requests.append(f'{family} daddr {addr} meta l4proto {{ tcp, udp }} th dport 53 accept')
         replies.append(f'{family} saddr {addr} meta l4proto {{ tcp, udp }} th sport 53 ct state established accept')
     return '''table inet agy_egress {
+ counter blocked4_tcp { }
+ counter blocked4_udp { }
+ counter blocked6_tcp { }
+ counter blocked6_udp { }
+ chain reject4 {
+  meta l4proto tcp counter name blocked4_tcp reject with icmpx type admin-prohibited
+  meta l4proto udp counter name blocked4_udp reject with icmpx type admin-prohibited
+  reject with icmpx type admin-prohibited
+ }
+ chain reject6 {
+  meta l4proto tcp counter name blocked6_tcp reject with icmpx type admin-prohibited
+  meta l4proto udp counter name blocked6_udp reject with icmpx type admin-prohibited
+  reject with icmpx type admin-prohibited
+ }
  chain output { type filter hook output priority filter; policy drop;
   oifname "tap0" ip6 hoplimit 255 icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } accept
   ''' + '\n  '.join('oifname "lo" ' + r for r in requests + replies) + '''
-  ip daddr { ''' + ', '.join(blocked4) + ''' } reject with icmpx type admin-prohibited
-  ip6 daddr != 2000::/3 reject with icmpx type admin-prohibited
-  ip6 daddr { ''' + ', '.join(blocked6) + ''' } reject with icmpx type admin-prohibited
+  ip daddr { ''' + ', '.join(blocked4) + ''' } jump reject4
+  ip6 daddr != 2000::/3 jump reject6
+  ip6 daddr { ''' + ', '.join(blocked6) + ''' } jump reject6
   meta l4proto { tcp, udp } accept
   reject with icmpx type admin-prohibited
  }
@@ -90,6 +104,56 @@ def rules(policy):
  chain forward { type filter hook forward priority filter; policy drop; }
 }
 '''
+
+
+def rejected_packets(name):
+    raw = run_setup([NFT, '-j', 'list', 'counter', 'inet', 'agy_egress', name],
+                    'Firewall counter inspection')
+    data = json.loads(raw)
+    counters = [entry['counter'] for entry in data.get('nftables', [])
+                if 'counter' in entry]
+    matching = [entry for entry in counters if entry.get('family') == 'inet'
+                and entry.get('table') == 'agy_egress' and entry.get('name') == name]
+    if len(matching) != 1 or type(matching[0].get('packets')) is not int or matching[0]['packets'] < 0:
+        raise RuntimeError('Firewall counter response invalid')
+    return matching[0]['packets']
+
+
+def verify_destination_filter():
+    """Require kernel reject evidence, not a particular socket errno.
+
+    Runs before DNS helpers or user commands, while only this trusted launcher
+    owns the namespace. Each protocol has its own counter, excluding ICMP replies.
+    A UDP send return means enqueueing, not delivery. TCP connection success always
+    fails the check; errors/timeouts pass only with an increased reject counter.
+    """
+    probes = [(socket.AF_INET, '127.0.0.1', '4', 'IPv4 loopback'),
+              (socket.AF_INET, '192.168.1.1', '4', 'IPv4 private'),
+              (socket.AF_INET, '169.254.169.254', '4', 'IPv4 link-local'),
+              (socket.AF_INET6, '::1', '6', 'IPv6 loopback'),
+              (socket.AF_INET6, 'fc00::1', '6', 'IPv6 private')]
+    for family, host, version, label in probes:
+        for kind, protocol in ((socket.SOCK_STREAM, 'tcp'), (socket.SOCK_DGRAM, 'udp')):
+            name = 'blocked' + version + '_' + protocol
+            before = rejected_packets(name)
+            connected = False
+            outcome = 'send returned'
+            with socket.socket(family, kind) as connection:
+                connection.settimeout(0.25)
+                try:
+                    if kind == socket.SOCK_STREAM:
+                        connection.connect((host, 443))
+                        connected = True
+                    else:
+                        connection.sendto(b'worker-check', (host, 443))
+                except TimeoutError:
+                    outcome = 'timeout'
+                except OSError as exc:
+                    outcome = 'errno ' + str(exc.errno)
+            after = rejected_packets(name)
+            if connected or after <= before:
+                detail = 'TCP connected' if connected else outcome + '; reject counter unchanged'
+                raise RuntimeError(f'Destination filtering unverified: {label}/{protocol} ({detail})')
 
 
 def inside(ready_fd, label, job, command):
@@ -111,6 +175,7 @@ def inside(ready_fd, label, job, command):
                    'dev', 'lo'], 'Job-local DNS address')
     firewall = rules(policy)
     run_setup([NFT, '-f', '-'], 'namespace firewall', input=firewall.encode())
+    verify_destination_filter()
     # Bind the only permitted local service before running untrusted commands.
     # These listeners exist only inside this job's isolated network namespace.
     listeners = []

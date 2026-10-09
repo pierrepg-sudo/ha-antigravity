@@ -1,3 +1,17 @@
+## 0.2.4
+
+- Fix destination-filter verification: an immediate EPERM/EACCES is not the only
+  possible socket result when a packet is rejected. A timeout is not itself proof
+  of either successful filtering or a leak.
+- Require an increased kernel reject counter for every fixed TCP/UDP probe,
+  separately for IPv4/IPv6. TCP connection success, unreadable counters, or no
+  counter increase stop the job. Verification runs before every command, while
+  only the trusted launcher owns the namespace.
+- Remove the old errno-only probe. Preserve private/local destination restrictions,
+  capability removal, AppArmor, seccomp, file boundaries and no-fallback behavior.
+- Report a bounded protocol/address-category diagnostic if filtering is still
+  unverified, without a traceback or personal destination addresses.
+
 ## 0.2.3
 
 - Permit public outbound TCP/UDP in a fresh user/network namespace for each worker

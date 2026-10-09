@@ -15,7 +15,7 @@ def dispatch(request):
     params = request.get('params', {})
     if method == 'initialize':
         return {'protocolVersion': '2024-11-05', 'capabilities': {'tools': {}},
-                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.2.3'}}
+                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.2.4'}}
     if method == 'ping':
         return {}
     if method == 'tools/list':

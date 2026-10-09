@@ -1,5 +1,25 @@
 # Antigravity Remote
 
+## Destination check correction (0.2.4)
+
+Version 0.2.3 incorrectly required private-address probes to fail immediately with
+EPERM/EACCES. The reported timeout therefore left the worker unavailable; the
+screenshot alone does not establish whether packets passed the firewall.
+
+Version 0.2.4 checks the actual kernel reject counters instead. Before **every
+command**, the trusted namespace launcher sends bounded fixed probes for IPv4/
+IPv6 loopback, private and IPv4 link-local destinations using TCP and UDP. Each
+probe must increment the corresponding firewall reject counter. TCP connection
+success always fails. Timeouts, connection refusals and UDP send returns cannot
+pass without that counter evidence. Counter-read or verification failures stop
+execution before DNS helpers or user commands start. No destination permission
+was relaxed. The final confined child still verifies its file, capability and
+socket-family restrictions.
+
+Update, restart with Protection mode on, then check the worker status. A failure
+now names the fixed address category and protocol plus whether the reject counter
+changed. Refresh reads the last startup result; it does not rerun probes.
+
 ## Public outbound internet (0.2.3)
 
 Worker commands can use public TCP/UDP destinations on any port, including HTTPS,
