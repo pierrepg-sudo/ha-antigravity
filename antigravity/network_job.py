@@ -156,6 +156,17 @@ def verify_destination_filter():
                 raise RuntimeError(f'Destination filtering unverified: {label}/{protocol} ({detail})')
 
 
+def configure_ipv6():
+    # slirp's documented fd00::/64 network and fd00::2 gateway. Do not depend on
+    # asynchronous router advertisements: the firewall intentionally permits only
+    # neighbor discovery, and checks must have a usable route before probing.
+    # This namespace contains one guest interface; the fixed address is job-local.
+    run_setup([IP, '-6', 'address', 'replace', 'fd00::100/64', 'dev', 'tap0', 'nodad'],
+              'Job IPv6 address setup')
+    run_setup([IP, '-6', 'route', 'replace', 'default', 'via', 'fd00::2',
+               'dev', 'tap0', 'src', 'fd00::100'], 'Job IPv6 default route setup')
+
+
 def inside(ready_fd, label, job, command):
     if os.getuid() != 0 or Path('/proc/self/uid_map').read_text().split() != ['0', '1002', '1']:
         raise RuntimeError('Network setup requires the dedicated worker user namespace')
@@ -165,6 +176,7 @@ def inside(ready_fd, label, job, command):
     policy = json.loads(sys.stdin.buffer.readline(65536))
     if set(policy) != {'connected', 'resolvers'}:
         raise RuntimeError('Invalid network policy')
+    configure_ipv6()
     addresses = stub_addresses(policy)
     for address in addresses:
         # 127/8 is already routed to lo; ::1 already exists. Other resolver IPs

@@ -1,5 +1,24 @@
 # Antigravity Remote
 
+## IPv6 startup routing correction (0.2.5)
+
+The reported `IPv6 private/tcp (errno 101; reject counter unchanged)` means the
+probe could not reach a route and therefore did not verify firewall rejection.
+The launcher now explicitly assigns `fd00::100/64` to the job's `tap0` interface
+and installs its default IPv6 route via slirp's documented gateway `fd00::2`,
+after relay readiness and before firewall verification. The job-local address
+uses `nodad`: this is a fresh, single-guest namespace with a fixed unused address,
+so verification need not wait for asynchronous address configuration.
+
+These changes are inside the temporary job network only. All private/local deny
+rules and mandatory kernel-counter tests remain. An unavailable route is still
+an error, never a substitute for verified rejection. Update and restart with
+Protection mode on, then check the worker status. Actual public IPv6 connectivity
+also requires IPv6 support in the host's internet connection.
+
+The routing change has local regression-test coverage but has not yet been
+verified on HAOS; the device's startup check is still required.
+
 ## Destination check correction (0.2.4)
 
 Version 0.2.3 incorrectly required private-address probes to fail immediately with

@@ -53,7 +53,7 @@ class NetworkTests(unittest.TestCase):
         with patch.object(network.os, 'getuid', return_value=0), \
              patch.object(network.Path, 'read_text', return_value='0 1002 1'), \
              patch.object(network.sys, 'stdin', stdin), patch.object(network.os, 'write'), \
-             patch.object(network.os, 'close'), patch.object(network, 'run_setup', side_effect=RuntimeError('firewall failed')), \
+             patch.object(network.os, 'close'), patch.object(network, 'run_setup', side_effect=[b'', b'', RuntimeError('firewall failed')]), \
              patch.object(network.subprocess, 'Popen') as spawn, patch.object(network.os, 'execv') as execute:
             with self.assertRaisesRegex(RuntimeError, 'firewall failed'):
                 network.inside('3', 'label', 'job', 'SECRET COMMAND')
@@ -131,6 +131,43 @@ class NetworkTests(unittest.TestCase):
              patch.object(network.subprocess, 'Popen') as spawn, patch.object(network.os, 'execv') as execute:
             with self.assertRaisesRegex(RuntimeError, 'unverified'):
                 network.inside('3', 'label', 'job', 'COMMAND')
+            spawn.assert_not_called()
+            execute.assert_not_called()
+
+    def test_ipv6_routes_are_ready_before_firewall_probes(self):
+        policy = json.dumps({'connected': [], 'resolvers': ['127.0.0.11']}).encode() + b'\n'
+        with patch.object(network.os, 'getuid', return_value=0), \
+             patch.object(network.Path, 'read_text', return_value='0 1002 1'), \
+             patch.object(network.sys, 'stdin', Mock(buffer=io.BytesIO(policy))), \
+             patch.object(network.os, 'write'), patch.object(network.os, 'close'), \
+             patch.object(network, 'run_setup') as setup, \
+             patch.object(network.subprocess, 'Popen') as spawn, patch.object(network.os, 'execv') as execute:
+            def probe():
+                calls = [c.args[0] for c in setup.call_args_list]
+                self.assertEqual(calls[:2], [
+                    [network.IP, '-6', 'address', 'replace', 'fd00::100/64', 'dev', 'tap0', 'nodad'],
+                    [network.IP, '-6', 'route', 'replace', 'default', 'via', 'fd00::2',
+                     'dev', 'tap0', 'src', 'fd00::100']])
+                self.assertEqual(calls[2], [network.NFT, '-f', '-'])
+                raise RuntimeError('test stops before command')
+            with patch.object(network, 'verify_destination_filter', side_effect=probe):
+                with self.assertRaisesRegex(RuntimeError, 'test stops'):
+                    network.inside('3', 'label', 'job', 'COMMAND')
+            spawn.assert_not_called()
+            execute.assert_not_called()
+
+    def test_ipv6_route_failure_stops_before_probe_or_execution(self):
+        policy = json.dumps({'connected': [], 'resolvers': ['127.0.0.11']}).encode() + b'\n'
+        with patch.object(network.os, 'getuid', return_value=0), \
+             patch.object(network.Path, 'read_text', return_value='0 1002 1'), \
+             patch.object(network.sys, 'stdin', Mock(buffer=io.BytesIO(policy))), \
+             patch.object(network.os, 'write'), patch.object(network.os, 'close'), \
+             patch.object(network, 'run_setup', side_effect=[b'', RuntimeError('IPv6 route failed')]), \
+             patch.object(network, 'verify_destination_filter') as probe, \
+             patch.object(network.subprocess, 'Popen') as spawn, patch.object(network.os, 'execv') as execute:
+            with self.assertRaisesRegex(RuntimeError, 'IPv6 route failed'):
+                network.inside('3', 'label', 'job', 'COMMAND')
+            probe.assert_not_called()
             spawn.assert_not_called()
             execute.assert_not_called()
 

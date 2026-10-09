@@ -1,3 +1,15 @@
+## 0.2.5
+
+- Configure the temporary job's IPv6 address and default route explicitly after
+  slirp is ready, using fd00::100/64 and its documented fd00::2 gateway.
+- Avoid depending on asynchronous IPv6 router advertisements before firewall
+  probes. Previously the private IPv6 probe could fail with ENETUNREACH before
+  producing a packet, leaving its reject counter unchanged.
+- Preserve mandatory reject-counter verification for all probes; no skipped IPv6
+  checks or acceptance of network-unreachable as evidence of filtering.
+- Route setup failure stops the job. No host routes, AppArmor permissions, firewall
+  allow rules, persistent services or HAOS protection settings are changed.
+
 ## 0.2.4
 
 - Fix destination-filter verification: an immediate EPERM/EACCES is not the only
