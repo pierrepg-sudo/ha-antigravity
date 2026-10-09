@@ -63,7 +63,11 @@ profile antigravity_remote flags=(attach_disconnected,mediate_deleted) {
 
   profile command_worker flags=(attach_disconnected,mediate_deleted) {
     # IP traffic is confined by the immutable per-job namespace firewall.
-    # No Unix/netlink/raw sockets or capabilities are available to commands.
+    # Named/abstract Unix services, netlink/raw sockets and capabilities stay blocked.
+    # curl's threaded resolver uses an unnamed socketpair for completion signals.
+    # Seccomp permits only AF_UNIX/SOCK_STREAM socketpair, never socket(AF_UNIX).
+    unix (create, getattr, setattr, getopt, setopt, shutdown) type=stream addr=none,
+    unix (connect, send, receive) type=stream addr=none peer=(addr=none),
     network inet stream,
     network inet dgram,
     network inet6 stream,

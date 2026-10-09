@@ -1,5 +1,15 @@
 # Antigravity Remote
 
+## Resolver compatibility (0.2.6)
+
+The command profile permits anonymous Unix stream socketpairs for curl's threaded
+DNS resolver. Ordinary Unix socket creation remains denied by seccomp, so this
+exception does not enable connections to local services. Startup verifies thread
+creation and data exchange over an anonymous pair inside the final command profile.
+Public/private destination filtering and filesystem boundaries are unchanged.
+The curl error alone does not prove its cause; validate HTTPS on the target HAOS
+installation after updating.
+
 ## IPv6 startup routing correction (0.2.5)
 
 The reported `IPv6 private/tcp (errno 101; reject counter unchanged)` means the
@@ -52,7 +62,7 @@ multicast, reserved/documentation ranges, IPv6 translation/tunnel ranges and the
 add-on's connected subnets are blocked. IPv6 public unicast is supported when the
 host has IPv6 connectivity. The filter checks packet destinations, so direct IPs,
 redirects and DNS rebinding do not exempt private addresses. The command cannot
-open raw/netlink/Unix sockets, change the firewall, join another namespace or start
+open raw/netlink or named/abstract Unix sockets, change the firewall, join another namespace or start
 an inbound TCP listener. No ports are published.
 
 For DNS, configured nonpublic resolver addresses are redirected **inside the job**
@@ -152,7 +162,7 @@ blocked. This integration uses Google's documented global MCP config and exact
   small set of non-secret configuration files are readable. CLI home, private
   runtime files and arbitrary proc files have no AppArmor grant.
 - Public outbound TCP/UDP is permitted through the per-job firewall described
-  above; private/local networks and Unix sockets are blocked. Trusted website
+  above; private/local networks and named/abstract Unix services are blocked. Trusted website
   domains do not modify this firewall. Built-in web tools retain their own review
   controls.
 - Native shell and unsandboxed commands are denied by CLI policy. Input reads,

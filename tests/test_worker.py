@@ -51,17 +51,27 @@ class WorkerTests(unittest.TestCase):
             # Reuse the actual filter in a disposable test executable; no test
             # switch or bypass is compiled into the shipped worker.
             harness.write_text('#define main worker_entry\n#include '+json.dumps(str(source))+'\n#undef main\n'
-                '#include <sys/socket.h>\nint main(void) {\n'
+                '#include <sys/socket.h>\n#include <pthread.h>\n'
+                'static void *send_byte(void *p){int fd=*(int*)p;return (void*)(long)(write(fd,"x",1)!=1); }\n'
+                'int main(void) {\n'
                 'if(prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0)){return 2;} install_filter();\n'
                 'int s=socket(AF_INET,SOCK_STREAM,0);if(s<0)return 3;close(s);\n'
                 'if(socket(AF_UNIX,SOCK_STREAM,0)!=-1 || errno!=EPERM)return 4;\n'
                 'if(socket(AF_NETLINK,SOCK_RAW,0)!=-1 || errno!=EPERM)return 8;\n'
                 'if(socket(AF_INET,SOCK_RAW,0)!=-1 || errno!=EPERM)return 9;\n'
                 's=socket(AF_INET6,SOCK_DGRAM|SOCK_CLOEXEC,0);if(s<0)return 10;close(s);\n'
+                'int pair[2];char b;void *result;pthread_t thread;\n'
+                'if(socketpair(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC,0,pair))return 11;\n'
+                'if(pthread_create(&thread,0,send_byte,&pair[1]))return 12;\n'
+                'if(pthread_join(thread,&result)||result||read(pair[0],&b,1)!=1||b!="x"[0])return 13;\n'
+                'close(pair[0]);close(pair[1]);\n'
+                'if(socketpair(AF_UNIX,SOCK_DGRAM,0,pair)!=-1||errno!=EPERM)return 14;\n'
+                'if(socketpair(AF_INET,SOCK_STREAM,0,pair)!=-1||errno!=EPERM)return 15;\n'
+                'if(socketpair(AF_UNIX,SOCK_STREAM,1,pair)!=-1||errno!=EPERM)return 16;\n'
                 'if(setsid()!=-1 || errno!=EPERM)return 5;\n'
                 'if(setpgid(0,0)!=-1 || errno!=EPERM)return 6;\n'
                 'execl("/usr/bin/true","true",(char*)0);return 7; }\n')
             binary=Path(d)/'filter'
-            build=subprocess.run(['cc','-O2','-Wall','-Wextra','-Werror',str(harness),'-o',str(binary)],capture_output=True,text=True)
+            build=subprocess.run(['cc','-pthread','-O2','-Wall','-Wextra','-Werror',str(harness),'-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(build.returncode,0,build.stderr)
             self.assertEqual(subprocess.run([str(binary)],timeout=5).returncode,0)

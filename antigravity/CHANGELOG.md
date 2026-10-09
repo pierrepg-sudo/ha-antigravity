@@ -1,3 +1,12 @@
+## 0.2.6
+
+- Allow anonymous Unix stream socketpairs used by curl's threaded DNS resolver.
+  AppArmor limits this to unnamed endpoints; seccomp continues denying ordinary
+  Unix socket creation and now explicitly restricts socketpair family/type/protocol.
+- Verify thread startup and socketpair communication in the live worker check.
+- Preserve private/local network blocking, filesystem isolation and job limits.
+  Target-device HTTPS verification is still required.
+
 ## 0.2.5
 
 - Configure the temporary job's IPv6 address and default route explicitly after

@@ -70,7 +70,7 @@ def execute(command, label, timeout=90):
 def self_test(label):
     """Actual child checks, not a namespace preflight. No real secrets are read."""
     script = r'''/usr/bin/python3 -I - <<'PY'
-import errno, os, socket, subprocess, tempfile
+import errno, os, socket, subprocess, tempfile, threading
 assert os.getuid() == 0
 assert open('/proc/self/uid_map').read().split() == ['0', '1002', '1']
 assert 'CapEff:\t0000000000000000' in open('/proc/self/status').read()
@@ -94,6 +94,18 @@ for family in (socket.AF_UNIX, socket.AF_NETLINK, socket.AF_PACKET):
     else:
         s.close()
         raise AssertionError('Socket boundary failed')
+# Exercise the anonymous IPC and thread startup used by curl's DNS resolver.
+try:
+    reader, writer = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+    with reader, writer:
+        reader.settimeout(3)
+        thread = threading.Thread(target=writer.sendall, args=(b'resolver-check',))
+        thread.start()
+        thread.join(3)
+        assert not thread.is_alive()
+        assert reader.recv(64) == b'resolver-check'
+except Exception as exc:
+    raise AssertionError('Resolver thread/socketpair check failed') from exc
 # The trusted namespace launcher already verified kernel reject counters before
 # dropping capabilities. Check that the final profile permits IP socket creation.
 for family in (socket.AF_INET, socket.AF_INET6):
