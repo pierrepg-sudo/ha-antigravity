@@ -1,4 +1,4 @@
-"""Separate-UID, serial command broker. Never execute a request without confinement."""
+"""Separate-UID command and managed-job broker. Never execute a request without confinement."""
 import json
 import os
 from pathlib import Path
@@ -11,6 +11,9 @@ import struct
 import subprocess
 import tempfile
 import time
+import threading
+import uuid
+import re
 
 SOCKET = '/run/antigravity-worker/worker.sock'
 STATUS = Path('/run/antigravity-worker/status.json')
@@ -19,9 +22,14 @@ MAX_OUTPUT = 262144
 TMP = Path('/tmp/agy-worker')
 
 
-def execute(command, label, timeout=90):
+def validate_command(command):
     if not isinstance(command, str) or not command.strip() or len(command.encode()) > 32768 or '\x00' in command:
         raise ValueError('Command must be nonempty text of at most 32768 bytes')
+
+
+def execute(command, label, timeout=90, stop=None, capture=None):
+    validate_command(command)
+    managed = stop is not None
     job = tempfile.mkdtemp(prefix='job-', dir=TMP)
     process = None
     output = bytearray()
@@ -29,13 +37,24 @@ def execute(command, label, timeout=90):
     truncated = False
     try:
         process = subprocess.Popen(
-            ['/usr/bin/python3', '-I', '/usr/local/bin/network_job.py', label, job, command], stdin=subprocess.DEVNULL,
+            ['/usr/bin/python3', '-I', '/usr/local/bin/network_job.py', label, job, command] + (['managed'] if managed else []), stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
             close_fds=True, env={'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8'})
         with selectors.DefaultSelector() as poll:
             poll.register(process.stdout, selectors.EVENT_READ)
-            end = time.monotonic() + timeout
-            while poll.get_map():
+            end = time.monotonic() + timeout if timeout is not None else float('inf')
+            exited_at = None
+            while True:
+                # Observe exit without reaping: reserve the leader PID until all
+                # process-group signals have been sent, avoiding PID reuse races.
+                exited = os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+                if exited is not None:
+                    if exited_at is None:
+                        exited_at = time.monotonic()
+                    if not poll.get_map() or time.monotonic() - exited_at >= .2:
+                        break
+                if stop is not None and stop.is_set():
+                    break
                 if time.monotonic() >= end:
                     timed_out = True
                     break
@@ -44,16 +63,22 @@ def execute(command, label, timeout=90):
                     if not data:
                         poll.unregister(key.fileobj)
                         continue
+                    if capture is not None:
+                        capture(data)
                     remaining = MAX_OUTPUT-len(output)
                     output.extend(data[:remaining])
                     truncated |= len(data) > remaining
-            if not timed_out:
-                try:
-                    process.wait(timeout=max(0.01, end-time.monotonic()))
-                except subprocess.TimeoutExpired:
-                    timed_out = True
     finally:
         if process is not None:
+            # Managed jobs get a short grace period, then all descendants and
+            # network helpers are killed, including children retaining pipes.
+            if managed:
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                # Keep the group leader unreaped during the grace period.
+                time.sleep(2)
             # The filter prevents descendants leaving the job's process group.
             try:
                 os.killpg(process.pid, signal.SIGKILL)
@@ -126,10 +151,108 @@ else:
     raise AssertionError('Process containment failed')
 print('WORKER_ISOLATION_OK')
 PY'''
-    result = execute(script, label, timeout=40)
-    ready = result['exitCode'] == 0 and not result['timedOut'] and result['output'].strip() == 'WORKER_ISOLATION_OK'
-    # This output is solely from the fixed check above, not user commands or logs.
-    return ready, '' if ready else result['output'][:2048] or 'Isolation check timed out or exited without a result.'
+    # Both launcher modes must pass identical checks before tools become ready.
+    for mode in ('run', 'managed'):
+        result = execute(script, label, timeout=40,
+                         stop=threading.Event() if mode == 'managed' else None)
+        ready = result['exitCode'] == 0 and not result['timedOut'] and result['output'].strip() == 'WORKER_ISOLATION_OK'
+        if not ready:
+            return False, mode + ': ' + (result['output'][:2000] or 'Isolation check timed out or exited without a result.')
+    return True, ''
+
+
+
+class Jobs:
+    """In-memory job ownership; no arbitrary PID control or restart replay."""
+    def __init__(self, label):
+        self.label = label
+        self.lock = threading.RLock()
+        self.items = {}
+        self.closing = False
+
+    def summary(self, item):
+        return {key: item[key] for key in
+                ('id', 'name', 'state', 'started', 'finished', 'exitCode', 'truncated')}
+
+    def start(self, command, name):
+        validate_command(command)
+        if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}', name):
+            raise ValueError('Use a job name of 1-64 letters, digits, dots, dashes or underscores')
+        with self.lock:
+            if self.closing:
+                raise ValueError('Worker is shutting down')
+            active = [j for j in self.items.values() if j['state'] in ('starting', 'running', 'stopping')]
+            for j in active:
+                if j['name'] == name or j['command'] == command:
+                    return dict(self.summary(j), alreadyRunning=True)
+            if len(active) >= 2:
+                raise ValueError('Two managed jobs are already active; stop one first')
+            while len(self.items) >= 20:
+                old = next(k for k, j in self.items.items() if j not in active)
+                del self.items[old]
+            item = dict(id=uuid.uuid4().hex, name=name, command=command, state='starting',
+                        started=time.time(), finished=None, exitCode=None, truncated=False,
+                        output=bytearray(), stop=threading.Event())
+            self.items[item['id']] = item
+            item['thread'] = threading.Thread(target=self.work, args=(item,))
+            item['thread'].start()
+            return self.summary(item)
+
+    def work(self, item):
+        def capture(data):
+            with self.lock:
+                item['output'].extend(data)
+                if len(item['output']) > MAX_OUTPUT:
+                    del item['output'][:-MAX_OUTPUT]
+                    item['truncated'] = True
+        with self.lock:
+            if not item['stop'].is_set():
+                item['state'] = 'running'
+        try:
+            result = execute(item['command'], self.label, timeout=None,
+                             stop=item['stop'], capture=capture)
+            code = result['exitCode']
+        except Exception:
+            capture(b'Worker launch or cleanup failed. No fallback was attempted.\n')
+            code = 125
+        with self.lock:
+            item['exitCode'] = code
+            item['state'] = 'stopped' if item['stop'].is_set() else ('exited' if code == 0 else 'failed')
+            item['finished'] = time.time()
+
+    def request(self, action, args):
+        if action == 'start':
+            if set(args) != {'command', 'name'}:
+                raise ValueError('Expected command and name')
+            return self.start(**args)
+        with self.lock:
+            if action == 'status' and not args:
+                return {'jobs': [self.summary(j) for j in self.items.values()]}
+            if set(args) != {'job_id'} or not isinstance(args['job_id'], str):
+                raise ValueError('Expected job_id from start or status')
+            item = self.items.get(args['job_id'])
+            if item is None:
+                raise ValueError('Unknown job; job IDs are valid only until add-on restart')
+            if action == 'stop':
+                if item['state'] in ('starting', 'running', 'stopping'):
+                    item['state'] = 'stopping'
+                    item['stop'].set()
+            elif action == 'logs':
+                return dict(self.summary(item), output=item['output'].decode('utf-8', errors='replace'))
+            elif action != 'status':
+                raise ValueError('Unknown job operation')
+            return self.summary(item)
+
+    def close(self):
+        with self.lock:
+            self.closing = True
+            items = list(self.items.values())
+            for item in items:
+                if item['state'] in ('starting', 'running', 'stopping'):
+                    item['state'] = 'stopping'
+                    item['stop'].set()
+        for item in items:
+            item['thread'].join()
 
 
 class Handler(socketserver.StreamRequestHandler):
@@ -143,15 +266,51 @@ class Handler(socketserver.StreamRequestHandler):
             if len(raw) > MAX_REQUEST or not raw.endswith(b'\n'):
                 raise ValueError('Invalid request size')
             request = json.loads(raw)
-            if not isinstance(request, dict) or set(request) != {'command'}:
+            if not isinstance(request, dict):
                 raise ValueError('Invalid request')
             if not self.server.ready:
                 response = {'error': 'Restricted worker isolation checks failed. No command was run. Check add-on logs.'}
+            elif set(request) == {'command'}:
+                if not self.server.run_lock.acquire(blocking=False):
+                    raise ValueError('A short command is already running')
+                try:
+                    response = execute(request['command'], self.server.label)
+                finally:
+                    self.server.run_lock.release()
+            elif set(request) == {'action', 'args'} and request['action'] in ('start', 'stop', 'status', 'logs') and isinstance(request['args'], dict):
+                response = self.server.jobs.request(request['action'], request['args'])
             else:
-                response = execute(request['command'], self.server.label)
-        except (ValueError, OSError, subprocess.SubprocessError):
+                raise ValueError('Invalid request')
+        except ValueError as exc:
+            response = {'error': str(exc)}
+        except (OSError, subprocess.SubprocessError):
             response = {'error': 'Restricted worker request failed; no unsandboxed fallback is available.'}
         self.wfile.write(json.dumps(response).encode()+b'\n')
+
+
+class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    # Control calls remain responsive while a short command runs. Bound clients.
+    daemon_threads = False
+    def __init__(self, *args):
+        self.slots = threading.BoundedSemaphore(8)
+        self.run_lock = threading.Lock()
+        super().__init__(*args)
+
+    def process_request(self, request, address):
+        if not self.slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, address)
+        except Exception:
+            self.slots.release()
+            raise
+
+    def process_request_thread(self, request, address):
+        try:
+            super().process_request_thread(request, address)
+        finally:
+            self.slots.release()
 
 
 def main():
@@ -172,10 +331,18 @@ def main():
     print(message, flush=True)
     if error:
         print(error, flush=True)
-    with socketserver.UnixStreamServer(SOCKET, Handler) as server:
+    with Server(SOCKET, Handler) as server:
         os.chmod(SOCKET, 0o660)
         server.ready, server.label = ready, label
-        server.serve_forever()
+        server.jobs = Jobs(label)
+        def shutdown(signum, frame):
+            raise SystemExit(0)
+        signal.signal(signal.SIGTERM, shutdown)
+        signal.signal(signal.SIGINT, shutdown)
+        try:
+            server.serve_forever()
+        finally:
+            server.jobs.close()
 
 
 if __name__ == '__main__':

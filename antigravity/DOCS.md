@@ -1,5 +1,48 @@
 # Antigravity Remote
 
+## Managed jobs (0.3.0)
+
+The existing worker now supports arbitrary foreground scripts through five MCP
+operations. No additional persistent service is installed.
+
+| Tool | Arguments | Purpose |
+| --- | --- | --- |
+| run | command | Synchronous command, maximum 90 seconds |
+| start | name, command | Start a managed foreground command; returns job ID |
+| status | optional job_id | List jobs or inspect one |
+| logs | job_id | Read latest 256 KiB of stdout/stderr |
+| stop | job_id | Request termination of that job and its descendants |
+
+Use a stable job name (1-64 letters/digits/dots/dashes/underscores). Repeated starts
+with an active name or identical command return the existing job. At most two
+managed jobs and one short command are allowed concurrently. Start returns before
+network initialization completes; inspect status and logs to confirm application
+startup. `running` is process state, not an application health check. Stop returns
+`stopping`; check status for `stopped` after a two-second termination grace period.
+All descendants and temporary networking are then killed and job storage cleaned.
+
+Jobs and their 20-entry bounded history live in the existing broker's memory. They
+survive chat disconnections, but stop on add-on shutdown/restart/update and do not
+automatically resume. Logs and IDs are not retained across restarts. The generic
+feature supports current and future scripts; it does not automatically rewrite
+user scripts. Use foreground entry points, not nohup/setsid/backgrounding or
+PID-file wrappers. Scripts redirecting stdout/stderr must be adjusted if MCP logs
+are desired. For Python, use `python3 -u`. Do not paste credentials into tool
+arguments or logs. Existing scripts and user data are preserved.
+
+All five tools receive narrow persistent CLI grants; native terminal execution
+stays denied. The same mandatory AppArmor, capability, filesystem, seccomp and
+private-network checks apply. Managed jobs use reduced priority and a 24-hour
+cumulative CPU budget per process instead of the short command's 60 seconds.
+There is no managed wall-clock deadline. Memory/file/process restrictions remain.
+Both job types share outputs and the worker UID's process limit, so this is not
+isolation between mutually untrusted jobs or an aggregate resource quota.
+
+Update the add-on and restart the CLI to refresh MCP tools and workspace guidance.
+Use a new conversation if an old one keeps trying the denied native terminal.
+Local lifecycle and policy tests cover the implementation; complete namespace
+execution still requires verification on the target HAOS device.
+
 ## Resolver compatibility (0.2.6)
 
 The command profile permits anonymous Unix stream socketpairs for curl's threaded
@@ -71,7 +114,7 @@ original local/Home Assistant resolver is not contacted. Public DNS destinations
 remain usable directly. The only local socket exception is this job-private DNS
 stub on port 53; it does not expose HAOS or any other add-on. Private/internal
 hostnames will not work. The stub, network relay and descendants are killed at job
-completion or the 90-second deadline. No separate persistent service is installed.
+completion, explicit stop or (for `run`) the 90-second deadline. No separate persistent service is installed.
 
 Protection mode stays on. The update maps `/dev/net/tun` and adds user-space
 networking/firewall packages; it does not request host NET_ADMIN/SYS_ADMIN,
@@ -97,8 +140,8 @@ All public internet access means commands can send readable workspace contents t
 public services. Existing CLI credentials remain unavailable, but any API keys you
 place in readable inputs/outputs are available to those commands. The firewall
 cannot identify a private service deliberately published through a public reverse
-proxy or your router's public address. Long-running traders, background daemons
-and interactive sessions remain unsupported by the 90-second worker.
+proxy or your router's public address. Long-running foreground scripts can use managed jobs. Self-detaching daemons and
+interactive sessions remain unsupported.
 
 ## MCP configuration correction (0.2.2)
 
@@ -146,7 +189,7 @@ Start a new conversation after upgrading. In `/mcp`, look for
 `ha-restricted-worker` and its `run` tool. Ask it to use that tool to create a small
 text file in `/data/workspace/outputs`. The built-in terminal tool is deliberately
 blocked. This integration uses Google's documented global MCP config and exact
-`mcp(ha-restricted-worker/run)` grant; the basic worker call has been verified on the user's device. No global Always-proceed setting is used.
+`mcp(ha-restricted-worker/run)` grant (and matching grants for start/stop/status/logs); the basic worker call has been verified on the user's device. No global Always-proceed setting is used.
 
 ### Boundaries
 
@@ -166,22 +209,24 @@ blocked. This integration uses Google's documented global MCP config and exact
   domains do not modify this firewall. Built-in web tools retain their own review
   controls.
 - Native shell and unsandboxed commands are denied by CLI policy. Input reads,
-  output edits and the single worker tool have persistent grants. User-authored
+  output edits and the five worker tools have persistent grants. User-authored
   ask/deny rules remain and can still cause prompts. Other MCP tools do not receive
   automatic grants.
 - The CLI starts in a root-owned control workspace, separate from generated
   outputs, so output files cannot install active workspace hooks or MCP servers.
   Do not add generated/untrusted directories as active CLI workspaces.
-- Jobs run serially, at most 90 seconds, 60 CPU seconds per process, 512 MiB virtual
-  memory per process, 32 processes for the worker UID, 32 MiB per file and 256 KiB
-  captured output. Descendants are killed on completion/timeout and temporary
-  storage is removed. These are not aggregate RAM or disk quotas. Commands can
+- One short command runs at a time, at most 90 seconds and 60 CPU seconds per
+  process; two managed jobs may also run, without a wall-clock deadline and with
+  a 24-hour CPU budget per process. All have 512 MiB virtual memory per process,
+  32 processes shared by the worker UID, 32 MiB per file and 256 KiB captured
+  output. Descendants are killed on completion/stop/timeout and temporary storage
+  is removed. These are not aggregate RAM or disk quotas. Commands can
   modify/delete outputs, and many small files can still consume storage.
 
 This reduces approvals for local compilation, Python processing and Pandoc PDFs.
-Network-dependent commands must finish within the existing limits. Package
+Use managed jobs for network-dependent scripts needing more than 90 seconds. Package
 installation must target writable outputs or temporary storage. Debugging with
-ptrace, persistent servers and interactive/background jobs remain unsupported.
+ptrace, inbound servers, self-detaching daemons and interactive sessions remain unsupported.
 The HAOS protection boundary remains in place; no host mounts, Docker socket or
 extra host capabilities are requested.
 

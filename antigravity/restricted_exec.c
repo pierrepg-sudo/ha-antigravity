@@ -91,7 +91,10 @@ static void install_filter(void) {
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &program)) fail("syscall filter failed");
 }
 int main(int argc, char **argv) {
-    if (argc != 4 || getuid() != 0 || geteuid() != 0) fail("invalid worker identity");
+    if ((argc != 4 && argc != 5) || getuid() != 0 || geteuid() != 0) fail("invalid worker identity");
+    int managed = argc == 5 && !strcmp(argv[4], "managed");
+    if (argc == 5 && !managed && strcmp(argv[4], "run")) fail("invalid job mode");
+    if (managed && nice(10) == -1) fail("job priority failed");
     /* Namespace-root maps only to the unprivileged worker on HAOS. Never accept
      * real container root, or a namespace with additional mapped identities. */
     char mapping[128] = {0}, extra;
@@ -125,7 +128,7 @@ int main(int argc, char **argv) {
         setenv("HOME", argv[2], 1) || setenv("TMPDIR", argv[2], 1) ||
         setenv("XDG_CACHE_HOME", argv[2], 1) || setenv("LANG", "C.UTF-8", 1)) fail("environment setup failed");
     umask(0007);
-    limit(RLIMIT_CORE, 0); limit(RLIMIT_CPU, 60); limit(RLIMIT_AS, 512UL*1024*1024);
+    limit(RLIMIT_CORE, 0); limit(RLIMIT_CPU, managed ? 86400 : 60); limit(RLIMIT_AS, 512UL*1024*1024);
     limit(RLIMIT_FSIZE, 32UL*1024*1024); limit(RLIMIT_NOFILE, 128); limit(RLIMIT_NPROC, 32);
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) fail("no-new-privileges failed");
     /* Only pipes/null remain: never inherit the broker socket or an open secret. */

@@ -167,7 +167,7 @@ def configure_ipv6():
                'dev', 'tap0', 'src', 'fd00::100'], 'Job IPv6 default route setup')
 
 
-def inside(ready_fd, label, job, command):
+def inside(ready_fd, label, job, command, mode="run"):
     if os.getuid() != 0 or Path('/proc/self/uid_map').read_text().split() != ['0', '1002', '1']:
         raise RuntimeError('Network setup requires the dedicated worker user namespace')
     os.write(int(ready_fd), b'1')
@@ -217,10 +217,10 @@ def inside(ready_fd, label, job, command):
     os.execv('/usr/bin/setpriv', ['setpriv', '--bounding-set=-all', '--inh-caps=-all',
              '--ambient-caps=-all', '--securebits=+noroot,+noroot_locked',
              '/usr/bin/aa-exec', '-p', label, '--', '/usr/local/bin/restricted-exec',
-             label + ' (enforce)', job, command])
+             label + ' (enforce)', job, command, mode])
 
 
-def outside(label, job, command):
+def outside(label, job, command, mode="run"):
     if os.getuid() != 1002:
         raise RuntimeError('Invalid network launcher identity')
     policy = host_policy()
@@ -240,7 +240,7 @@ def outside(label, job, command):
     try:
         namespace_r, namespace_w = pipe()
         child = subprocess.Popen(['/usr/bin/unshare', '--user', '--map-root-user', '--net',
-                '/usr/bin/python3', '-I', __file__, '--inside', str(namespace_w), label, job, command],
+                '/usr/bin/python3', '-I', __file__, '--inside', str(namespace_w), label, job, command, mode],
                 stdin=subprocess.PIPE, close_fds=True, pass_fds=(namespace_w,))
         close(namespace_w)
         wait_ready(namespace_r, 'User/network namespace')
@@ -270,9 +270,9 @@ def outside(label, job, command):
 
 def main():
     try:
-        if len(sys.argv) == 6 and sys.argv[1] == '--inside':
+        if len(sys.argv) in (6, 7) and sys.argv[1] == '--inside':
             inside(*sys.argv[2:])
-        elif len(sys.argv) == 4:
+        elif len(sys.argv) in (4, 5):
             return outside(*sys.argv[1:])
         else:
             raise RuntimeError('Invalid network launcher arguments')

@@ -1,3 +1,17 @@
+## 0.3.0
+
+- General managed foreground jobs in the existing worker: MCP start, stop, status
+  and bounded logs, alongside the existing 90-second run tool.
+- Two managed jobs, duplicate protection, 20 recent in-memory records, 256 KiB log
+  tails, group termination and temporary networking cleanup. No automatic replay
+  after restart and no extra persistent service.
+- Retain AppArmor/seccomp/filesystem/public-only egress restrictions. Managed
+  processes use reduced priority and a 24-hour CPU budget; other limits remain.
+- Add narrow tool grants and generic guidance for existing/future foreground
+  scripts. Preserve user scripts; daemon/PID-file launchers need adaptation.
+- Test lifecycle, failures, duplicate/capacity handling, logs and cleanup locally;
+  full namespace execution requires verification on HAOS.
+
 ## 0.2.6
 
 - Allow anonymous Unix stream socketpairs used by curl's threaded DNS resolver.
