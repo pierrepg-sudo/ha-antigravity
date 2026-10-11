@@ -49,8 +49,19 @@ without printing secrets. Prefer python3 -u for timely logs. Keep stdout/stderr
 attached so `logs` can capture them; redirected files are not captured.
 
 At most two managed jobs run concurrently, plus one short command. Jobs stop on
-add-on restart/shutdown and do not automatically resume. Job IDs/history/log tails
-are held in memory only (20 recent jobs, 256 KiB tail each). Jobs share the outputs
+add-on restart/shutdown. Only jobs with explicit restart authorization resume.
+Enable resume_after_restart on start or use restart_policy with job_id and the
+boolean for an already active job; changing policy does not restart it. A request
+to start once is not authorization to enable restart recovery. Inspect application
+state persistence and duplicate-action prevention before opting in. Jobs restart
+from the beginning, not from their former in-memory state. Load credentials from
+existing configuration, never inline command arguments. Recovery waits for
+isolation checks and suspends after three attempts within ten minutes. Explicit
+stop, normal exit and failure clear restart intent. Suspended jobs need inspection
+and an authorized manual start. CLI-only restarts leave jobs running. For HAOS
+reboot recovery, the add-on itself must have Start on boot enabled.
+Only authorized pending jobs retain IDs and restart commands in protected storage.
+History/log tails stay in memory (20 recent jobs, 256 KiB tail each). Jobs share the outputs
 directory, so coordinate writes. Each managed process has a 24-hour cumulative CPU
 budget and reduced scheduling priority, 512 MiB address-space limit and 32 MiB
 per-file limit. The worker UID shares a 32-process limit. A job can run across many

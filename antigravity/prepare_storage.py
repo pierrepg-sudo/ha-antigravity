@@ -22,6 +22,7 @@ def prepare(base=Path('/data'), runtime=Path('/run/antigravity')):
     managed_directory(base / 'home', 1000, 1000, 0o700)
     managed_directory(base / 'workspace', 0, 0, 0o755)
     managed_directory(base / 'workspace/outputs', 1000, 1000, 0o2770)
+    managed_directory(base / 'worker-state', 1002, 1002, 0o700)
     managed_directory(base / 'inputs', 1001, 1000, 0o2750)
     # Inputs must remain owned by the file service, including after restores.
     for root, dirs, files in os.walk(base / 'inputs', followlinks=False):

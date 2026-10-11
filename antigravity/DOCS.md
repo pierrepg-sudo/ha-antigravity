@@ -1,5 +1,46 @@
 # Antigravity Remote
 
+## Opt-in restart recovery (0.4.0)
+
+`start` accepts `resume_after_restart: true` only when the user authorizes it.
+The default is false. For an already active job, call `restart_policy` with its
+full `job_id` and the boolean; this changes the policy without restarting it.
+A duplicate start returns the existing job and never silently changes its policy.
+Status exposes the policy and recovery_count (attempts within the current window).
+
+The existing broker atomically saves command, fixed outputs working directory,
+job identity, restart authorization and attempt timestamps under `/data/worker-state`
+(mode 0700, broker-owned; record file 0600). No environment snapshot or credential
+file is copied. Do not embed secrets in commands; use existing configuration.
+CLI/file services cannot access this directory, restricted commands have no
+AppArmor grant, and startup checks verify read/write denial. An exclusive broker
+lock prevents duplicate broker instances. Invalid records stop startup, without
+silently discarding or executing their contents.
+
+After add-on restart or HAOS reboot, recovery runs only after isolation checks
+pass. Every recovered job still passes its per-job network checks. A maximum of
+three recovery attempts in ten minutes prevents reboot loops; further recovery
+is suspended and reported in status/logs and the add-on log. There is no crash
+retry loop: observed normal exit, failure or explicit stop clears restart intent.
+Disabling the policy also clears it. Explicit stop is persisted before signalling.
+Only interrupted authorized jobs restart, retaining their job ID and fresh logs.
+CLI-only restart does not restart the broker. Enable the add-on's **Start on boot**
+setting if it should start after HAOS reboots; this update does not change that
+setting or opt in any existing job.
+
+Recovery starts the command from the beginning. Scripts must durably restore
+positions, balances, offsets and other state and avoid duplicate external actions.
+A power loss between an external action and its checkpoint cannot provide
+exactly-once execution. A storage-write failure is reported; restart intent may
+be stale, so resolve the storage error before rebooting. Backups also contain
+restart intent; inspect it before starting a restored installation.
+
+Update, restart with Protection mode ON, and open a fresh conversation. Existing
+v0.3.x jobs cannot survive this first update because they have no restart records.
+Ask the CLI to inspect a script for safe recovery, then explicitly authorize its
+restart policy. Test with a harmless opted-in foreground job before relying on
+HAOS reboot recovery; device verification remains required.
+
 ## Launch recovery (0.3.2)
 
 Persistent workspace and MCP instructions now require a managed-job proposal when
@@ -30,13 +71,14 @@ secrets, and keep stdout/stderr attached for the managed logs tool.
 
 ## Managed jobs (0.3.0)
 
-The existing worker now supports arbitrary foreground scripts through five MCP
+The existing worker now supports arbitrary foreground scripts through six MCP
 operations. No additional persistent service is installed.
 
 | Tool | Arguments | Purpose |
 | --- | --- | --- |
 | run | command | Synchronous command, maximum 90 seconds |
-| start | name, command | Start a managed foreground command; returns job ID |
+| start | name, command, optional resume_after_restart | Start a managed foreground command; returns job ID |
+| restart_policy | job_id, resume_after_restart | Enable/disable recovery without restarting an active job |
 | status | optional job_id | List jobs or inspect one |
 | logs | job_id | Read latest 256 KiB of stdout/stderr |
 | stop | job_id | Request termination of that job and its descendants |
@@ -50,15 +92,16 @@ startup. `running` is process state, not an application health check. Stop retur
 All descendants and temporary networking are then killed and job storage cleaned.
 
 Jobs and their 20-entry bounded history live in the existing broker's memory. They
-survive chat disconnections, but stop on add-on shutdown/restart/update and do not
-automatically resume. Logs and IDs are not retained across restarts. The generic
+survive chat disconnections and CLI-only restarts. Add-on shutdown/restart/update
+stops jobs; only explicitly opted-in interrupted jobs recover. Their IDs are
+retained; logs and other history are not retained across restarts. The generic
 feature supports current and future scripts; it does not automatically rewrite
 user scripts. Use foreground entry points, not nohup/setsid/backgrounding or
 PID-file wrappers. Scripts redirecting stdout/stderr must be adjusted if MCP logs
 are desired. For Python, use `python3 -u`. Do not paste credentials into tool
 arguments or logs. Existing scripts and user data are preserved.
 
-All five tools receive narrow persistent CLI grants; native terminal execution
+All six tools receive narrow persistent CLI grants; native terminal execution
 stays denied. The same mandatory AppArmor, capability, filesystem, seccomp and
 private-network checks apply. Managed jobs use reduced priority and a 24-hour
 cumulative CPU budget per process instead of the short command's 60 seconds.
@@ -237,7 +280,7 @@ blocked. This integration uses Google's documented global MCP config and exact
   domains do not modify this firewall. Built-in web tools retain their own review
   controls.
 - Native shell and unsandboxed commands are denied by CLI policy. Input reads,
-  output edits and the five worker tools have persistent grants. User-authored
+  output edits and the six worker tools have persistent grants. User-authored
   ask/deny rules remain and can still cause prompts. Other MCP tools do not receive
   automatic grants.
 - The CLI starts in a root-owned control workspace, separate from generated

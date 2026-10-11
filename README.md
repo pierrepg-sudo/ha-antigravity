@@ -1,6 +1,6 @@
 # Antigravity Home Assistant add-on
 
-Experimental v0.3.2. Public egress requires a successful HAOS startup isolation check.
+Experimental v0.4.0. Public egress requires a successful HAOS startup isolation check.
 
 ## Install
 
@@ -26,4 +26,6 @@ After updating, restart and check **Restricted commands ready** in Open Web UI.
 This version adds `/dev/net/tun` access without host networking or additional host
 capabilities. Keep Protection mode enabled. Namespace/firewall compatibility and
 public connectivity must be verified on the device. See the setup instructions
-for DNS behavior and the unchanged 90-second job limit.
+for DNS behavior and the unchanged 90-second short-command limit.
+Managed jobs support opt-in recovery after add-on/HAOS restarts; see the restart
+policy documentation. No existing job is automatically opted in.

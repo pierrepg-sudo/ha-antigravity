@@ -78,7 +78,7 @@ class ManagedJobsTests(TestCase):
     def test_mcp_tools_validation_and_managed_grants(self):
         import prepare_settings
         names = {t['name'] for t in mcp.dispatch({'method': 'tools/list'})['tools']}
-        self.assertEqual(names, {'run', 'start', 'stop', 'status', 'logs'})
+        self.assertEqual(names, {'run', 'start', 'stop', 'status', 'logs', 'restart_policy'})
         for name in names:
             self.assertIn('mcp(ha-restricted-worker/'+name+')', prepare_settings.ALLOW)
         for name, args in [('start', {'command': 'true'}), ('stop', {'pid': 42}), ('logs', {}), ('start', {'command': 'true', 'name': '../bad'})]:

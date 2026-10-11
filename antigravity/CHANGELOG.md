@@ -1,3 +1,15 @@
+## 0.4.0
+
+- Add opt-in resume_after_restart to managed start and restart_policy for active jobs.
+- Persist authorized interrupted-job intent atomically in broker-only storage;
+  retain job IDs, fixed working directory and bounded recovery attempt timestamps.
+- Restore only after startup isolation checks; retain per-job network/file protections.
+- Clear intent on explicit stop, policy disable, observed completion or failure.
+- Suspend after three recovery attempts within ten minutes; no failure retry loop.
+- Add exclusive broker locking, record validation and live state-directory denial checks.
+- Keep default recovery off; application checkpoints and duplicate-action protection
+  remain the script's responsibility. HAOS runtime verification is required.
+
 ## 0.3.2
 
 - Propose managed foreground jobs for launch failures caused by detaching or the

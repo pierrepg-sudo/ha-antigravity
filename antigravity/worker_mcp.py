@@ -18,10 +18,13 @@ def job_tool(name, description, properties, required):
 
 JOB_ID = {'job_id': {'type': 'string', 'pattern': '^[0-9a-f]{32}$',
     'description': 'Full 32-character id from start or status. Argument key is job_id, not id or name. Call status with {} to recover it; never abbreviate.'}}
+RESTART = {'resume_after_restart': {'type': 'boolean', 'default': False,
+    'description': 'Opt-in only with user authorization. Restart after add-on/HAOS interruption, never after normal completion, failure or explicit stop. Script must safely reload its own state.'}}
 TOOLS = [TOOL,
-    job_tool('start', 'Start a managed long-running FOREGROUND command in the restricted worker. Same public-internet-only and filesystem protections as run. At most two managed jobs. Return immediately with a job ID; use status/logs to verify startup. Do not use nohup, setsid, daemon mode, PID-file launchers or shell backgrounding. No automatic restart. Jobs stop on add-on restart. stdout/stderr logs are bounded; keep secrets out of output.',
+    job_tool('start', 'Start a managed long-running FOREGROUND command in the restricted worker. Same public-internet-only and filesystem protections as run. At most two managed jobs. Return immediately with a job ID; use status/logs to verify startup. Do not use nohup, setsid, daemon mode, PID-file launchers or shell backgrounding. Restart recovery is off by default; set resume_after_restart only with user authorization. Commands restart from the beginning, not from in-memory state. Never put credentials inline in a restartable command; load them from existing configuration. stdout/stderr logs are bounded; keep secrets out of output.',
              {'command': {'type': 'string', 'maxLength': 32768},
-              'name': {'type': 'string', 'pattern': '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'}}, ['command', 'name']),
+              'name': {'type': 'string', 'pattern': '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'}, **RESTART}, ['command', 'name']),
+    job_tool('restart_policy', 'Enable or disable restart recovery for an existing job without restarting it. Explicit user authorization is required to enable. Enabling requires an active job. Disabling clears persisted restart intent. Inspect status first; use full job_id.', {**JOB_ID, **RESTART}, ['job_id', 'resume_after_restart']),
     job_tool('status', 'List managed jobs or inspect one. Running means the process is active, not that the application is healthy. Does not use arbitrary PIDs.', JOB_ID, []),
     job_tool('stop', 'Stop an owned managed job and its descendants, with a short termination grace period. Returns stopping; check status for completion.', JOB_ID, ['job_id']),
     job_tool('logs', 'Read the bounded stdout/stderr tail of an owned job. Logs may contain application secrets; redact them before displaying. Files redirected by the script are not included.', JOB_ID, ['job_id'])]
@@ -49,6 +52,11 @@ INSTRUCTIONS = (
     'ha-restricted-worker is the configured execution method for user-requested local work. '
     'Native command/unsandboxed tools remain denied; this worker is not a bypass. '
     'Use run for short commands and start for long-running foreground scripts. '
+    'Restart recovery is off by default. Only enable resume_after_restart on start or restart_policy when the user authorizes restart after interruption. '
+    'A request to start once is not restart authorization. Before opting in, inspect whether the script safely reloads its state and avoids duplicate external actions. '
+    'Never place secrets inline in a restartable command; load existing configuration. Use restart_policy to change an active job without restarting it. '
+    'Recovery occurs only after isolation checks pass, with at most three attempts in ten minutes. Normal completion, failure and explicit stop clear restart intent. '
+    'CLI-only restarts leave worker jobs running; add-on/HAOS restarts launch authorized jobs again from the beginning. '
     'Before starting, call status with {} to avoid duplicates. '
     'For logs/stop/status of one job, pass {"job_id":"<full id from status>"}. '
     'Never use id, name, PID or an abbreviated ID as the argument. '
@@ -96,18 +104,25 @@ def validate(name, args):
     if not isinstance(args, dict):
         raise ValueError('Expected arguments')
     if name in ('run', 'start'):
-        if set(args) != ({'command'} if name == 'run' else {'command', 'name'}):
+        required = {'command'} if name == 'run' else {'command', 'name'}
+        allowed = required if name == 'run' else required | {'resume_after_restart'}
+        if not required <= set(args) or set(args) - allowed:
             raise ValueError('Invalid command arguments')
         command = args['command']
         if not isinstance(command, str) or not command.strip() or len(command.encode()) > 32768 or '\x00' in command:
             raise ValueError('Invalid command')
         if name == 'start':
+            if type(args.get('resume_after_restart', False)) is not bool:
+                raise ValueError('resume_after_restart must be boolean')
             if not isinstance(args['name'], str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}', args['name']):
                 raise ValueError('Invalid job name')
-    elif name in ('stop', 'status', 'logs'):
+    elif name in ('stop', 'status', 'logs', 'restart_policy'):
         if name == 'status' and not args:
             return
-        if set(args) != {'job_id'} or not isinstance(args['job_id'], str) or not re.fullmatch(r'[0-9a-f]{32}', args['job_id']):
+        expected = {'job_id', 'resume_after_restart'} if name == 'restart_policy' else {'job_id'}
+        if name == 'restart_policy' and type(args.get('resume_after_restart')) is not bool:
+            raise ValueError('restart_policy requires job_id and boolean resume_after_restart')
+        if set(args) != expected or not isinstance(args['job_id'], str) or not re.fullmatch(r'[0-9a-f]{32}', args['job_id']):
             raise ValueError('Expected {"job_id": "<full 32-character id>"}. Call status with {} to find it. Do not restart the job or use id/name/PID.')
     else:
         raise ValueError('Unknown tool')
@@ -118,7 +133,7 @@ def dispatch(request):
     params = request.get('params', {})
     if method == 'initialize':
         return {'protocolVersion': '2024-11-05', 'capabilities': {'tools': {}},
-                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.3.2'},
+                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.4.0'},
                 'instructions': INSTRUCTIONS}
     if method == 'ping':
         return {}

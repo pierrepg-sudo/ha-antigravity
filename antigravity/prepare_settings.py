@@ -9,8 +9,8 @@ import tempfile
 ALLOW = ['read_file(/opt/antigravity-workspace)', 'read_file(/data/inputs)', 'write_file(/data/workspace/outputs)',
          'mcp(ha-restricted-worker/run)', 'mcp(ha-restricted-worker/start)',
          'mcp(ha-restricted-worker/stop)', 'mcp(ha-restricted-worker/status)',
-         'mcp(ha-restricted-worker/logs)']
-DENY = ['write_file(/data/inputs)', 'read_file(/data/home/.ssh)',
+         'mcp(ha-restricted-worker/logs)', 'mcp(ha-restricted-worker/restart_policy)']
+DENY = ['read_file(/data/worker-state)', 'write_file(/data/worker-state)', 'write_file(/data/inputs)', 'read_file(/data/home/.ssh)',
         'read_file(/data/home/.gemini/antigravity-cli)',
         'read_file(/data/home/.gemini/config)',
         'write_file(/data/home)', 'write_file(/run/antigravity)',
