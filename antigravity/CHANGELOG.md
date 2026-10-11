@@ -1,3 +1,11 @@
+## 0.3.1
+
+- Export exact MCP schemas into the root-owned control workspace at image build.
+- Include routing and job-ID guidance in MCP initialization and workspace instructions.
+- Return actionable, redacted validation errors without sending invalid requests to the worker.
+- Add a narrow control-workspace read grant; preserve private-directory/native-shell denies.
+- Existing scripts and jobs are not rewritten or restarted by argument recovery.
+
 ## 0.3.0
 
 - General managed foreground jobs in the existing worker: MCP start, stop, status

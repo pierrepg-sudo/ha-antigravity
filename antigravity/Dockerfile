@@ -19,6 +19,8 @@ COPY check-pdf.sh /usr/local/bin/check-pdf
 RUN chmod 755 /usr/local/bin/check-pdf && /usr/local/bin/check-pdf
 COPY tmux.conf /etc/antigravity-tmux.conf
 COPY verify_profile.py prepare_storage.py file_server.py prepare_settings.py command_worker.py network_job.py job_dns.py worker_mcp.py /usr/local/bin/
+RUN python3 -I /usr/local/bin/worker_mcp.py --export-docs /opt/antigravity-workspace \
+    && chmod 644 /opt/antigravity-workspace/AGENTS.md /opt/antigravity-workspace/WORKER_TOOLS.json
 COPY install-ttyd.sh /tmp/install-ttyd.sh
 RUN bash /tmp/install-ttyd.sh && rm /tmp/install-ttyd.sh
 # Download from Google's official installer; the installer verifies the payload SHA512.

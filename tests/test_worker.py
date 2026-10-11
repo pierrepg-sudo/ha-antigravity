@@ -24,7 +24,7 @@ class WorkerTests(unittest.TestCase):
             result=mcp.dispatch({'method':'tools/call','params':{'name':'run','arguments':{'command':'true'}}})
             self.assertTrue(result['isError'])
         for args in ({'command':'true','cwd':'/tmp'}, {'command':None}, {'command':'a\x00b'}):
-            with self.assertRaises(ValueError):mcp.dispatch({'method':'tools/call','params':{'name':'run','arguments':args}})
+            self.assertTrue(mcp.dispatch({'method':'tools/call','params':{'name':'run','arguments':args}})['isError'])
 
     def test_broker_output_and_timeout_cleanup(self):
         real_spawn=subprocess.Popen

@@ -1,5 +1,20 @@
 # Antigravity Remote
 
+## Worker discovery (0.3.1)
+
+At image build, the MCP server exports its exact tool schemas to the root-owned
+control workspace as WORKER_TOOLS.json and appends them to AGENTS.md. These files
+contain no credentials or runtime cache data. Initialization also supplies routing
+instructions. Invalid tool arguments return the expected schema before contacting
+the broker. Use `status` with `{}` and then `logs` with `job_id` set to the full
+returned `id`; never restart a job to recover its ID. Private CLI files stay denied.
+
+Update and restart, then start a new conversation to refresh instructions. This
+reduces tool-selection mistakes but cannot guarantee model compliance. Foreground
+script adaptation still needs inspection of the actual script; user files are not
+silently rewritten. Preserve .env loading and dependency paths without printing
+secrets, and keep stdout/stderr attached for the managed logs tool.
+
 ## Managed jobs (0.3.0)
 
 The existing worker now supports arbitrary foreground scripts through five MCP

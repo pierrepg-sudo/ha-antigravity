@@ -1,5 +1,6 @@
 """MCP stdio adapter: pass commands to the separate-UID broker, never execute here."""
 import json
+import re
 import socket
 import sys
 
@@ -15,7 +16,8 @@ def job_tool(name, description, properties, required):
             'inputSchema': {'type': 'object', 'properties': properties,
                             'required': required, 'additionalProperties': False}}
 
-JOB_ID = {'job_id': {'type': 'string', 'description': 'ID returned by start or status'}}
+JOB_ID = {'job_id': {'type': 'string', 'pattern': '^[0-9a-f]{32}$',
+    'description': 'Full 32-character id from start or status. Argument key is job_id, not id or name. Call status with {} to recover it; never abbreviate.'}}
 TOOLS = [TOOL,
     job_tool('start', 'Start a managed long-running FOREGROUND command in the restricted worker. Same public-internet-only and filesystem protections as run. At most two managed jobs. Return immediately with a job ID; use status/logs to verify startup. Do not use nohup, setsid, daemon mode, PID-file launchers or shell backgrounding. No automatic restart. Jobs stop on add-on restart. stdout/stderr logs are bounded; keep secrets out of output.',
              {'command': {'type': 'string', 'maxLength': 32768},
@@ -23,6 +25,31 @@ TOOLS = [TOOL,
     job_tool('status', 'List managed jobs or inspect one. Running means the process is active, not that the application is healthy. Does not use arbitrary PIDs.', JOB_ID, []),
     job_tool('stop', 'Stop an owned managed job and its descendants, with a short termination grace period. Returns stopping; check status for completion.', JOB_ID, ['job_id']),
     job_tool('logs', 'Read the bounded stdout/stderr tail of an owned job. Logs may contain application secrets; redact them before displaying. Files redirected by the script are not included.', JOB_ID, ['job_id'])]
+
+
+INSTRUCTIONS = (
+    'ha-restricted-worker is the configured execution method for user-requested local work. '
+    'Native command/unsandboxed tools remain denied; this worker is not a bypass. '
+    'Use run for short commands and start for long-running foreground scripts. '
+    'Before starting, call status with {} to avoid duplicates. '
+    'For logs/stop/status of one job, pass {"job_id":"<full id from status>"}. '
+    'Never use id, name, PID or an abbreviated ID as the argument. '
+    'On argument errors, correct the call without restarting the job. '
+    'Tool schemas are available in tools/list and /opt/antigravity-workspace/WORKER_TOOLS.json; '
+    'do not read private CLI tool-cache files. Respect any additional user ask/deny rules. '
+    'If execution is denied or unavailable, report it without using another execution path.'
+)
+
+
+def export_docs(directory):
+    """Build-time export from the live schemas; never copy the private CLI cache."""
+    from pathlib import Path
+    root = Path(directory)
+    root.mkdir(parents=True, exist_ok=True)
+    (root / 'WORKER_TOOLS.json').write_text(json.dumps({'instructions': INSTRUCTIONS, 'tools': TOOLS}, indent=2) + '\n')
+    guide = root / 'AGENTS.md'
+    guide.write_text(guide.read_text() + '\n## Exact worker tool contract\n\n' + INSTRUCTIONS +
+                     '\n\n```json\n' + json.dumps(TOOLS, indent=2) + '\n```\n')
 
 
 def validate(name, args):
@@ -35,14 +62,13 @@ def validate(name, args):
         if not isinstance(command, str) or not command.strip() or len(command.encode()) > 32768 or '\x00' in command:
             raise ValueError('Invalid command')
         if name == 'start':
-            import re
             if not isinstance(args['name'], str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}', args['name']):
                 raise ValueError('Invalid job name')
     elif name in ('stop', 'status', 'logs'):
         if name == 'status' and not args:
             return
-        if set(args) != {'job_id'} or not isinstance(args['job_id'], str) or len(args['job_id']) != 32:
-            raise ValueError('Expected job_id')
+        if set(args) != {'job_id'} or not isinstance(args['job_id'], str) or not re.fullmatch(r'[0-9a-f]{32}', args['job_id']):
+            raise ValueError('Expected {"job_id": "<full 32-character id>"}. Call status with {} to find it. Do not restart the job or use id/name/PID.')
     else:
         raise ValueError('Unknown tool')
 
@@ -52,7 +78,8 @@ def dispatch(request):
     params = request.get('params', {})
     if method == 'initialize':
         return {'protocolVersion': '2024-11-05', 'capabilities': {'tools': {}},
-                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.3.0'}}
+                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.3.1'},
+                'instructions': INSTRUCTIONS}
     if method == 'ping':
         return {}
     if method == 'tools/list':
@@ -60,7 +87,15 @@ def dispatch(request):
     if method == 'tools/call':
         name = params.get('name')
         args = params.get('arguments', {})
-        validate(name, args)
+        try:
+            validate(name, args)
+        except ValueError as error:
+            tool = next((t for t in TOOLS if t['name'] == name), None)
+            detail = {'error': str(error), 'requestSent': False,
+                      'guidance': 'No job was changed. Correct the arguments; never use native terminal fallback.'}
+            if tool:
+                detail['inputSchema'] = tool['inputSchema']
+            return {'content': [{'type': 'text', 'text': json.dumps(detail)}], 'isError': True}
         payload = args if name == 'run' else {'action': name, 'args': args}
         try:
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
@@ -99,4 +134,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) == 3 and sys.argv[1] == '--export-docs':
+        export_docs(sys.argv[2])
+    else:
+        main()

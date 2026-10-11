@@ -1,5 +1,11 @@
 # Working in this add-on
 
+The configured execution method for user-requested work is ha-restricted-worker.
+Using it is not a native-terminal bypass. Additional user ask/deny rules still apply.
+Read the exact schemas in WORKER_TOOLS.json here, never the private CLI cache.
+For status use {}; for logs/stop use {"job_id":"<full id from status>"}.
+Correct invalid arguments without stopping or restarting an existing job.
+
 Use the `ha-restricted-worker` MCP tools for all command execution, builds,
 Python processing and Pandoc/PDF generation. The native terminal command tool is
 blocked deliberately. Do not request a bypass or change security settings.
