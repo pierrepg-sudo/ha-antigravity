@@ -1,3 +1,12 @@
+## 0.3.2
+
+- Propose managed foreground jobs for launch failures caused by detaching or the
+  short-command limit; route bounded native-terminal mistakes to the run tool.
+- Include matching guidance in MCP initialization, exported workspace instructions,
+  timeout results and failed execution results, without automatically replaying work.
+- Preserve duplicate checks, authorization, file/network restrictions and job limits.
+- Distinguish application/policy failures and uncertain transport outcomes.
+
 ## 0.3.1
 
 - Export exact MCP schemas into the root-owned control workspace at image build.

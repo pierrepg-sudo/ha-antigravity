@@ -27,6 +27,20 @@ before starting; `start` also rejects duplicates by active name or exact command
 Use `status` with `job_id` to inspect a job, `logs` to read its bounded output and
 `stop` to stop it. No terminal bypass is needed for these operations.
 
+When a new or existing script/agent fails to launch, always diagnose the cause.
+For blocked native execution, a detaching launcher or the short-command timeout,
+propose using the existing worker: `run` for bounded commands, or `start` for a
+managed foreground job when continuous/long execution is actually needed. Do not
+create another worker or service. A timeout may be a hang, not a persistent task.
+Check status and logs first to avoid duplicates. Propose a foreground adaptation
+preserving environment loading, dependency paths and attached stdout/stderr.
+If the user already authorized adaptation/start, continue; otherwise ask before
+starting. Check partial work and external effects before retrying. Never replay
+failed commands automatically. Verify the resulting job with status and logs.
+Missing dependencies, invalid credentials, application bugs, resource limits and
+private-network denials require their own fixes. A managed job retains the same
+restrictions. If the worker denies execution or isolation fails, stop and report.
+
 Never launch with nohup, setsid, shell '&', or daemon/PID-file start wrappers.
 Inspect existing launchers first, then adapt them or use the underlying foreground
 entry point. A wrapper that relies on kill -0/PID files is not a supported job

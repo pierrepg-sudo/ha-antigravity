@@ -27,6 +27,24 @@ TOOLS = [TOOL,
     job_tool('logs', 'Read the bounded stdout/stderr tail of an owned job. Logs may contain application secrets; redact them before displaying. Files redirected by the script are not included.', JOB_ID, ['job_id'])]
 
 
+RECOVERY_GUIDANCE = (
+    'For every current or future script/agent launch failure, inspect the cause. '
+    'If blocked native execution, a self-detaching launcher (nohup/setsid/backgrounding), '
+    'or the 90-second run limit is the cause, always propose the existing worker: '
+    'run for bounded work, or a managed foreground job via start for long-running work. '
+    'Do not create another worker or service. A timeout alone does not prove continuous execution. '
+    'Call status with {} first; inspect existing jobs and logs to avoid duplicates. '
+    'Inspect the launcher and propose a foreground adaptation preserving .env loading, '
+    'dependency paths and attached stdout/stderr without exposing secrets. '
+    'Proceed with adaptation/start when already authorized by the user; otherwise ask before starting. '
+    'Check for partial work or external actions before retrying; never automatically replay a failed command. '
+    'After start, verify status and logs using the full returned id as job_id. '
+    'Missing dependencies, invalid credentials, application bugs, resource limits and private-network '
+    'denials need their own fixes; a managed job does not resolve them. '
+    'If the worker itself denies execution, is unavailable or fails isolation checks, stop and report it. '
+    'Keep security settings and additional user restrictions unchanged.'
+)
+
 INSTRUCTIONS = (
     'ha-restricted-worker is the configured execution method for user-requested local work. '
     'Native command/unsandboxed tools remain denied; this worker is not a bypass. '
@@ -37,8 +55,30 @@ INSTRUCTIONS = (
     'On argument errors, correct the call without restarting the job. '
     'Tool schemas are available in tools/list and /opt/antigravity-workspace/WORKER_TOOLS.json; '
     'do not read private CLI tool-cache files. Respect any additional user ask/deny rules. '
-    'If execution is denied or unavailable, report it without using another execution path.'
+    'If worker execution is denied or unavailable, report it without using another execution path. '
+    + RECOVERY_GUIDANCE
 )
+
+
+def add_recovery_guidance(name, response):
+    """Annotate results only; never infer authorization or execute a retry."""
+    result = dict(response)
+    if response.get('error'):
+        result['guidance'] = (
+            'Report the worker error. Do not launch another job to work around it. '
+            'For duplicate/capacity or job-ID errors, call status with {} and inspect existing jobs; '
+            'do not stop them without authorization. For denial/isolation failures, stop and report. '
+            'No native terminal fallback or security changes.')
+    elif name == 'run' and response.get('timedOut'):
+        result['guidance'] = (
+            'The short-command time limit was reached and its process group was cleaned up. '
+            'Work or external actions completed before timeout may still have taken effect. '
+            + RECOVERY_GUIDANCE)
+    elif name in ('run', 'start', 'status', 'logs') and response.get('exitCode') not in (None, 0):
+        result['guidance'] = (
+            'Execution failed; the exit code alone does not identify the cause. '
+            + RECOVERY_GUIDANCE)
+    return result
 
 
 def export_docs(directory):
@@ -78,7 +118,7 @@ def dispatch(request):
     params = request.get('params', {})
     if method == 'initialize':
         return {'protocolVersion': '2024-11-05', 'capabilities': {'tools': {}},
-                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.3.1'},
+                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.3.2'},
                 'instructions': INSTRUCTIONS}
     if method == 'ping':
         return {}
@@ -105,10 +145,11 @@ def dispatch(request):
                 with connection.makefile('rb') as stream:
                     data = stream.readline(2*1024*1024)
                 response = json.loads(data)
+            response = add_recovery_guidance(name, response)
             return {'content': [{'type': 'text', 'text': json.dumps(response)}],
                     'isError': bool(response.get('error') or response.get('timedOut') or response.get('exitCode') not in (None, 0))}
         except (OSError, ValueError):
-            return {'content': [{'type': 'text', 'text': 'Restricted worker unavailable. No command was run; there is no native shell fallback.'}], 'isError': True}
+            return {'content': [{'type': 'text', 'text': 'Restricted worker communication failed. Execution outcome may be unknown if the request was sent. Do not retry automatically. When available, call status with {} and inspect jobs/logs before any further start. Report the error; there is no native shell fallback.'}], 'isError': True}
     raise ValueError('Unsupported method')
 
 

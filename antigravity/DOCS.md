@@ -1,5 +1,18 @@
 # Antigravity Remote
 
+## Launch recovery (0.3.2)
+
+Persistent workspace and MCP instructions now require a managed-job proposal when
+a launch fails because of native-tool selection, detaching or the short-command
+limit. Bounded work still uses run. Timeout and execution-failure responses include
+matching diagnosis, duplicate checks, foreground adaptation and authorization
+guidance. They never start or replay commands themselves. Worker errors remain
+errors; dependency, credential, application and policy failures need separate fixes.
+Transport errors report an unknown outcome rather than claiming nothing ran.
+
+Update and restart, then open a fresh conversation. Restart stops existing jobs.
+These instructions guide the model; they cannot guarantee every model response.
+
 ## Worker discovery (0.3.1)
 
 At image build, the MCP server exports its exact tool schemas to the root-owned
