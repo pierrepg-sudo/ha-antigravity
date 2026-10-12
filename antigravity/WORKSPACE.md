@@ -107,3 +107,14 @@ Use the official GitHub MCP connection for repository operations when configured
 This policy does not establish authentication, grant additional tool permissions
 or authorize access to unrelated repositories. Never publish .env files, tokens,
 CLI settings, runtime state or credentials. Do not copy all workspace files blindly.
+
+
+The optional managed GitHub server is named `ha-github`. If its tools are absent,
+direct the user to Web UI → GitHub, then restart the add-on and open a fresh
+conversation. Never ask for a token in chat or use the worker to read CLI secrets.
+Available tools cover account identity and repository reads/writes only. Do not
+claim connection or publication succeeded until verified. Read remote files and
+revision before publishing, preserve concurrent changes and obey branch protection.
+On an uncertain write response, inspect the remote result before retrying.
+The setup form's tool authorization applies only to authorized project work;
+it does not authorize arbitrary changes to every repository the token can access.

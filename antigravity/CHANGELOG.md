@@ -1,3 +1,12 @@
+## 0.5.0
+
+- Add an admin-ingress GitHub connection form for the official remote GitHub MCP
+  server, with fine-grained PAT setup, read-only verification and disconnection.
+- Keep credentials in private CLI configuration; preserve unrelated MCP entries,
+  require explicit repository-tool authorization and restore only scoped grants.
+- Add matching setup and publishing guidance; retain local checks, direct main
+  publication and no Actions workflows by default.
+
 ## 0.4.1
 
 - Package default publishing guidance: local CLI checks, direct-to-main publication

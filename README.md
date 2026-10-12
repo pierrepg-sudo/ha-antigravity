@@ -1,6 +1,6 @@
 # Antigravity Home Assistant add-on
 
-Experimental v0.4.1. Public egress requires a successful HAOS startup isolation check.
+Experimental v0.5.0. Public egress requires a successful HAOS startup isolation check.
 
 ## Install
 
@@ -29,3 +29,10 @@ public connectivity must be verified on the device. See the setup instructions
 for DNS behavior and the unchanged 90-second short-command limit.
 Managed jobs support opt-in recovery after add-on/HAOS restarts; see the restart
 policy documentation. No existing job is automatically opted in.
+
+Connect GitHub from **Open Web UI → GitHub** using a fine-grained token restricted
+to your selected repositories with Contents read/write permission. The form verifies
+and saves the official GitHub MCP connection; restart afterward. No marketplace
+plugin is required. Tokens belong in the setup form, never in chat. Publishing
+instructions default to local checks, authorized changes directly to main and
+no Actions workflows.

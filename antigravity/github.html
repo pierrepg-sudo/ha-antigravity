@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GitHub connection</title><style>
+body{font:17px system-ui;background:#181a20;color:#eee;max-width:700px;margin:24px auto;padding:18px;line-height:1.5}a{color:#9bc9ff}input[type=password]{box-sizing:border-box;width:100%;padding:14px;background:#242833;color:white;border:1px solid #8794aa;border-radius:8px;font:inherit}button{font:inherit;padding:12px;margin:10px 8px 0 0;border-radius:8px;background:#303b50;color:white;border:1px solid #8794aa}button:disabled{opacity:.5}label{display:block;margin:18px 0}#status{padding:14px;background:#242833;border-radius:8px;overflow-wrap:anywhere}small{display:block;color:#ccd2db}
+</style></head><body>
+<a href="controls">← Terminal</a><h1>Connect GitHub</h1>
+<p>Connect the official GitHub MCP server to the CLI. This connection will appear as <b>ha-github</b> in MCP tools, not in the plugin marketplace.</p>
+<ol><li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create a fine-grained personal access token in GitHub</a>.</li>
+<li>Choose the repository owner, a suitable expiry, and <b>Only select repositories</b>. Select the projects this CLI may publish to.</li>
+<li>Under Repository permissions, set <b>Contents: Read and write</b>. Metadata read access is automatic. Do not grant Actions or Workflows permissions. Complete any required organization approval.</li>
+<li>Paste the token below. Never paste it into the conversation or terminal.</li></ol>
+<form id="setup" autocomplete="off">
+<label for="token">Fine-grained token</label><input id="token" type="password" autocomplete="off" spellcheck="false" autocapitalize="none" maxlength="251" required placeholder="github_pat_…">
+<label><input id="authorize" type="checkbox" required> Allow the CLI to use repository read and write tools for my authorized project work within the selected repositories.</label>
+<small>Default publishing: run local checks, publish authorized changes to main, bump the app version when needed, and use no Actions workflows. Existing repository rules and CLI review restrictions still apply.</small>
+<button type="submit">Connect and verify</button></form>
+<p id="status" role="status" aria-live="polite">Loading connection status…</p>
+<button id="test" type="button">Test saved connection</button><button id="disconnect" type="button">Disconnect</button>
+<p>The token is stored privately in the add-on’s CLI configuration. It is excluded from worker access and status responses. Home Assistant backups may contain it; protect those backups.</p>
+<p>After connecting, restart the add-on and open a fresh CLI conversation. Verification reads your account and available tools; it does not create a commit or prove write access to every repository.</p>
+<script>
+'use strict';
+const statusBox=document.getElementById('status'), token=document.getElementById('token');
+async function call(payload){
+ const buttons=[...document.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
+ statusBox.textContent='Checking…';
+ try{
+  const response=await fetch('github-action',{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':'__CSRF__'},cache:'no-store',body:JSON.stringify(payload)});
+  const result=await response.json();
+  statusBox.textContent=result.error || ((result.account ? 'Account: '+result.account+'. ' : '')+result.message);
+ }catch(e){statusBox.textContent='Connection setup unavailable. Reopen this page and try again.';}
+ finally{buttons.forEach(b=>b.disabled=false);}
+}
+document.getElementById('setup').addEventListener('submit',event=>{
+ event.preventDefault();
+ const value=token.value.trim();token.value='';
+ call({action:'connect',token:value,authorize:document.getElementById('authorize').checked});
+});
+document.getElementById('test').onclick=()=>call({action:'test'});
+document.getElementById('disconnect').onclick=()=>{
+ if(confirm('Remove the saved GitHub token? Restart the add-on afterward. Revoke the token in GitHub for immediate invalidation.'))call({action:'disconnect',confirm:true});
+};
+call({action:'status'});
+</script></body></html>

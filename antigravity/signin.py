@@ -1,4 +1,5 @@
 """Mobile controls and OAuth helper; localhost behind admin-only HA ingress."""
+import github_connection
 import conversation_history
 import json
 import secrets
@@ -144,11 +145,11 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
-        if route not in {'/signin', '/controls', '/conversations'}:
+        if route not in {'/signin', '/controls', '/conversations', '/github'}:
             self.send_error(404)
             return
-        body = (Path(__file__).with_name('conversations.html' if route == '/conversations' else 'mobile.html').read_text().replace('__CSRF__', CSRF).encode()
-                if route in {'/controls', '/conversations'} else render(current_url()))
+        body = (Path(__file__).with_name({'/conversations': 'conversations.html', '/github': 'github.html'}.get(route, 'mobile.html')).read_text().replace('__CSRF__', CSRF).encode()
+                if route in {'/controls', '/conversations', '/github'} else render(current_url()))
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Cache-Control', 'no-store')
@@ -159,7 +160,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path not in {'/input', '/conversation-delete'}:
+        if self.path not in {'/input', '/conversation-delete', '/github-action'}:
             self.send_error(404)
             return
         status = 200
@@ -171,13 +172,19 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Expected JSON.')
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 400 * 1024:
+            if not 0 < length <= (8192 if self.path == '/github-action' else 400 * 1024):
                 raise ValueError('Request is empty or too large.')
             self.connection.settimeout(15)
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError('Invalid request.')
-            result = conversation_history.delete(payload) if self.path == '/conversation-delete' else send_input(payload)
+            if self.path == '/github-action':
+                result = github_connection.action(payload)
+            else:
+                result = conversation_history.delete(payload) if self.path == '/conversation-delete' else send_input(payload)
+        except github_connection.ConnectionError as error:
+            status = 400
+            result = {'error': str(error)}
         except conversation_history.HistoryError as error:
             status = 409
             result = {'error': str(error)}

@@ -8,13 +8,45 @@ to deliver an installable update. GitHub Actions is off by default; a named proj
 can opt in by explicit user instruction. Existing server-side workflows are not
 automatically disabled or deleted, and repository branch rules still apply.
 
-This release adds instructions only. The GitHub MCP connection and authentication
-are not yet installed. Prefer the official GitHub remote MCP server and the CLI's
-native authentication facilities. Browser authorization (OAuth) requires an
-appropriate registered client; GitHub does not support automatic dynamic client
-registration. If the CLI provides no registered GitHub client, supported options
-are configured OAuth client credentials or a GitHub personal access token. Do not
-ask the user to paste secrets into chat or expose them to restricted job scripts.
+## GitHub connection setup (0.5.0)
+
+Open **Web UI → GitHub**. Create a fine-grained GitHub personal access token,
+choose the repository owner and **Only select repositories**, and grant
+**Contents: Read and write**. Metadata read access is automatic. Do not grant
+Actions or Workflows permissions. Organization-owned repositories may require
+approval. Choose an expiry and reconnect with a replacement token before it expires.
+Enter the token only in this protected form, authorize repository tools, and select
+**Connect and verify**. Restart the add-on and open a fresh CLI conversation.
+The connection is named `ha-github` under MCP tools; it is not a marketplace plugin.
+
+The form configures the official remote server at
+`https://api.githubcopilot.com/mcp/`. It first verifies the account and MCP tool
+availability without modifying repositories. This does not prove write permission
+for every selected repository. A GitHub login alone does not grant repository access.
+**Test saved connection** repeats the read-only check. Status reports the last saved
+verification, not continuous connectivity. Expired/revoked tokens must be replaced.
+
+Only get_me, get_file_contents, get_commit, list_commits, list_branches, push_files
+and delete_file are requested via X-MCP-Tools. Their exact ha-github tool grants are
+restored at startup only for the managed connection. User ask/deny rules survive.
+There are no Actions tools, wildcard tool grants, shell authentication commands,
+or credentials passed to worker scripts. Token permissions restrict repository
+access; project authorization still governs when changes may be published.
+
+The admin-only HA ingress form uses CSRF protection, no-store responses and a
+password field. The token is saved in mode-0600
+`/data/home/.gemini/config/mcp_config.json`, beneath the private agent home. The
+worker and file server cannot read it; the CLI is denied direct reads of that
+configuration directory. Tokens are never returned by the setup API or logged.
+The host agent and root can access this configuration; Home Assistant backups may
+contain it. Protect backups and rotate the token if they are exposed. Other MCP
+entries are preserved, and setup refuses to overwrite an unmanaged ha-github entry.
+
+**Disconnect** removes the saved entry and its managed tool grants. Restart the
+add-on to discard cached credentials. Revoke the token in GitHub for immediate
+invalidation; local removal does not revoke it or remove older HA backups.
+Native browser OAuth is not configured by this form: it uses GitHub's supported
+fine-grained PAT authentication for the official remote MCP server.
 
 
 ## Opt-in restart recovery (0.4.0)

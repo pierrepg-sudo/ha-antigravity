@@ -5,6 +5,7 @@ import re
 import os
 from pathlib import Path
 import tempfile
+import github_connection
 
 ALLOW = ['read_file(/opt/antigravity-workspace)', 'read_file(/data/inputs)', 'write_file(/data/workspace/outputs)',
          'mcp(ha-restricted-worker/run)', 'mcp(ha-restricted-worker/start)',
@@ -130,6 +131,10 @@ def prepare(path, domains=None):
     config = read_config(config_path, 'Global MCP configuration', allow_empty=True)
     if not isinstance(config, dict) or not isinstance(config.get('mcpServers', {}), dict):
         raise ConfigurationError('Global MCP configuration: mcpServers must be an object')
+    github_state = read_config(config_path.with_name('ha-github-connection.json'), 'GitHub connection state')
+    if not isinstance(github_state, dict):
+        raise ConfigurationError('GitHub connection state must be an object')
+    github_grants = github_connection.GRANTS if github_connection.active(config, github_state) else []
     backup = path.with_name('settings.before-restricted-worker.json')
     if not backup.exists():
         write_config(backup, settings, 'Settings backup')
@@ -145,7 +150,7 @@ def prepare(path, domains=None):
     required_ask = list(ASK)
     added_ask = [x for x in required_ask if x not in ask]
     settings['permissions'] = {
-        'allow': list(ALLOW) + [f'read_url({domain})' for domain in domains],
+        'allow': list(ALLOW) + github_grants + [f'read_url({domain})' for domain in domains],
         'deny': list(dict.fromkeys(permissions.get('deny', []) + DENY)),
         'ask': list(dict.fromkeys(ask + required_ask)),
     }
