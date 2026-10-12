@@ -1,3 +1,12 @@
+## 0.4.1
+
+- Package default publishing guidance: local CLI checks, direct-to-main publication
+  for authorized projects, and version/changelog bumps for installable app changes.
+- Default GitHub Actions off, with explicit per-project opt-in; preserve existing
+  automation until the user directs how it should be handled.
+- Preserve remote concurrency checks, branch protection, credential exclusions and
+  local HAOS builds. This release does not install or authenticate GitHub MCP.
+
 ## 0.4.0
 
 - Add opt-in resume_after_restart to managed start and restart_policy for active jobs.

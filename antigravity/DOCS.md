@@ -1,5 +1,22 @@
 # Antigravity Remote
 
+## Publishing defaults (0.4.1)
+
+Packaged workspace instructions default to local CLI checks, direct publication
+to main for authorized projects, and an app version/changelog bump when needed
+to deliver an installable update. GitHub Actions is off by default; a named project
+can opt in by explicit user instruction. Existing server-side workflows are not
+automatically disabled or deleted, and repository branch rules still apply.
+
+This release adds instructions only. The GitHub MCP connection and authentication
+are not yet installed. Prefer the official GitHub remote MCP server and the CLI's
+native authentication facilities. Browser authorization (OAuth) requires an
+appropriate registered client; GitHub does not support automatic dynamic client
+registration. If the CLI provides no registered GitHub client, supported options
+are configured OAuth client credentials or a GitHub personal access token. Do not
+ask the user to paste secrets into chat or expose them to restricted job scripts.
+
+
 ## Opt-in restart recovery (0.4.0)
 
 `start` accepts `resume_after_restart: true` only when the user authorizes it.
