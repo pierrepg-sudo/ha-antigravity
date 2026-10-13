@@ -714,3 +714,13 @@ deletion key. History, paste fallback and full-screen access remain available.
 For this release the execution workspace was unavailable. JavaScript syntax and
 static consistency checks were performed; Python tests and browser/HAOS rendering
 could not be run. Added streaming boundary tests await execution.
+
+
+## Leaving full-screen terminal (0.8.1)
+
+The **Full-screen terminal** button expands the current terminal inside the Web UI.
+An **Exit full screen** button stays visible above it and returns to the normal
+controls and page position. The iframe stays loaded, so this does not reconnect or
+restart the CLI. The Home Assistant app's own header may remain visible.
+If you still have the previous standalone terminal open, reopen the add-on's Web UI
+after updating to use the new expand/exit controls.

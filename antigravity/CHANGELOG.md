@@ -1,3 +1,8 @@
+## 0.8.1
+
+- Expand the terminal in place and keep an Exit full screen button visible.
+- Restore the normal controls and scroll position without reloading the terminal.
+
 ## 0.8.0
 
 - Raise file downloads and folder ZIP/copy contents to 500 MiB.
