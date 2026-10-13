@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, urlsplit
 
 CSRF = secrets.token_hex(32)
 LOCK = threading.Lock()
-KEYS = {'Tab', 'BTab', 'Up', 'Down', 'Left', 'Right', 'S-Up', 'S-Down', 'Enter', 'Escape', 'BSpace', 'F4'}
+KEYS = {'Tab', 'BTab', 'Up', 'Down', 'Left', 'Right', 'S-Up', 'S-Down', 'Enter', 'Escape', 'BSpace'}
 
 
 def tmux(*args, **kwargs):

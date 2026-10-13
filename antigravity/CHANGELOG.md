@@ -1,3 +1,9 @@
+## 0.8.2
+
+- Remove the terminal's Delete conversation shortcut and Delete a saved conversation
+  help panel, including their unused styling and F4 forwarding support.
+- Preserve the Conversations navigation button and all conversation manager tools.
+
 ## 0.8.1
 
 - Expand the terminal in place and keep an Exit full screen button visible.

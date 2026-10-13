@@ -597,24 +597,12 @@ are supported; specialist LaTeX packages and all language fonts are not included
 The image build runs a sample PDF conversion and checks its PDF signature. These
 packages increase the download size, disk usage and update/build time on HAOS.
 
-## Delete saved conversations (0.1.10)
+## Saved conversations
 
-In the CLI, type `/resume` and press Enter. Highlight the conversation with ↑/↓,
-then tap **Delete conversation (F4)** on the mobile toolbar. Review the CLI's
-confirmation and press **Enter** to delete or **Esc** to cancel. Repeat for each
-conversation. The button sends only F4; it does not automatically confirm deletion
-or access conversation database files. Use it only in the conversation picker.
-Custom `item.delete` keybindings can change its behavior.
-
-Google's CLI changelog records F4 replacing Ctrl+Delete in version 1.1.13.
-The older `/resume` documentation still mentions Ctrl+Delete. If your installed
-CLI shows another shortcut, check its version and keybindings. This feature is
-for the add-on terminal; it adds no controls to Google's hosted chat website.
+Open **Conversations** from the terminal header to manage saved conversations.
+Its listing and confirmed deletion tools remain available. The terminal's separate
+F4 deletion shortcut button and deletion help panel were removed in 0.8.2.
 Deleting a conversation is separate from the in-memory terminal scrollback.
-
-References:
-- https://www.antigravity.google/docs/cli/commands/resume/
-- https://github.com/google-antigravity/antigravity-cli/blob/main/CHANGELOG.md
 
 ## Paste from iPhone (0.1.11)
 
@@ -708,8 +696,7 @@ The worker's separate resource limits have not changed.
 The terminal page now uses the same visual style as Files, with a larger console,
 compact Worker status and Connections panels, and grouped mobile keys. Files and
 Conversations remain in the header; Google sign-in and GitHub are in Connections.
-More keys contains Shift+Tab, selection arrows, Backspace and the F4 conversation
-deletion key. History, paste fallback and full-screen access remain available.
+More keys contains Shift+Tab, selection arrows and Backspace. History, paste fallback and full-screen access remain available.
 
 For this release the execution workspace was unavailable. JavaScript syntax and
 static consistency checks were performed; Python tests and browser/HAOS rendering
