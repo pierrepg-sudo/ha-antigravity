@@ -87,9 +87,22 @@ def change(payload):
             if payload.get('confirm') is not True:
                 raise ValueError('Delete requires confirmation.')
             info = os.stat(name, dir_fd=fd, follow_symlinks=False)
-            if not stat.S_ISREG(info.st_mode):
-                raise ValueError('Only regular files can be deleted.')
-            os.unlink(name, dir_fd=fd)
+            if stat.S_ISDIR(info.st_mode):
+                if payload.get('kind') != 'folder':
+                    raise ValueError('Folder deletion requires explicit folder confirmation.')
+                import shutil
+                if not shutil.rmtree.avoids_symlink_attacks:
+                    raise FileOperationError('Safe folder deletion is unavailable on this platform.')
+                try:
+                    shutil.rmtree(name, dir_fd=fd)
+                except OSError:
+                    raise FileOperationError('Folder deletion did not finish. Some contents may have been removed. Refresh and check permissions or active writers before retrying.') from None
+            elif stat.S_ISREG(info.st_mode):
+                if payload.get('kind', 'file') != 'file':
+                    raise ValueError('The selected item changed. Refresh and try again.')
+                os.unlink(name, dir_fd=fd)
+            else:
+                raise ValueError('Only regular files and folders can be deleted.')
         elif action == 'mkdir':
             os.mkdir(name, 0o2750 if INPUT_MODE.get() else 0o2770, dir_fd=fd)
         elif action == 'upload':

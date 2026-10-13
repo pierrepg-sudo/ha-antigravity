@@ -132,5 +132,44 @@ class FolderTests(unittest.TestCase):
                 with self.assertRaises(HTTPError) as error:
                     urlopen(Request(base+'/file-action?area=outputs',data=json.dumps(payload).encode(),headers={'Content-Type':'application/json','X-Antigravity-File-Key':'test'}))
                 self.assertEqual(error.exception.code,403)
+                deletion={'action':'delete','name':'project','path':'','kind':'folder','confirm':True}
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(Request(base+'/file-action?area=legacy',data=json.dumps(deletion).encode(),headers=headers))
+                self.assertEqual(error.exception.code,403)
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(Request(base+'/file-action?area=outputs',data=json.dumps(dict(deletion,confirm=False)).encode(),headers=headers))
+                self.assertEqual(error.exception.code,400)
+                self.assertTrue((self.root/'project').exists())
+                with urlopen(Request(base+'/file-action?area=outputs',data=json.dumps(deletion).encode(),headers=headers)) as response:
+                    self.assertTrue(json.load(response)['ok'])
+                self.assertFalse((self.root/'project').exists())
         finally:
             server.shutdown();server.server_close();thread.join()
+
+    def test_recursive_delete_requires_folder_confirmation_and_preserves_link_targets(self):
+        outside=Path(self.temp.name)/'outside';outside.mkdir();(outside/'secret').write_text('keep')
+        (self.root/'project/link').symlink_to(outside,target_is_directory=True)
+        payload={'action':'delete','path':'','name':'project','kind':'folder'}
+        with self.assertRaises(ValueError):files.change(payload)
+        with self.assertRaises(ValueError):files.change({'action':'delete','name':'project','confirm':True})
+        self.assertTrue((self.root/'project/sub/code.txt').exists())
+        files.change(dict(payload,confirm=True))
+        self.assertFalse((self.root/'project').exists())
+        self.assertEqual((outside/'secret').read_text(),'keep')
+
+    def test_delete_blocks_root_traversal_and_selected_symlink(self):
+        outside=Path(self.temp.name)/'outside';outside.mkdir()
+        (self.root/'link').symlink_to(outside,target_is_directory=True)
+        for name in ('','..','/','project/..','link'):
+            with self.assertRaises((ValueError,OSError)):
+                files.change({'action':'delete','path':'','name':name,'kind':'folder','confirm':True})
+        self.assertTrue(outside.is_dir())
+        self.assertTrue(self.root.is_dir())
+        with self.assertRaises(ValueError):
+            files.change({'action':'delete','name':'.hidden','path':'project','kind':'folder','confirm':True})
+
+    def test_delete_failure_reports_possible_partial_deletion(self):
+        with patch('shutil.rmtree',side_effect=PermissionError) as remove:
+            remove.avoids_symlink_attacks=True
+            with self.assertRaisesRegex(files.FileOperationError,'Some contents may have been removed'):
+                files.change({'action':'delete','name':'project','kind':'folder','confirm':True})

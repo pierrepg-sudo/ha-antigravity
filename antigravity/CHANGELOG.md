@@ -1,3 +1,12 @@
+## 0.7.0
+
+- Redesign Files for mobile with compact cards, breadcrumbs, an upload dialog,
+  contextual paste controls and a More menu for secondary actions.
+- Add explicit confirmed deletion for files and complete folders in writable areas,
+  without following symlinks; report incomplete deletions accurately.
+- Remove the Share / Save to Files control and its Web Share implementation.
+  Keep standard downloads and folder ZIP downloads.
+
 ## 0.6.0
 
 - Download complete folders as ZIP archives, including nested and empty folders.

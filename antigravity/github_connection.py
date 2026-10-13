@@ -125,7 +125,7 @@ def verify(token):
     headers = {'Accept': 'application/json, text/event-stream', 'X-MCP-Tools': ','.join(TOOLS)}
     raw, response_headers = request(ENDPOINT, token, {'jsonrpc':'2.0', 'id':1, 'method':'initialize',
         'params':{'protocolVersion':'2024-11-05', 'capabilities':{},
-                  'clientInfo':{'name':'ha-antigravity-setup','version':'0.6.0'}}}, headers)
+                  'clientInfo':{'name':'ha-antigravity-setup','version':'0.7.0'}}}, headers)
     initialized = rpc_data(raw, 1)
     protocol = initialized.get('protocolVersion')
     if protocol not in ('2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25'):

@@ -132,6 +132,13 @@ class Handler(BaseHTTPRequestHandler):
                     result = workspace_files.transfer(payload, AREAS[source_area])
                 finally:
                     TRANSFER_LOCK.release()
+            elif payload.get('action') == 'delete':
+                if not TRANSFER_LOCK.acquire(blocking=False):
+                    raise workspace_files.FileOperationError('Another folder operation is running. Try again shortly.')
+                try:
+                    result = workspace_files.change(payload)
+                finally:
+                    TRANSFER_LOCK.release()
             else:
                 result = workspace_files.change(payload)
             self.respond(200, json.dumps(result).encode())

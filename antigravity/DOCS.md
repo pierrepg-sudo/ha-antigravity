@@ -544,18 +544,23 @@ The file manager is behind the existing admin-only Home Assistant ingress.
 Mutations require the page's per-process CSRF token. Files outside the workspace,
 including /data/home authentication data, are not exposed by these endpoints.
 
-## Version 0.1.9: delete and mobile downloads
+## Delete and download files
 
-Tap Delete beside a regular file, then confirm in the dialog. Deletion is
-permanent; folders and symbolic links cannot be deleted with this action.
-The API also requires an explicit confirmation value and the page CSRF token.
+Tap **Delete** on a file or folder card, then confirm in the dialog. Folder deletion
+permanently removes all nested contents; the confirmation names the selected item.
+Only Inputs and Outputs permit deletion. Existing files remain read-only, and the
+workspace roots themselves cannot be deleted. The API requires explicit confirmation,
+a folder-specific kind value for recursive deletion, and the page CSRF token.
+Symbolic links at the selected path are blocked. Nested links are removed as links;
+their targets are never followed. Stop active writers before deleting their folders.
+A permissions error or active writer may cause a partial deletion; the UI reports
+this honestly and asks you to refresh before retrying.
 
-Download now fetches the file without navigating the terminal away and opens
-a save dialog. On iPhone tap Share / Save to Files, then Save to Files in the
-system share sheet. If file sharing is unavailable, use Download file.
-Some in-app browsers preview downloaded files even with attachment headers;
-use Share > Save to Files from the preview or open Home Assistant in Safari.
-The file is kept in browser memory until the dialog closes or the page reloads.
+**Download** (or **ZIP** for folders) prepares the download, then opens a compact
+confirmation dialog. Tap **Download** to save it. Some in-app browsers preview files;
+open Home Assistant in Safari if the app does not handle the download correctly.
+The previous share-sheet option has been removed. Download data stays in browser
+memory until the dialog closes or the page reloads.
 
 ## Scrolling terminal output (0.1.9)
 
@@ -656,7 +661,7 @@ associated conversation data. This internal API may change across CLI versions.
 
 In **Files**, choose **Download ZIP** beside a folder, or **Download folder ZIP**
 to download the folder currently open. Nested files, hidden files and empty folders
-are included. Use **Share / Save to Files** on iPhone. ZIP generation is limited to
+are included. Select **Download** when the archive is ready. ZIP generation is limited to
 128 MiB of uncompressed file contents, 10,000 entries and 64 levels. A link, special
 file, unreadable item or detected source change aborts the archive with an error;
 contents are never silently skipped. This is not a snapshot of actively edited data.
@@ -677,3 +682,13 @@ rename and does not read the contents. A folder cannot be pasted into itself or 
 descendant. The existing ingress authentication, CSRF checks, root restrictions and
 separate file-service identity apply to all new operations. No new agent permission
 or network access is granted. Device-level HAOS verification is still required.
+
+
+## Updated Files interface (0.7.0)
+
+Files uses responsive cards, folder breadcrumbs and compact toolbars. Download and
+Delete stay visible on every writable file/folder card. **More** contains Copy,
+Move and File path. The paste bar appears after selecting Copy or Move. Upload opens
+a dedicated dialog, while detailed limits are under **File limits & permissions**.
+Folder deletion requires confirmation and never follows links outside the selected
+folder. No change grants the agent additional access to Inputs or credentials.
