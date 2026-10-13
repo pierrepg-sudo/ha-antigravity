@@ -1,3 +1,9 @@
+## 0.9.1
+
+- Register connection hooks globally so setup does not depend on workspace hook discovery.
+- Report fixed, secret-free connection diagnostics instead of hiding setup errors and repeatedly asking for messages.
+- Preserve other global hooks and managed command restrictions. Automatic pairing remains dependent on CLI-provided API credentials.
+
 ## 0.9.0
 
 - Refresh Conversations automatically while visible, with retry backoff and refresh on return.

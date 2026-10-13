@@ -4,7 +4,7 @@
 </style><main><header><div><div class="eyebrow">ANTIGRAVITY</div><h1>Conversations</h1><p class="subtitle">Your conversation history</p></div><a class="nav" href="controls">← Terminal</a></header>
 <section class="panel" aria-label="Connection and search"><div class="toolbar"><div><span class="badge" id="connection">Connecting</span><p id="updated">Auto-refresh · every 15 seconds</p></div><button id="refresh">Refresh</button></div><p id="status" role="status" aria-live="polite">Checking the CLI connection…</p><label for="search">Search conversations</label><input id="search" type="search" placeholder="Search title or ID" autocomplete="off"></section>
 <div id="count"></div><div id="list" aria-label="Conversations"></div>
-<details><summary>Connection help &amp; deletion</summary><p>After a CLI restart, send a message in Terminal to trigger automatic connection setup. This page refreshes while visible and when you return to it. If it stays disconnected, the installed CLI may not provide API credentials to its lifecycle hooks.</p><p>Only idle conversations can be deleted. Each deletion requires confirmation and cannot be undone here. The CLI controls which conversations appear and any associated data cleanup.</p></details>
+<details><summary>Connection help &amp; deletion</summary><p>The connection status above shows the setup stage. If the hook has not run, open /hooks in Terminal and check that ha-conversations is enabled, then send one message. If API credentials are missing or verification fails, share the connection status and CLI version; repeated messages will not help. This page refreshes automatically while visible.</p><p>Only idle conversations can be deleted. Each deletion requires confirmation and cannot be undone here. The CLI controls which conversations appear and any associated data cleanup.</p></details>
 <dialog id="confirm" aria-labelledby="confirmTitle"><h2 id="confirmTitle">Delete conversation?</h2><p id="selected"></p><p>This removes the conversation and may clean up its associated data. There is no undo.</p><p id="error" role="alert"></p><div class="actions"><button id="cancel">Cancel</button><button id="apply" class="delete">Delete conversation</button></div></dialog></main>
 <script>
 const csrf='__CSRF__';let items=[],busy=false,pending=null,connected=false,timer=null,failures=0;
@@ -35,7 +35,7 @@ async function refresh(){
   if(!r.ok)throw new Error(d.error||'Could not read conversations.');
   if(!Array.isArray(d.items))throw new Error('Unexpected conversation list.');
   items=d.items;connected=true;failures=0;render();$('connection').textContent='Connected';$('updated').textContent='Updated '+new Date().toLocaleTimeString()+' · auto-refresh on';$('status').textContent='History updates automatically. Active conversations are protected from deletion.';
- }catch(e){items=[];connected=false;failures=Math.min(failures+1,2);render();$('connection').textContent='Reconnecting';$('updated').textContent='Retrying automatically';throw e;}
+ }catch(e){items=[];connected=false;failures=Math.min(failures+1,2);render();$('connection').textContent='Not connected';$('updated').textContent='Retrying automatically';throw e;}
  finally{clearTimeout(timeout);}
 }
 async function load(){if(busy||dialog.open||document.hidden)return;clearTimeout(timer);setBusy(true);try{await refresh();}catch(e){$('status').textContent=e.name==='AbortError'?'Connection timed out. Trying again shortly.':e.message;}finally{setBusy(false);schedule();}}

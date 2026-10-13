@@ -619,9 +619,10 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Conversations and native deletion (0.9.0)
+## Conversations and native deletion (0.9.1)
 
-The root-owned workspace includes SessionStart and PreInvocation hooks that attempt
+Startup registers global SessionStart and PreInvocation hooks pointing to the
+root-owned connection helper. They attempt
 read-only connection setup using the API environment supplied by the CLI. After a
 restart, send a message in Terminal to trigger setup. The hook verifies the CLI
 ancestor, loopback address and GetAllCascadeTrajectories before atomically saving
@@ -630,7 +631,11 @@ or grants the agent native command execution. Hook failures do not stop a conver
 
 Automatic pairing depends on the installed CLI exposing ANTIGRAVITY_LS_ADDRESS and
 ANTIGRAVITY_CSRF_TOKEN to lifecycle hooks. This propagation is not yet device-verified.
-If it does not, the page remains disconnected; do not disable the managed command
+The page reports whether the hook has not run, the API environment is missing,
+process verification failed, API verification failed, or storage failed. Only fixed
+codes and timestamps are saved; secrets and exception text are never stored.
+Global hook registration preserves other hooks. Check /hooks if setup has not run.
+If API credentials are unavailable, the page remains disconnected; do not disable the managed command
 restrictions. The old instruction to ask the agent to run a native terminal command
 is incompatible with this add-on's managed policy and has been removed.
 

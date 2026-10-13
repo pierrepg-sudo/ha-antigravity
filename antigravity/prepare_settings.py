@@ -131,6 +131,13 @@ def prepare(path, domains=None):
     config = read_config(config_path, 'Global MCP configuration', allow_empty=True)
     if not isinstance(config, dict) or not isinstance(config.get('mcpServers', {}), dict):
         raise ConfigurationError('Global MCP configuration: mcpServers must be an object')
+    hooks_path = config_path.with_name('hooks.json')
+    hooks = read_config(hooks_path, 'Global hook configuration', allow_empty=True)
+    if not isinstance(hooks, dict):
+        raise ConfigurationError('Global hook configuration must be an object')
+    hooks['ha-conversations'] = {
+        event: [{'type': 'command', 'command': '/usr/local/bin/antigravity-connect --hook', 'timeout': 20}]
+        for event in ('SessionStart', 'PreInvocation')}
     github_state = read_config(config_path.with_name('ha-github-connection.json'), 'GitHub connection state')
     if not isinstance(github_state, dict):
         raise ConfigurationError('GitHub connection state must be an object')
@@ -154,6 +161,8 @@ def prepare(path, domains=None):
         'deny': list(dict.fromkeys(permissions.get('deny', []) + DENY)),
         'ask': list(dict.fromkeys(ask + required_ask)),
     }
+    write_config(hooks_path, hooks, 'Global hook configuration')
+    path.with_name('ha-native-status.json').unlink(missing_ok=True)
     write_config(path, settings, 'CLI settings')
     write_config(state_path, {'addedAsk': added_ask}, 'Managed permission state')
     # The fixed CLI workspace is root-owned: generated outputs cannot install

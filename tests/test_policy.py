@@ -7,6 +7,22 @@ import prepare_settings as policy
 
 
 class PolicyTests(unittest.TestCase):
+    def test_global_connection_hook_preserves_other_hooks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / '.gemini/antigravity-cli/settings.json'
+            hooks = path.parent.parent / 'config/hooks.json'
+            hooks.parent.mkdir(parents=True)
+            existing = {'my-hook': {'enabled': False, 'Stop': [{'command':'echo done'}]}}
+            hooks.write_text(json.dumps(existing))
+            policy.prepare(path)
+            configured = json.loads(hooks.read_text())
+            self.assertEqual(configured['my-hook'], existing['my-hook'])
+            for event in ('SessionStart', 'PreInvocation'):
+                self.assertEqual(configured['ha-conversations'][event][0]['command'], '/usr/local/bin/antigravity-connect --hook')
+            self.assertIn('command(*)', json.loads(path.read_text())['permissions']['deny'])
+            policy.prepare(path)
+            self.assertEqual(json.loads(hooks.read_text()), configured)
+
     def test_migration_preserves_preferences_data_and_user_restrictions(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d)/'.gemini/antigravity-cli/settings.json'

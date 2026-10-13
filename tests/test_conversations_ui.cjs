@@ -10,5 +10,5 @@ const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
 get('search').value='missing';get('search').oninput();assert.equal(get('list').children[0].textContent,'No conversations match your search.');get('search').value='';get('search').oninput();
 get('list').children[0].children[1].onclick();assert(get('confirm').open);await vm.runInContext('load()',context);assert.equal(calls,1);assert.equal(timers.size,0);
 get('cancel').onclick();document.hidden=true;listeners.visibilitychange();assert.equal(timers.size,0);document.hidden=false;listeners.visibilitychange();await flush();assert.equal(calls,2);
-fail=true;await vm.runInContext('load()',context);assert.equal(get('connection').textContent,'Reconnecting');assert.equal(get('list').children.length,1);assert([...timers.values()].some(t=>t.ms===30000));assert.equal(posts,0);
+fail=true;await vm.runInContext('load()',context);assert.equal(get('connection').textContent,'Not connected');assert.equal(get('list').children.length,1);assert([...timers.values()].some(t=>t.ms===30000));assert.equal(posts,0);
 console.log('UI checks passed: refresh, search, dialog pause, visibility, retry backoff, no automatic deletion.');})().catch(e=>{console.error(e);process.exit(1);});

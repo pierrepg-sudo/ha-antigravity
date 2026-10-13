@@ -103,6 +103,30 @@ class NativeTests(unittest.TestCase):
             self.assertTrue(all(path.endswith(n.LIST) for path,_ in self.calls))
 
 class AutoConnectionTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        state = patch.object(n, 'STATE', Path(directory.name) / 'connection.json')
+        state.start(); self.addCleanup(state.stop)
+        env = patch.dict(os.environ, {'ANTIGRAVITY_LS_ADDRESS':'localhost:1234', 'ANTIGRAVITY_CSRF_TOKEN':'private-test-token'})
+        env.start(); self.addCleanup(env.stop)
+
+    def test_missing_environment_reports_cause_without_credentials(self):
+        with patch.dict(os.environ, {}, clear=True), patch.object(n, 'cli_parent', return_value=(42, '123')), patch.object(n, 'pair') as pair:
+            n.auto_pair()
+            pair.assert_not_called()
+        self.assertIn('[connection:environment]', n.connection_diagnostic())
+        self.assertNotIn('private-test-token', n.STATE.with_name('ha-native-status.json').read_text())
+        self.assertEqual(n.STATE.with_name('ha-native-status.json').stat().st_mode & 0o777, 0o600)
+
+    def test_no_hook_report_is_actionable(self):
+        self.assertIn('/hooks', n.connection_diagnostic())
+        self.assertIn('[connection:not-run]', n.connection_diagnostic())
+
+    def test_untrusted_diagnostic_text_is_not_echoed(self):
+        n.record_status('private-test-token')
+        self.assertNotIn('private-test-token', n.connection_diagnostic())
+
     def test_missing_credentials_do_not_interrupt_cli(self):
         with patch.object(n, 'cli_parent', return_value=(42, '123')), patch.object(n, 'load', side_effect=n.NativeError('missing')), patch.object(n, 'pair', side_effect=n.NativeError('no credentials')) as pair:
             n.auto_pair()

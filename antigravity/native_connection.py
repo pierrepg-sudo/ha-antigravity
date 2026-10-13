@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import stat
 import tempfile
+import time
 from urllib.parse import urlsplit
 
 STATE = Path('/data/home/.gemini/antigravity-cli/ha-native-connection.json')
@@ -102,7 +103,7 @@ def load():
         validate(connection)
         return connection
     except (OSError, ValueError, TypeError):
-        raise NativeError('Waiting for the CLI connection. Send a message in Terminal to trigger automatic setup.') from None
+        raise NativeError(connection_diagnostic()) from None
 
 
 def pair(quiet=False):
@@ -132,18 +133,71 @@ def pair(quiet=False):
         print(f'Native API connected. Read-only listing succeeded ({len(items)} conversations). No conversations deleted.')
 
 
-def auto_pair():
-    """Best-effort trusted lifecycle hook; never interrupts a CLI invocation."""
+DIAGNOSTICS = {
+    'starting': 'Connection hook started but has not completed. Refresh shortly.',
+    'parent': 'Connection hook ran, but could not verify the owning CLI process.',
+    'environment': 'Connection hook ran, but the CLI did not supply its local API address or token. Sending more messages will not fix this.',
+    'verify': 'Connection hook ran, but local API verification failed. Check the installed CLI version.',
+    'storage': 'Connection hook could not save its private connection file.',
+    'connected': 'The last connection hook succeeded, but the saved connection is unavailable. Restart the add-on.',
+}
+
+
+def record_status(code):
+    """Store only a fixed diagnostic code and timestamp, never an exception or env."""
+    target = STATE.with_name('ha-native-status.json')
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix='.ha-native-status-', dir=target.parent)
     try:
+        with os.fdopen(fd, 'w') as handle:
+            os.fchmod(handle.fileno(), 0o600)
+            json.dump({'code': code, 'time': int(time.time())}, handle)
+        os.replace(temporary, target)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def connection_diagnostic():
+    try:
+        fd = os.open(STATE.with_name('ha-native-status.json'), os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(fd, 'rb') as handle:
+            info = os.fstat(handle.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+                raise ValueError()
+            status = json.loads(handle.read(1024))
+        code = status['code']
+        if code in DIAGNOSTICS:
+            return DIAGNOSTICS[code] + ' [connection:' + code + ']'
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return 'Connection hook has not reported since startup. In Terminal, open /hooks and check that ha-conversations is enabled. [connection:not-run]'
+
+
+def auto_pair():
+    """Trusted lifecycle hook with redacted, persistent failure diagnostics."""
+    stage = 'parent'
+    try:
+        record_status('starting')
         pid, started = cli_parent()
         try:
             connection = load()
             if (connection['pid'], connection['started']) == (pid, started):
                 summaries(connection)
+                record_status('connected')
                 return
         except NativeError:
             pass
+        stage = 'environment'
+        if not os.environ.get('ANTIGRAVITY_LS_ADDRESS') or not os.environ.get('ANTIGRAVITY_CSRF_TOKEN'):
+            raise NativeError('Missing API environment')
+        stage = 'verify'
         pair(quiet=True)
-    except (NativeError, OSError):
-        # Hook output must be JSON, and credentials must never enter logs.
-        pass
+        record_status('connected')
+    except (NativeError, OSError) as error:
+        try:
+            record_status('storage' if isinstance(error, OSError) else stage)
+        except OSError:
+            # A fixed log message helps when even the diagnostic cannot be saved.
+            import sys
+            print('Conversations connection: cannot save diagnostic (storage).', file=sys.stderr)
