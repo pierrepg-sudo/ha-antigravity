@@ -8,15 +8,14 @@
 <div class="toolbar"><button id="uploadOpen" class="primary">↑ Upload</button><button id="folder">+ Folder</button><button id="zipCurrent">↓ Folder ZIP</button><button id="refresh" class="quiet">Refresh</button></div>
 <section id="clipboardBar" hidden aria-label="Selected item"><p id="clipboardStatus" aria-live="polite"></p><div class="actions"><button id="pasteItem" class="primary">Paste here</button><button id="clearClipboard" class="quiet">Cancel</button></div></section>
 <div class="section-title"><h2>Your files</h2><span id="count"></span></div><p id="status" role="status" aria-live="polite"></p><main id="list" aria-label="Files and folders"></main>
-<details class="help"><summary>File limits &amp; permissions</summary><p>Uploads: 8 MiB per file. File downloads: 32 MiB. Folder ZIPs and copies: 128 MiB, 10,000 entries, 64 levels. Links and special files cannot be copied or archived.</p><p>Existing names are never overwritten. Move stays within Inputs or Outputs; use Copy between locations. Existing files are read-only. Deleting a folder permanently removes its contents.</p></details>
+<details class="help"><summary>File limits &amp; permissions</summary><p>Uploads: 8 MiB per file. File downloads: 500 MiB. Folder ZIPs and copies: 500 MiB, 10,000 entries, 64 levels. Links and special files cannot be copied or archived.</p><p>Existing names are never overwritten. Move stays within Inputs or Outputs; use Copy between locations. Existing files are read-only. Deleting a folder permanently removes its contents.</p></details>
 <dialog id="uploadDialog" aria-labelledby="uploadTitle"><h3 id="uploadTitle">Upload a file</h3><p>Choose a file to add to this folder. Up to 8 MiB.</p><input id="file" type="file" aria-label="Choose file"><p id="uploadError" class="modal-error" role="alert"></p><div class="actions"><button id="uploadClose" class="quiet">Cancel</button><button id="upload" class="primary">Upload</button></div></dialog>
 <dialog id="preview" aria-labelledby="title"><h3 id="title"></h3><p id="note"></p><textarea id="text" readonly aria-label="File preview"></textarea><div class="actions"><button id="close">Close</button></div></dialog>
 <dialog id="pathDialog" aria-labelledby="pathTitle"><h3 id="pathTitle">File path</h3><p>Copy this path to use in your conversation.</p><textarea id="pathText" rows="3" readonly aria-label="Workspace file path"></textarea><div class="actions"><button id="pathClose" class="quiet">Close</button><button id="copy" class="primary">Copy path</button></div></dialog>
-<dialog id="downloadDialog" aria-labelledby="downloadName"><p class="eyebrow">READY TO DOWNLOAD</p><h3 id="downloadName"></h3><p id="downloadInfo">Your download is ready.</p><div class="actions"><button id="downloadClose" class="quiet">Close</button><button id="saveFile" class="primary">Download</button></div></dialog>
 <dialog id="deleteDialog" aria-labelledby="deleteTitle"><h3 id="deleteTitle">Delete item?</h3><p id="deleteName"></p><p id="deleteWarning"></p><p id="deleteError" class="modal-error" role="alert"></p><div class="actions"><button id="deleteCancel" class="quiet" autofocus>Cancel</button><button id="deleteConfirm" class="danger">Delete permanently</button></div></dialog>
 <script>
 
-const csrf='__CSRF__';let current='';let area='inputs';let root='/data/inputs';let readOnly=false;let busy=false;let download=null;let downloadUrl=null;let pendingDelete=null;let clipboard=null;const $=s=>document.querySelector(s);const status=$('#status');
+const csrf='__CSRF__';let current='';let area='inputs';let root='/data/inputs';let readOnly=false;let busy=false;let pendingDelete=null;let clipboard=null;const $=s=>document.querySelector(s);const status=$('#status');
 const join=n=>current?current+'/'+n:n;
 function scoped(url){return url+(url.includes('?')?'&':'?')+'area='+encodeURIComponent(area);}
 async function request(url,body){url=scoped(url);const r=await fetch(url,body?{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(body)}:{});const d=await r.json();if(!r.ok)throw new Error(d.error||'Request failed');return d;}
@@ -34,11 +33,12 @@ function clipboardControls(){
 }
 function selectItem(action,path,name){clipboard={action,sourceArea:area,source:path,name};clipboardControls();}
 async function downloadItem(path,name,folder){
- status.textContent=folder?'Preparing ZIP…':'Preparing download…';
- const r=await fetch(scoped((folder?'folder-download':'file-download')+'?path='+encodeURIComponent(path)));
- if(!r.ok){const err=await r.json();throw new Error(err.error||'Download failed');}
- const blob=await r.blob();download=new File([blob],name,{type:folder?'application/zip':'application/octet-stream'});
- status.textContent='Download ready.';$('#downloadName').textContent=name;$('#downloadInfo').textContent='Your download is ready. Tap Download to continue.';$('#downloadDialog').showModal();
+ // A native download avoids retaining a 500 MiB Blob in the mobile page.
+ const link=document.createElement('a');
+ link.href=scoped((folder?'folder-download':'file-download')+'?path='+encodeURIComponent(path));
+ link.download=name;link.target='_blank';link.rel='noopener';
+ document.body.append(link);link.click();link.remove();
+ status.textContent='Download requested. ZIP preparation may take a moment. If the app does not handle downloads, open Files in Safari.';
 }
 const icons={folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v9H3Z"/></svg>',file:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 3h8l4 4v14H6Z M14 3v5h4 M9 12h6 M9 16h6"/></svg>'};
 function size(bytes){return bytes<1024?bytes+' B':bytes<1048576?(bytes/1024).toFixed(1)+' KB':(bytes/1048576).toFixed(1)+' MB';}
@@ -98,10 +98,6 @@ $('#deleteConfirm').onclick=()=>act(async()=>{
  await browse(current);status.textContent=(deleted.kind==='folder'?'Folder':'File')+' deleted.';
 });
 $('#deleteDialog').addEventListener('cancel',()=>{pendingDelete=null;});
-function saveDownload(){if(!download)return;if(downloadUrl)URL.revokeObjectURL(downloadUrl);downloadUrl=URL.createObjectURL(download);const a=document.createElement('a');a.href=downloadUrl;a.download=download.name;document.body.append(a);a.click();a.remove();$('#downloadInfo').textContent='Download requested. If downloads do not open in the Home Assistant app, open this file manager in Safari.';}
-$('#saveFile').onclick=saveDownload;
-$('#downloadClose').onclick=()=>$('#downloadDialog').close();
-$('#downloadDialog').addEventListener('close',()=>{download=null;if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl=null;}});
 $('#refresh').onclick=()=>act(()=>browse(current));
 $('#folder').onclick=()=>act(async()=>{const name=prompt('New folder name');if(!name)return;await request('file-action',{action:'mkdir',path:current,name});await browse(current);});
 $('#uploadOpen').onclick=()=>{$('#uploadError').textContent='';$('#uploadDialog').showModal();};

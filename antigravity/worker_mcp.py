@@ -133,7 +133,7 @@ def dispatch(request):
     params = request.get('params', {})
     if method == 'initialize':
         return {'protocolVersion': '2024-11-05', 'capabilities': {'tools': {}},
-                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.7.0'},
+                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.8.0'},
                 'instructions': INSTRUCTIONS}
     if method == 'ping':
         return {}

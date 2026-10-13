@@ -535,7 +535,7 @@ create folders, upload from iPhone Files (including .c/.cpp), preview UTF-8
 text, download files, and copy a path for an Antigravity prompt. Use Terminal
 to return. File uploads live on this separate screen, not in the terminal toolbar.
 
-Uploads are limited to 8 MiB each, downloads to 32 MiB, previews to 256 KiB.
+Uploads are limited to 8 MiB each, downloads to 500 MiB, previews to 256 KiB.
 Duplicate filenames are rejected; existing content is never overwritten.
 Files are not executed or submitted to Google just by uploading. Text editing is not provided. Existing workspace
 files are preserved. Symbolic links and special files cannot be opened.
@@ -556,11 +556,15 @@ their targets are never followed. Stop active writers before deleting their fold
 A permissions error or active writer may cause a partial deletion; the UI reports
 this honestly and asks you to refresh before retrying.
 
-**Download** (or **ZIP** for folders) prepares the download, then opens a compact
-confirmation dialog. Tap **Download** to save it. Some in-app browsers preview files;
-open Home Assistant in Safari if the app does not handle the download correctly.
-The previous share-sheet option has been removed. Download data stays in browser
-memory until the dialog closes or the page reloads.
+**Download** (or **ZIP** for folders) starts a standard browser download.
+Downloads stream in bounded chunks rather than holding the entire file in the
+file service or the page's JavaScript memory. ZIPs are prepared in a temporary
+spooled file before transfer; allow time and free disk space for large folders.
+Some in-app browsers preview files or open another tab. Open Home Assistant in
+Safari if the app does not handle a download correctly. Server-side preparation
+errors may appear in the download tab; the Files page reports only that a download
+was requested, not that it completed. No share-sheet or extra save dialog is used.
+
 
 ## Scrolling terminal output (0.1.9)
 
@@ -661,8 +665,8 @@ associated conversation data. This internal API may change across CLI versions.
 
 In **Files**, choose **Download ZIP** beside a folder, or **Download folder ZIP**
 to download the folder currently open. Nested files, hidden files and empty folders
-are included. Select **Download** when the archive is ready. ZIP generation is limited to
-128 MiB of uncompressed file contents, 10,000 entries and 64 levels. A link, special
+are included. The archive downloads after preparation. ZIP generation is limited to
+500 MiB of uncompressed file contents, 10,000 entries and 64 levels. A link, special
 file, unreadable item or detected source change aborts the archive with an error;
 contents are never silently skipped. This is not a snapshot of actively edited data.
 Pause writers when you need a consistent archive or copy.
@@ -692,3 +696,21 @@ Move and File path. The paste bar appears after selecting Copy or Move. Upload o
 a dedicated dialog, while detailed limits are under **File limits & permissions**.
 Folder deletion requires confirmation and never follows links outside the selected
 folder. No change grants the agent additional access to Inputs or credentials.
+
+## Larger downloads and terminal layout (0.8.0)
+
+File downloads and file/folder copies support 500 MiB (524,288,000 bytes).
+Folder ZIPs have the same limit on total uncompressed file contents; the existing
+10,000-entry and 64-level limits remain. Uploads remain 8 MiB and text previews
+256 KiB. Pause active writers when a consistent copy or archive matters.
+The worker's separate resource limits have not changed.
+
+The terminal page now uses the same visual style as Files, with a larger console,
+compact Worker status and Connections panels, and grouped mobile keys. Files and
+Conversations remain in the header; Google sign-in and GitHub are in Connections.
+More keys contains Shift+Tab, selection arrows, Backspace and the F4 conversation
+deletion key. History, paste fallback and full-screen access remain available.
+
+For this release the execution workspace was unavailable. JavaScript syntax and
+static consistency checks were performed; Python tests and browser/HAOS rendering
+could not be run. Added streaming boundary tests await execution.

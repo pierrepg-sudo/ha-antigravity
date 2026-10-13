@@ -4,7 +4,6 @@ from pathlib import Path
 import re
 import secrets
 import threading
-import shutil
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit, quote
 import workspace_files
@@ -34,6 +33,29 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def stream_download(self, source, name, length, content_type='application/octet-stream'):
+        self.send_response(200)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Referrer-Policy', 'no-referrer')
+        self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(name, safe=''))
+        self.send_header('Content-Length', str(length))
+        self.end_headers()
+        # Never read a growing file beyond the advertised size or buffer it in RAM.
+        remaining = length
+        try:
+            while remaining:
+                chunk = source.read(min(64 * 1024, remaining))
+                if not chunk:
+                    self.close_connection = True
+                    break
+                self.wfile.write(chunk)
+                remaining -= len(chunk)
+        except OSError:
+            # Headers already went out; do not append a JSON error to file contents.
+            self.close_connection = True
 
     def authenticated_proxy(self):
         supplied = self.headers.get('X-Antigravity-File-Key', '')
@@ -69,17 +91,10 @@ class Handler(BaseHTTPRequestHandler):
                     archive.seek(0, 2)
                     length = archive.tell()
                     archive.seek(0)
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/zip')
-                    self.send_header('Cache-Control', 'no-store')
-                    self.send_header('X-Content-Type-Options', 'nosniff')
-                    self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(name, safe=''))
-                    self.send_header('Content-Length', str(length))
-                    self.end_headers()
-                    shutil.copyfileobj(archive, self.wfile, 64*1024)
+                    self.stream_download(archive, name, length, 'application/zip')
             elif route == '/file-download':
-                body, name = workspace_files.read_file(path)
-                self.respond(200, body, 'application/octet-stream', name)
+                with workspace_files.download_file(path) as (source, name, length):
+                    self.stream_download(source, name, length)
             else:
                 result = workspace_files.listing(path) if route == '/file-list' else workspace_files.read_file(path, preview=True)
                 if route == '/file-list':
@@ -88,7 +103,7 @@ class Handler(BaseHTTPRequestHandler):
         except workspace_files.FileOperationError as error:
             self.respond(400, json.dumps({'error': str(error)}).encode())
         except (OSError, ValueError):
-            self.respond(400, b'{"error":"Cannot open path. Links and special files are blocked; download limit is 32 MiB."}')
+            self.respond(400, b'{"error":"Cannot open path. Links and special files are blocked; download limit is 500 MiB."}')
         finally:
             if token is not None:
                 workspace_files.ACTIVE_ROOT.reset(token)

@@ -10,7 +10,7 @@ ROOT = '/data/workspace/outputs'
 ACTIVE_ROOT = ContextVar('file_root', default=None)
 INPUT_MODE = ContextVar('input_mode', default=False)
 UPLOAD_LIMIT = 8 * 1024 * 1024
-DOWNLOAD_LIMIT = 32 * 1024 * 1024
+DOWNLOAD_LIMIT = 500 * 1024 * 1024
 
 
 def parts(path):
@@ -64,10 +64,10 @@ def read_file(path, preview=False):
                 raise ValueError('Only regular files are accessible.')
             limit = 256 * 1024 if preview else DOWNLOAD_LIMIT
             if not preview and info.st_size > limit:
-                raise ValueError('Download limit is 32 MiB per file.')
+                raise ValueError('Download limit is 500 MiB per file.')
             data = source.read(limit + 1)
             if len(data) > limit and not preview:
-                raise ValueError('Download limit is 32 MiB per file.')
+                raise ValueError('Download limit is 500 MiB per file.')
             if preview:
                 shown = data[:limit]
                 if b'\0' in shown:
@@ -127,7 +127,7 @@ def change(payload):
 
 
 # Bound recursive work on the HA host. ZIPs are spooled to disk after 8 MiB.
-TREE_LIMIT = 128 * 1024 * 1024
+TREE_LIMIT = 500 * 1024 * 1024
 ENTRY_LIMIT = 10000
 DEPTH_LIMIT = 64
 
@@ -149,7 +149,7 @@ class Budget:
     def consume(self, size):
         self.bytes += size
         if self.bytes > TREE_LIMIT:
-            raise FileOperationError('Folder download/copy limit is 128 MiB of file contents.')
+            raise FileOperationError('Folder download/copy limit is 500 MiB of file contents.')
 
 
 def identity(info):
@@ -310,3 +310,17 @@ def transfer(payload, source_root):
         finally:
             ACTIVE_ROOT.reset(root_token)
     return {'ok': True, 'path': '/'.join(filter(None, [payload.get('path', ''), name]))}
+
+
+@contextmanager
+def download_file(path):
+    """Keep one no-follow file descriptor open while HTTP streams bounded chunks."""
+    names = parts(path)
+    if not names:
+        raise ValueError('Select a file.')
+    with directory('/'.join(names[:-1])) as parent:
+        with open_regular(parent, names[-1]) as source:
+            size = os.fstat(source.fileno()).st_size
+            if size > DOWNLOAD_LIMIT:
+                raise FileOperationError('Download limit is 500 MiB per file.')
+            yield source, names[-1], size

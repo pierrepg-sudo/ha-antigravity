@@ -1,3 +1,13 @@
+## 0.8.0
+
+- Raise file downloads and folder ZIP/copy contents to 500 MiB.
+- Stream downloads through the browser without retaining full-file JavaScript
+  Blobs; keep bounded server reads and extend the file proxy response timeout.
+- Refresh the terminal UI with a larger console, compact status/connections,
+  grouped keys and consistent mobile styling.
+- Validation limitation: disconnected execution workspace prevented Python tests
+  and browser rendering. JavaScript syntax and static consistency were checked.
+
 ## 0.7.0
 
 - Redesign Files for mobile with compact cards, breadcrumbs, an upload dialog,
