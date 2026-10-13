@@ -619,14 +619,25 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Direct native deletion (0.1.15)
+## Conversations and native deletion (0.9.0)
 
-After updating or restarting the CLI, ask Antigravity:
-“Run /usr/local/bin/antigravity-connect using your terminal tool.”
-Do not run it from a plain shell: it needs the API environment supplied to CLI
-tools. The command validates the CLI ancestor, allows only a loopback address,
-and verifies GetAllCascadeTrajectories before saving a private mode-0600 connection
-file outside the workspace. It never deletes a conversation or prints credentials.
+The root-owned workspace includes SessionStart and PreInvocation hooks that attempt
+read-only connection setup using the API environment supplied by the CLI. After a
+restart, send a message in Terminal to trigger setup. The hook verifies the CLI
+ancestor, loopback address and GetAllCascadeTrajectories before atomically saving
+a private mode-0600 connection file. It never deletes anything, logs credentials,
+or grants the agent native command execution. Hook failures do not stop a conversation.
+
+Automatic pairing depends on the installed CLI exposing ANTIGRAVITY_LS_ADDRESS and
+ANTIGRAVITY_CSRF_TOKEN to lifecycle hooks. This propagation is not yet device-verified.
+If it does not, the page remains disconnected; do not disable the managed command
+restrictions. The old instruction to ask the agent to run a native terminal command
+is incompatible with this add-on's managed policy and has been removed.
+
+The page refreshes every 15 seconds while visible, immediately on return, and backs
+off to 30–60 seconds after errors. Refresh requests do not overlap. Hidden pages and
+open deletion dialogs pause polling. Failed reads clear the list so stale entries
+cannot be deleted. Search text is retained. Manual Refresh remains available.
 
 Open **Conversations**, refresh, then **Delete → confirm**. No terminal selection,
 F4, exit or restart is needed for deletion. The menu uses the live native listing;
@@ -641,7 +652,7 @@ reconnection. Tokens stay on the host and never enter browser responses or logs.
 Browser mutations require CSRF and explicit confirmation, with a fresh native
 lookup and selection revision check. DeleteCascadeTrajectory receives the exact
 cascadeId. A follow-up read must confirm absence before success is reported.
-Failures are not retried automatically; refresh after an uncertain outcome.
+Deletions are never retried automatically; close the dialog and refresh after an uncertain outcome. Read-only listing retries automatically.
 
 The previous SQLite listing and guided terminal deletion panel have been fully
 removed. No history database writes, file deletion fallback, or add-on Undo exists.

@@ -101,3 +101,26 @@ class NativeTests(unittest.TestCase):
                 try:self.assertEqual(n.load()['pid'],42)
                 finally:self.loader.start()
             self.assertTrue(all(path.endswith(n.LIST) for path,_ in self.calls))
+
+class AutoConnectionTests(unittest.TestCase):
+    def test_missing_credentials_do_not_interrupt_cli(self):
+        with patch.object(n, 'cli_parent', return_value=(42, '123')), patch.object(n, 'load', side_effect=n.NativeError('missing')), patch.object(n, 'pair', side_effect=n.NativeError('no credentials')) as pair:
+            n.auto_pair()
+            pair.assert_called_once_with(quiet=True)
+
+    def test_reuses_verified_connection_without_writing(self):
+        connection = {'pid':42, 'started':'123'}
+        with patch.object(n, 'cli_parent', return_value=(42, '123')), patch.object(n, 'load', return_value=connection), patch.object(n, 'summaries', return_value={}) as listing, patch.object(n, 'pair') as pair:
+            n.auto_pair()
+            listing.assert_called_once_with(connection)
+            pair.assert_not_called()
+
+    def test_restarted_cli_replaces_connection(self):
+        with patch.object(n, 'cli_parent', return_value=(43, '456')), patch.object(n, 'load', return_value={'pid':42, 'started':'123'}), patch.object(n, 'pair') as pair:
+            n.auto_pair()
+            pair.assert_called_once_with(quiet=True)
+
+    def test_failed_read_reconnects_without_deleting(self):
+        with patch.object(n, 'cli_parent', return_value=(42, '123')), patch.object(n, 'load', return_value={'pid':42, 'started':'123'}), patch.object(n, 'summaries', side_effect=n.NativeError('expired')), patch.object(n, 'pair') as pair:
+            n.auto_pair()
+            pair.assert_called_once_with(quiet=True)

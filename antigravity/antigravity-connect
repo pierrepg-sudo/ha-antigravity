@@ -1,6 +1,10 @@
 #!/usr/bin/python3
 import sys
-from native_connection import NativeError, pair
+from native_connection import NativeError, pair, auto_pair
+if sys.argv[1:] == ['--hook']:
+    auto_pair()
+    print('{}')
+    sys.exit(0)
 try:
     pair()
 except NativeError as error:

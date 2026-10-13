@@ -1,47 +1,55 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Conversations</title><style>
-*{box-sizing:border-box}body{margin:0;padding:14px;background:#17191e;color:#eee;font:16px system-ui}main{max-width:800px;margin:auto}header{display:flex;justify-content:space-between;gap:12px;align-items:center}h1{font-size:24px}a{color:#9bc9ff}button,input{font:inherit;border:1px solid #667085;border-radius:8px;padding:10px;min-height:44px}button{background:#303949;color:white}button:disabled{opacity:.5}input{width:100%;background:#22252d;color:white;margin:12px 0}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #434956;padding:14px 0}.info{min-width:0;overflow-wrap:anywhere;flex:1}.meta{color:#b7bfce;font-size:14px;margin-top:5px}p{line-height:1.5}.delete{border-color:#e69797}#status{color:#b9d9ff;min-height:24px}dialog{width:min(94vw,550px);border:1px solid #667085;border-radius:10px;background:#22252d;color:white}dialog::backdrop{background:#000a}.actions{display:flex;gap:10px}#selected{overflow-wrap:anywhere}#error{color:#ffb4b4}
-</style><main><header><h1>Conversations</h1><a href="controls">Terminal</a></header>
-<p>Delete a conversation directly through the running CLI's native API. The add-on provides no Undo.</p>
-<details><summary>Connect after a CLI restart</summary><p>Ask Antigravity: <b>Run /usr/local/bin/antigravity-connect using your terminal tool.</b> Then tap Refresh. This checks read-only access and keeps the connection credentials private to the add-on.</p></details>
-<p>Use a disposable conversation for the first deletion test. This internal API can change between CLI versions.</p>
-<button id="refresh">Refresh</button><p id="status" role="status" aria-live="polite"></p>
-<label for="search">Search conversations</label><input id="search" type="search" placeholder="Title or conversation ID" autocomplete="off"><div id="list"></div>
-<dialog id="confirm" aria-labelledby="confirmTitle"><h2 id="confirmTitle">Delete conversation?</h2><p id="selected"></p><p>Antigravity will delete this exact conversation and may clean up associated conversation data. There is no add-on Undo.</p><p id="error" role="alert"></p><div class="actions"><button id="apply" class="delete">Delete</button><button id="cancel">Cancel</button></div></dialog></main>
+<title>Conversations · Antigravity</title><style>
+*{box-sizing:border-box}body{margin:0;background:#11151c;color:#edf3fa;font:16px system-ui}main{max-width:960px;margin:auto;padding:24px 16px 40px}header,.toolbar,.actions,.row{display:flex;align-items:center;justify-content:space-between;gap:12px}header{margin-bottom:24px}.eyebrow{font-size:11px;letter-spacing:.16em;color:#a4b2c4}h1{font-size:28px;margin:5px 0}h2{font-size:21px}p{line-height:1.5}.subtitle,.meta{color:#a4b2c4}.subtitle{margin:4px 0 0;font-size:14px}button,input,.nav{font:inherit;border:1px solid #303c4b;border-radius:12px;min-height:44px;padding:10px 14px}button,.nav{background:#222d3b;color:#edf3fa;cursor:pointer}.nav{text-decoration:none;display:inline-flex;align-items:center}button:hover,.nav:hover{border-color:#b1cfff}button:disabled{opacity:.45;cursor:default}:focus-visible{outline:2px solid #b1cfff;outline-offset:3px}.panel{background:#1b222d;border:1px solid #303c4b;border-radius:18px;padding:18px;margin-bottom:18px}.toolbar{align-items:flex-start}.badge{display:inline-block;font-size:12px;border-radius:20px;padding:5px 10px;background:#29384b;color:#b1cfff}#updated{font-size:12px;margin:8px 0 0;color:#a4b2c4}#status{font-size:14px;margin:14px 0 0;overflow-wrap:anywhere}label{display:block;font-size:13px;color:#a4b2c4;margin:20px 0 8px}input{width:100%;background:#11151c;color:#edf3fa}#count{font-size:13px;color:#a4b2c4;margin:18px 2px 10px}.row{background:#1b222d;border:1px solid #303c4b;border-radius:16px;padding:16px;margin-bottom:10px}.info{min-width:0;flex:1;overflow-wrap:anywhere}.meta{font-size:12px;margin-top:6px}.delete{background:#35242e;color:#ffb7bf}.empty{text-align:center;padding:36px 20px;color:#a4b2c4;border:1px dashed #303c4b;border-radius:16px}details{font-size:13px;color:#a4b2c4;margin-top:20px}summary{cursor:pointer;padding:8px 0}dialog{width:min(94vw,520px);border:1px solid #303c4b;border-radius:20px;background:#1b222d;color:#edf3fa;padding:24px}dialog::backdrop{background:#000b}.actions{justify-content:flex-end}#selected{overflow-wrap:anywhere}#error{color:#ffb7bf}#apply{background:#743443}a{color:#b1cfff}@media(max-width:420px){main{padding:18px 12px}h1{font-size:25px}.row{gap:8px;padding:14px}.nav{padding:10px}.panel{padding:16px}}
+</style><main><header><div><div class="eyebrow">ANTIGRAVITY</div><h1>Conversations</h1><p class="subtitle">Your conversation history</p></div><a class="nav" href="controls">← Terminal</a></header>
+<section class="panel" aria-label="Connection and search"><div class="toolbar"><div><span class="badge" id="connection">Connecting</span><p id="updated">Auto-refresh · every 15 seconds</p></div><button id="refresh">Refresh</button></div><p id="status" role="status" aria-live="polite">Checking the CLI connection…</p><label for="search">Search conversations</label><input id="search" type="search" placeholder="Search title or ID" autocomplete="off"></section>
+<div id="count"></div><div id="list" aria-label="Conversations"></div>
+<details><summary>Connection help &amp; deletion</summary><p>After a CLI restart, send a message in Terminal to trigger automatic connection setup. This page refreshes while visible and when you return to it. If it stays disconnected, the installed CLI may not provide API credentials to its lifecycle hooks.</p><p>Only idle conversations can be deleted. Each deletion requires confirmation and cannot be undone here. The CLI controls which conversations appear and any associated data cleanup.</p></details>
+<dialog id="confirm" aria-labelledby="confirmTitle"><h2 id="confirmTitle">Delete conversation?</h2><p id="selected"></p><p>This removes the conversation and may clean up its associated data. There is no undo.</p><p id="error" role="alert"></p><div class="actions"><button id="cancel">Cancel</button><button id="apply" class="delete">Delete conversation</button></div></dialog></main>
 <script>
-const csrf='__CSRF__';let items=[],busy=false,pending=null;
+const csrf='__CSRF__';let items=[],busy=false,pending=null,connected=false,timer=null,failures=0;
 const $=id=>document.getElementById(id),dialog=$('confirm');
-function setBusy(value){busy=value;document.querySelectorAll('button').forEach(b=>b.disabled=value||b.dataset.blocked==='true');}
+function setBusy(value){busy=value;document.querySelectorAll('button').forEach(b=>b.disabled=value||b.dataset.blocked==='true');$('apply').disabled=value||!pending;}
+function schedule(){clearTimeout(timer);if(!document.hidden&&!dialog.open)timer=setTimeout(load,Math.min(60000,15000*2**failures));}
 function render(){
  $('list').replaceChildren();const query=$('search').value.toLocaleLowerCase();
  const filtered=items.filter(i=>(i.title+' '+i.id).toLocaleLowerCase().includes(query));
+ $('count').textContent=connected?`${filtered.length} of ${items.length} conversations`:'';
  for(const item of filtered){
-  const el=document.createElement('div');el.className='row';const info=document.createElement('div');info.className='info';
+  const el=document.createElement('article');el.className='row';const info=document.createElement('div');info.className='info';
   const title=document.createElement('strong');title.textContent=item.title;info.append(title);
-  for(const text of [`${item.steps} steps · ${item.modified||'Date unavailable'}`,item.id,item.blocked||'']){
+  const date=new Date(item.modified);const modified=Number.isNaN(date.getTime())?'Date unavailable':date.toLocaleString();
+  for(const text of [`${item.steps} steps · ${modified}`,item.id,item.blocked||'']){
    if(!text)continue;const line=document.createElement('div');line.className='meta';line.textContent=text;info.append(line);
   }
-  const button=document.createElement('button');button.textContent='Delete';button.className='delete';button.dataset.blocked=String(Boolean(item.blocked));button.disabled=busy||Boolean(item.blocked);
-  button.onclick=()=>{pending={id:item.id,revision:item.revision,confirm:true};$('selected').textContent=item.title+' — '+item.id;$('error').textContent='';dialog.showModal();};
+  const button=document.createElement('button');button.textContent='Delete';button.className='delete';button.setAttribute('aria-label','Delete '+item.title);button.dataset.blocked=String(Boolean(item.blocked));button.disabled=busy||Boolean(item.blocked);
+  button.onclick=()=>{clearTimeout(timer);pending={id:item.id,revision:item.revision,confirm:true};$('selected').textContent=item.title+' — '+item.id;$('error').textContent='';$('apply').disabled=false;dialog.showModal();};
   el.append(info,button);$('list').append(el);
  }
- if(!filtered.length)$('list').textContent='No matching conversations.';
+ if(!filtered.length){const empty=document.createElement('div');empty.className='empty';empty.textContent=!connected?'Waiting for a connection to load your conversations.':query?'No conversations match your search.':'No conversations yet.';$('list').append(empty);}
 }
 async function refresh(){
- const r=await fetch('conversation-list',{cache:'no-store'}),d=await r.json();if(!r.ok){items=[];render();throw new Error(d.error||'Could not read conversations');}
- items=d.items;render();$('status').textContent=`${items.length} conversations returned by the native API. Running or unrecognized states cannot be deleted.`;
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
+ try{
+  const r=await fetch('conversation-list',{cache:'no-store',signal:controller.signal}),d=await r.json();
+  if(!r.ok)throw new Error(d.error||'Could not read conversations.');
+  if(!Array.isArray(d.items))throw new Error('Unexpected conversation list.');
+  items=d.items;connected=true;failures=0;render();$('connection').textContent='Connected';$('updated').textContent='Updated '+new Date().toLocaleTimeString()+' · auto-refresh on';$('status').textContent='History updates automatically. Active conversations are protected from deletion.';
+ }catch(e){items=[];connected=false;failures=Math.min(failures+1,2);render();$('connection').textContent='Reconnecting';$('updated').textContent='Retrying automatically';throw e;}
+ finally{clearTimeout(timeout);}
 }
-async function load(){setBusy(true);try{await refresh();}catch(e){$('status').textContent=e.message;}finally{setBusy(false);}}
+async function load(){if(busy||dialog.open||document.hidden)return;clearTimeout(timer);setBusy(true);try{await refresh();}catch(e){$('status').textContent=e.name==='AbortError'?'Connection timed out. Trying again shortly.':e.message;}finally{setBusy(false);schedule();}}
 $('refresh').onclick=load;$('search').oninput=render;$('cancel').onclick=()=>dialog.close();
-dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault();});dialog.addEventListener('close',()=>{pending=null;});
+dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault();});dialog.addEventListener('close',()=>{pending=null;schedule();});
+document.addEventListener('visibilitychange',()=>{clearTimeout(timer);if(!document.hidden)load();});
 $('apply').onclick=async()=>{
- if(busy||!pending)return;setBusy(true);
+ if(busy||!pending)return;setBusy(true);clearTimeout(timer);
  try{
   const r=await fetch('conversation-delete',{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(pending)}),d=await r.json();
-  if(!r.ok)throw new Error(d.error||'Deletion could not be verified. Refresh before retrying.');
-  dialog.close();await refresh();$('status').textContent='Deletion confirmed: the conversation is no longer in the native API list.';
+  if(!r.ok)throw new Error(d.error||'Deletion could not be verified. Close this dialog and refresh before retrying.');
+  dialog.close();await refresh();$('status').textContent='Conversation deleted.';
  }catch(e){$('error').textContent=e.message;$('status').textContent=e.message;pending=null;}
- finally{setBusy(false);if(dialog.open&&!pending)$('apply').disabled=true;}
+ finally{setBusy(false);schedule();}
 };
-load();
+render();load();
 </script></html>

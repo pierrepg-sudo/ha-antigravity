@@ -1,3 +1,10 @@
+## 0.9.0
+
+- Refresh Conversations automatically while visible, with retry backoff and refresh on return.
+- Match the Terminal and Files design with compact status, search, conversation cards and clear empty states.
+- Add trusted CLI lifecycle hooks that attempt read-only native connection setup after restart; requires the CLI to supply its API environment to hooks (device validation pending).
+- Pause refresh during deletion confirmation; preserve explicit confirmation, stale-selection protection and no automatic deletion retries.
+
 ## 0.8.2
 
 - Remove the terminal's Delete conversation shortcut and Delete a saved conversation

@@ -53,7 +53,7 @@ def validate(connection):
         if name not in {'agy', 'antigravity'} or started != connection['started']:
             raise ValueError()
     except (OSError, ValueError, TypeError, KeyError):
-        raise NativeError('The native connection is invalid or the CLI restarted. Ask Antigravity to run antigravity-connect again.') from None
+        raise NativeError('The native connection is invalid or the CLI restarted. Send a message in Terminal to let the connection hook reconnect.') from None
 
 
 def rpc(connection, method, payload):
@@ -102,10 +102,10 @@ def load():
         validate(connection)
         return connection
     except (OSError, ValueError, TypeError):
-        raise NativeError('Native API is not connected. Ask Antigravity to run /usr/local/bin/antigravity-connect, then refresh.') from None
+        raise NativeError('Waiting for the CLI connection. Send a message in Terminal to trigger automatic setup.') from None
 
 
-def pair():
+def pair(quiet=False):
     address = os.environ.get('ANTIGRAVITY_LS_ADDRESS', '')
     token = os.environ.get('ANTIGRAVITY_CSRF_TOKEN', '')
     try:
@@ -128,4 +128,22 @@ def pair():
         os.replace(temporary, STATE)
     finally:
         if os.path.exists(temporary): os.unlink(temporary)
-    print(f'Native API connected. Read-only listing succeeded ({len(items)} conversations). No conversations deleted.')
+    if not quiet:
+        print(f'Native API connected. Read-only listing succeeded ({len(items)} conversations). No conversations deleted.')
+
+
+def auto_pair():
+    """Best-effort trusted lifecycle hook; never interrupts a CLI invocation."""
+    try:
+        pid, started = cli_parent()
+        try:
+            connection = load()
+            if (connection['pid'], connection['started']) == (pid, started):
+                summaries(connection)
+                return
+        except NativeError:
+            pass
+        pair(quiet=True)
+    except (NativeError, OSError):
+        # Hook output must be JSON, and credentials must never enter logs.
+        pass

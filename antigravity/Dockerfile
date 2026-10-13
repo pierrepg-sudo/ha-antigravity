@@ -12,6 +12,7 @@ COPY restricted_exec.c /tmp/restricted_exec.c
 RUN cc -O2 -Wall -Wextra -Werror /tmp/restricted_exec.c -o /usr/local/bin/restricted-exec \
     && rm /tmp/restricted_exec.c \
     && mkdir -p /opt/antigravity-workspace
+COPY conversation-hooks.json /opt/antigravity-workspace/.agents/hooks.json
 COPY WORKSPACE.md /opt/antigravity-workspace/AGENTS.md
 COPY check-c-tools.sh /usr/local/bin/check-c-tools
 RUN chmod 755 /usr/local/bin/check-c-tools && /usr/local/bin/check-c-tools

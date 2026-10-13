@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync(require('path').join(__dirname,'../antigravity/conversations.html'),'utf8').split('<script>')[1].split('</script>')[0];
+const elements=new Map(),listeners={},timers=new Map();let next=0,calls=0,posts=0,fail=false,resolveFetch;
+class Element{constructor(){this.dataset={};this.value='';this.children=[];this.open=false;this.listeners={};}replaceChildren(){this.children=[];}append(...x){this.children.push(...x);}setAttribute(){}addEventListener(name,fn){this.listeners[name]=fn;}showModal(){this.open=true;}close(){this.open=false;this.listeners.close?.();}}
+const get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
+const document={hidden:false,getElementById:get,createElement:()=>new Element(),querySelectorAll:()=>[get('refresh'),get('apply'),get('cancel')],addEventListener:(name,fn)=>listeners[name]=fn};
+const context=vm.createContext({document,console,AbortController,Date,Error,setTimeout:(fn,ms)=>{timers.set(++next,{fn,ms});return next;},clearTimeout:id=>timers.delete(id),fetch:async(url,opts)=>{calls++;if(opts.method==='POST')posts++;if(resolveFetch)await new Promise(r=>resolveFetch=r);return {ok:!fail,json:async()=>fail?{error:'Disconnected'}:{items:[{id:'a',title:'A',steps:1,modified:'2026-10-13',revision:'r',blocked:''}]}};}});
+const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
+(async()=>{vm.runInContext(source,context);await flush();assert.equal(calls,1);assert.equal(get('connection').textContent,'Connected');assert([...timers.values()].some(t=>t.ms===15000));
+get('search').value='missing';get('search').oninput();assert.equal(get('list').children[0].textContent,'No conversations match your search.');get('search').value='';get('search').oninput();
+get('list').children[0].children[1].onclick();assert(get('confirm').open);await vm.runInContext('load()',context);assert.equal(calls,1);assert.equal(timers.size,0);
+get('cancel').onclick();document.hidden=true;listeners.visibilitychange();assert.equal(timers.size,0);document.hidden=false;listeners.visibilitychange();await flush();assert.equal(calls,2);
+fail=true;await vm.runInContext('load()',context);assert.equal(get('connection').textContent,'Reconnecting');assert.equal(get('list').children.length,1);assert([...timers.values()].some(t=>t.ms===30000));assert.equal(posts,0);
+console.log('UI checks passed: refresh, search, dialog pause, visibility, retry backoff, no automatic deletion.');})().catch(e=>{console.error(e);process.exit(1);});

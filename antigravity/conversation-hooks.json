@@ -1,0 +1,6 @@
+{
+  "ha-conversations": {
+    "SessionStart": [{"type": "command", "command": "/usr/local/bin/antigravity-connect --hook", "timeout": 20}],
+    "PreInvocation": [{"type": "command", "command": "/usr/local/bin/antigravity-connect --hook", "timeout": 20}]
+  }
+}
