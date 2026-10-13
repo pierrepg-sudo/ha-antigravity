@@ -1,3 +1,11 @@
+## 0.6.0
+
+- Download complete folders as ZIP archives, including nested and empty folders.
+- Add Copy, Move and Paste for files and folders. Copy between file locations;
+  move within Inputs or Outputs while keeping Existing files read-only.
+- Publish copies atomically without overwriting existing items; reject traversal,
+  links, special files, recursive destinations and oversized folder operations.
+
 ## 0.5.0
 
 - Add an admin-ingress GitHub connection form for the official remote GitHub MCP

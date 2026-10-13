@@ -1,6 +1,6 @@
 # Antigravity Home Assistant add-on
 
-Experimental v0.5.0. Public egress requires a successful HAOS startup isolation check.
+Experimental v0.6.0. Public egress requires a successful HAOS startup isolation check.
 
 ## Install
 
@@ -36,3 +36,6 @@ and saves the official GitHub MCP connection; restart afterward. No marketplace
 plugin is required. Tokens belong in the setup form, never in chat. Publishing
 instructions default to local checks, authorized changes directly to main and
 no Actions workflows.
+
+The Files tool supports folder ZIP downloads and Copy → Paste for files and folders.
+Use Move → Paste within Inputs or Outputs. Existing names are never overwritten.

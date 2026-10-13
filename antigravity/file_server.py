@@ -3,12 +3,15 @@ import json
 from pathlib import Path
 import re
 import secrets
+import threading
+import shutil
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit, quote
 import workspace_files
 
 CSRF = secrets.token_hex(32)
 PROXY_KEY = None
+TRANSFER_LOCK = threading.Lock()
 AREAS = {'inputs': '/data/inputs', 'outputs': '/data/workspace/outputs', 'legacy': '/data/workspace'}
 
 
@@ -46,7 +49,7 @@ class Handler(BaseHTTPRequestHandler):
         if route == '/files':
             self.respond(200, Path(__file__).with_name('files.html').read_text().replace('__CSRF__', CSRF).encode(), 'text/html; charset=utf-8')
             return
-        if route not in ('/file-list', '/file-preview', '/file-download'):
+        if route not in ('/file-list', '/file-preview', '/file-download', '/folder-download'):
             self.send_error(404)
             return
         token = None
@@ -55,7 +58,26 @@ class Handler(BaseHTTPRequestHandler):
             area = select_area(query)
             token = workspace_files.ACTIVE_ROOT.set(AREAS[area])
             path = query.get('path', [''])[0]
-            if route == '/file-download':
+            if route == '/folder-download':
+                if not TRANSFER_LOCK.acquire(blocking=False):
+                    raise workspace_files.FileOperationError('Another folder operation is running. Try again shortly.')
+                try:
+                    archive, name = workspace_files.folder_zip(path)
+                finally:
+                    TRANSFER_LOCK.release()
+                with archive:
+                    archive.seek(0, 2)
+                    length = archive.tell()
+                    archive.seek(0)
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/zip')
+                    self.send_header('Cache-Control', 'no-store')
+                    self.send_header('X-Content-Type-Options', 'nosniff')
+                    self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(name, safe=''))
+                    self.send_header('Content-Length', str(length))
+                    self.end_headers()
+                    shutil.copyfileobj(archive, self.wfile, 64*1024)
+            elif route == '/file-download':
                 body, name = workspace_files.read_file(path)
                 self.respond(200, body, 'application/octet-stream', name)
             else:
@@ -63,6 +85,8 @@ class Handler(BaseHTTPRequestHandler):
                 if route == '/file-list':
                     result.update(root=AREAS[area], readOnly=area == 'legacy')
                 self.respond(200, json.dumps(result).encode())
+        except workspace_files.FileOperationError as error:
+            self.respond(400, json.dumps({'error': str(error)}).encode())
         except (OSError, ValueError):
             self.respond(400, b'{"error":"Cannot open path. Links and special files are blocked; download limit is 32 MiB."}')
         finally:
@@ -96,9 +120,25 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('Invalid payload')
             tokens = [(workspace_files.ACTIVE_ROOT, workspace_files.ACTIVE_ROOT.set(AREAS[area])),
                       (workspace_files.INPUT_MODE, workspace_files.INPUT_MODE.set(area == 'inputs'))]
-            self.respond(200, json.dumps(workspace_files.change(payload)).encode())
+            if payload.get('action') in ('copy', 'move'):
+                source_area = payload.get('sourceArea')
+                if not isinstance(source_area, str) or source_area not in AREAS:
+                    raise ValueError('Unknown source area')
+                if payload['action'] == 'move' and (source_area == 'legacy' or source_area != area):
+                    raise workspace_files.FileOperationError('Move stays within Inputs or Outputs. Use Copy to transfer between locations.')
+                if not TRANSFER_LOCK.acquire(blocking=False):
+                    raise workspace_files.FileOperationError('Another folder operation is running. Try again shortly.')
+                try:
+                    result = workspace_files.transfer(payload, AREAS[source_area])
+                finally:
+                    TRANSFER_LOCK.release()
+            else:
+                result = workspace_files.change(payload)
+            self.respond(200, json.dumps(result).encode())
+        except workspace_files.FileOperationError as error:
+            self.respond(400, json.dumps({'error': str(error)}).encode())
         except FileExistsError:
-            self.respond(409, b'{"error":"That name already exists. Rename before uploading."}')
+            self.respond(409, b'{"error":"That name already exists. Choose another destination name."}')
         except (ValueError, TypeError):
             self.respond(400, b'{"error":"Invalid request. Check the name, path and file size."}')
         except OSError:

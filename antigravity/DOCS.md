@@ -650,3 +650,30 @@ The previous SQLite listing and guided terminal deletion panel have been fully
 removed. No history database writes, file deletion fallback, or add-on Undo exists.
 Existing legacy backup files are untouched. Antigravity controls native cleanup of
 associated conversation data. This internal API may change across CLI versions.
+
+
+## Folder downloads, copy and move (0.6.0)
+
+In **Files**, choose **Download ZIP** beside a folder, or **Download folder ZIP**
+to download the folder currently open. Nested files, hidden files and empty folders
+are included. Use **Share / Save to Files** on iPhone. ZIP generation is limited to
+128 MiB of uncompressed file contents, 10,000 entries and 64 levels. A link, special
+file, unreadable item or detected source change aborts the archive with an error;
+contents are never silently skipped. This is not a snapshot of actively edited data.
+Pause writers when you need a consistent archive or copy.
+
+Choose **Copy** or **Move** beside a file/folder, browse to its destination, then
+select **Paste** and accept or change the name. **Cancel copy/move** clears the
+selection. The selection remains only in this browser page and is lost on reload.
+Copy supports Inputs, Outputs and the read-only Existing files as sources; destinations
+must be Inputs or Outputs. Move is limited to the same writable location to preserve
+ownership and permission boundaries. To transfer between locations, use Copy; it
+leaves the source intact. Copy uses the destination area's normal permissions and retains owner/group executable bits.
+
+Existing names are never replaced. Copies are built in a private temporary folder
+and published atomically; failed copies clean up temporary data and preserve the
+source. Copy shares the ZIP size/entry/depth limits. Moving uses an atomic no-replace
+rename and does not read the contents. A folder cannot be pasted into itself or a
+descendant. The existing ingress authentication, CSRF checks, root restrictions and
+separate file-service identity apply to all new operations. No new agent permission
+or network access is granted. Device-level HAOS verification is still required.
