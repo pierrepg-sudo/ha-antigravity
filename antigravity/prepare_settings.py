@@ -15,7 +15,7 @@ DENY = ['read_file(/data/worker-state)', 'write_file(/data/worker-state)', 'writ
         'read_file(/data/home/.gemini/antigravity-cli)',
         'read_file(/data/home/.gemini/config)',
         'write_file(/data/home)', 'write_file(/run/antigravity)',
-        'command(*)', 'unsandboxed(*)', 'read_file(/run/antigravity-files)',
+        'read_file(/proc)', 'command(*)', 'unsandboxed(*)', 'read_file(/run/antigravity-files)',
         'write_file(/opt/antigravity-workspace)']
 ASK = ['execute_url(*)']
 
@@ -135,9 +135,7 @@ def prepare(path, domains=None):
     hooks = read_config(hooks_path, 'Global hook configuration', allow_empty=True)
     if not isinstance(hooks, dict):
         raise ConfigurationError('Global hook configuration must be an object')
-    hooks['ha-conversations'] = {
-        event: [{'type': 'command', 'command': '/usr/local/bin/antigravity-connect --hook', 'timeout': 20}]
-        for event in ('SessionStart', 'PreInvocation')}
+    hooks.pop('ha-conversations', None)  # Remove the obsolete managed hook.
     github_state = read_config(config_path.with_name('ha-github-connection.json'), 'GitHub connection state')
     if not isinstance(github_state, dict):
         raise ConfigurationError('GitHub connection state must be an object')

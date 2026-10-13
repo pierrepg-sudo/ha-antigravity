@@ -41,7 +41,7 @@ class NativeTests(unittest.TestCase):
         self.server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
         self.connection={'host':'127.0.0.1','port':self.server.server_port,'pid':42,'started':'123','token':'private-test-token'}
-        self.process=patch.object(n,'process',return_value=(1,'123','agy'));self.process.start()
+        self.process=patch.object(n,'process',return_value=(1,'123'));self.process.start()
         self.loader=patch.object(n,'load',return_value=self.connection);self.loader.start()
     def tearDown(self):
         self.loader.stop();self.process.stop();self.server.shutdown();self.server.server_close();self.thread.join()
@@ -76,7 +76,7 @@ class NativeTests(unittest.TestCase):
         payload=self.payload();self.keep=True
         with self.assertRaisesRegex(n.NativeError,'still listed'):h.delete(payload)
     def test_process_restart_prevents_request(self):
-        with patch.object(n,'process',return_value=(1,'999','agy')):
+        with patch.object(n,'process',return_value=(1,'999')):
             with self.assertRaises(n.NativeError):h.listing()
         self.assertEqual(self.calls,[])
     def test_nonlocal_and_redirect_refused(self):
@@ -90,61 +90,13 @@ class NativeTests(unittest.TestCase):
         with self.assertRaises(n.NativeError) as caught:n.summaries(dict(self.connection,token='secret-wrong-token'))
         self.assertNotIn('secret-wrong-token',str(caught.exception))
         self.assertIn('401',str(caught.exception))
-    def test_pairing_only_reads_and_writes_private_connection(self):
+    def test_save_private_connection_and_load(self):
         with tempfile.TemporaryDirectory() as directory:
-            state=Path(directory)/'connection.json'
-            with patch.object(n,'STATE',state),patch.object(n,'cli_parent',return_value=(42,'123')),patch.dict(os.environ,{'ANTIGRAVITY_LS_ADDRESS':f'localhost:{self.server.server_port}','ANTIGRAVITY_CSRF_TOKEN':'private-test-token'}),patch('builtins.print') as output:
-                n.pair()
-                self.assertEqual(state.stat().st_mode&0o777,0o600)
-                self.assertNotIn('private-test-token',str(output.call_args))
+            with patch.object(n,'STATE',Path(directory)/'connection.json'):
+                n.summaries(self.connection)
+                n.save(self.connection)
+                self.assertEqual(n.STATE.stat().st_mode & 0o777, 0o600)
                 self.loader.stop()
                 try:self.assertEqual(n.load()['pid'],42)
                 finally:self.loader.start()
             self.assertTrue(all(path.endswith(n.LIST) for path,_ in self.calls))
-
-class AutoConnectionTests(unittest.TestCase):
-    def setUp(self):
-        directory = tempfile.TemporaryDirectory()
-        self.addCleanup(directory.cleanup)
-        state = patch.object(n, 'STATE', Path(directory.name) / 'connection.json')
-        state.start(); self.addCleanup(state.stop)
-        env = patch.dict(os.environ, {'ANTIGRAVITY_LS_ADDRESS':'localhost:1234', 'ANTIGRAVITY_CSRF_TOKEN':'private-test-token'})
-        env.start(); self.addCleanup(env.stop)
-
-    def test_missing_environment_reports_cause_without_credentials(self):
-        with patch.dict(os.environ, {}, clear=True), patch.object(n, 'cli_parent', return_value=(42, '123')), patch.object(n, 'pair') as pair:
-            n.auto_pair()
-            pair.assert_not_called()
-        self.assertIn('[connection:environment]', n.connection_diagnostic())
-        self.assertNotIn('private-test-token', n.STATE.with_name('ha-native-status.json').read_text())
-        self.assertEqual(n.STATE.with_name('ha-native-status.json').stat().st_mode & 0o777, 0o600)
-
-    def test_no_hook_report_is_actionable(self):
-        self.assertIn('/hooks', n.connection_diagnostic())
-        self.assertIn('[connection:not-run]', n.connection_diagnostic())
-
-    def test_untrusted_diagnostic_text_is_not_echoed(self):
-        n.record_status('private-test-token')
-        self.assertNotIn('private-test-token', n.connection_diagnostic())
-
-    def test_missing_credentials_do_not_interrupt_cli(self):
-        with patch.object(n, 'cli_parent', return_value=(42, '123')), patch.object(n, 'load', side_effect=n.NativeError('missing')), patch.object(n, 'pair', side_effect=n.NativeError('no credentials')) as pair:
-            n.auto_pair()
-            pair.assert_called_once_with(quiet=True)
-
-    def test_reuses_verified_connection_without_writing(self):
-        connection = {'pid':42, 'started':'123'}
-        with patch.object(n, 'cli_parent', return_value=(42, '123')), patch.object(n, 'load', return_value=connection), patch.object(n, 'summaries', return_value={}) as listing, patch.object(n, 'pair') as pair:
-            n.auto_pair()
-            listing.assert_called_once_with(connection)
-            pair.assert_not_called()
-
-    def test_restarted_cli_replaces_connection(self):
-        with patch.object(n, 'cli_parent', return_value=(43, '456')), patch.object(n, 'load', return_value={'pid':42, 'started':'123'}), patch.object(n, 'pair') as pair:
-            n.auto_pair()
-            pair.assert_called_once_with(quiet=True)
-
-    def test_failed_read_reconnects_without_deleting(self):
-        with patch.object(n, 'cli_parent', return_value=(42, '123')), patch.object(n, 'load', return_value={'pid':42, 'started':'123'}), patch.object(n, 'summaries', side_effect=n.NativeError('expired')), patch.object(n, 'pair') as pair:
-            n.auto_pair()
-            pair.assert_called_once_with(quiet=True)

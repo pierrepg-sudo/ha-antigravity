@@ -619,25 +619,34 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Conversations and native deletion (0.9.1)
+## Conversations and native deletion (0.9.2)
 
-Startup registers global SessionStart and PreInvocation hooks pointing to the
-root-owned connection helper. They attempt
-read-only connection setup using the API environment supplied by the CLI. After a
-restart, send a message in Terminal to trigger setup. The hook verifies the CLI
-ancestor, loopback address and GetAllCascadeTrajectories before atomically saving
-a private mode-0600 connection file. It never deletes anything, logs credentials,
-or grants the agent native command execution. Hook failures do not stop a conversation.
+The add-on now owns local API connection setup as part of CLI startup. No hooks,
+terminal messages or manual pairing are required. The launcher generates a fresh
+random token and supplies it through the CLI's `--csrf_token` option. It reads the
+HTTP port from a private log created for that child, verifies read-only native
+listing, then atomically stores the connection mode 0600 outside the workspace.
+Only loopback addresses are tried. The saved process owner, PID and start time
+are checked on every request; process-executable inspection is not required because
+the launcher owns the child and supplies its authentication token.
 
-Automatic pairing depends on the installed CLI exposing ANTIGRAVITY_LS_ADDRESS and
-ANTIGRAVITY_CSRF_TOKEN to lifecycle hooks. This propagation is not yet device-verified.
-The page reports whether the hook has not run, the API environment is missing,
-process verification failed, API verification failed, or storage failed. Only fixed
-codes and timestamps are saved; secrets and exception text are never stored.
-Global hook registration preserves other hooks. Check /hooks if setup has not run.
-If API credentials are unavailable, the page remains disconnected; do not disable the managed command
-restrictions. The old instruction to ask the agent to run a native terminal command
-is incompatible with this add-on's managed policy and has been removed.
+The CLI's local server rejects incorrect tokens. The token is present in the CLI
+process arguments: native file-tool access to /proc is denied and the restricted
+worker's AppArmor profile does not allow access to process command lines. Tokens
+never enter browser responses, worker commands or add-on logs. Temporary CLI logs
+remain in a private directory for the session and are removed on normal exit.
+The connection file is removed on CLI exit and replaced on startup.
+
+Startup retries read-only verification for up to 60 seconds and reports failure
+without saving an unverified connection. The CLI remains usable if pairing fails.
+This interface and startup log format are upstream implementation details, tested
+against Google's real Linux CLI 1.3.4 without login. The integration runner adapts
+process identity lookup when its /proc mount uses host PIDs; HTTP/token checks and
+private persistence use the real CLI. Production rejects a mismatched /proc namespace.
+A populated signed-in history
+and the user's HAOS environment still need device validation. Older/future CLI
+versions may differ. The obsolete ha-conversations hook is removed on upgrade;
+other global hooks are preserved. The antigravity-connect helper is removed.
 
 The page refreshes every 15 seconds while visible, immediately on return, and backs
 off to 30–60 seconds after errors. Refresh requests do not overlap. Hidden pages and
@@ -652,8 +661,8 @@ sent. Running and unrecognized states are blocked. Test a disposable conversatio
 first: listing was verified on the user's CLI; deletion is not yet device-verified.
 
 Requests go only to the pinned local process/port, without HTTP proxies or redirects.
-The saved process start time is rechecked on every request; a CLI restart requires
-reconnection. Tokens stay on the host and never enter browser responses or logs.
+The saved process start time is rechecked on every request; an add-on restart
+establishes a fresh connection automatically. Tokens stay on the host and never enter browser responses or logs.
 Browser mutations require CSRF and explicit confirmation, with a fresh native
 lookup and selection revision check. DeleteCascadeTrajectory receives the exact
 cascadeId. A follow-up read must confirm absence before success is reported.

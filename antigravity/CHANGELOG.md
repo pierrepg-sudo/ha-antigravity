@@ -1,3 +1,11 @@
+## 0.9.2
+
+- Replace credential-dependent hooks with a launcher-owned authenticated local connection established automatically at CLI startup.
+- Generate a fresh local token, verify conversation listing, and pin the connection to the launched process owner, PID and start time.
+- Remove obsolete managed hooks and the antigravity-connect helper. No prompt is needed to connect.
+- Keep credentials and startup logs private; block native file-tool access to /proc while preserving restricted workers and explicit deletion confirmation.
+- Add a real-CLI integration check for successful authenticated listing, rejection of an incorrect token, private storage and stale-process rejection.
+
 ## 0.9.1
 
 - Register connection hooks globally so setup does not depend on workspace hook discovery.

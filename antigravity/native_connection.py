@@ -6,7 +6,6 @@ from pathlib import Path
 import stat
 import tempfile
 import time
-from urllib.parse import urlsplit
 
 STATE = Path('/data/home/.gemini/antigravity-cli/ha-native-connection.json')
 SERVICE = '/exa.language_server_pb.LanguageServerService/'
@@ -18,23 +17,14 @@ class NativeError(Exception):
 
 
 def process(pid):
+    # Never inspect an unrelated host PID when /proc belongs to another namespace.
+    if int(Path('/proc/self/stat').read_text().split(' ', 1)[0]) != os.getpid():
+        raise NativeError('The process filesystem does not match the CLI namespace.')
     directory = Path('/proc') / str(pid)
     if directory.stat().st_uid != os.getuid():
         raise NativeError('The CLI process owner does not match the add-on.')
     fields = (directory / 'stat').read_text().rsplit(')', 1)[1].split()
-    return int(fields[1]), fields[19], Path(os.readlink(directory / 'exe')).name.removesuffix(' (deleted)')
-
-
-def cli_parent():
-    pid = os.getppid()
-    for _ in range(64):
-        if pid <= 1:
-            break
-        parent, started, name = process(pid)
-        if name in {'agy', 'antigravity'}:
-            return pid, started
-        pid = parent
-    raise NativeError('Ask Antigravity to run this command as a tool. A regular terminal shell does not receive its API credentials.')
+    return int(fields[1]), fields[19]
 
 
 def validate(connection):
@@ -50,11 +40,11 @@ def validate(connection):
         token = connection['token']
         if not isinstance(token, str) or not 1 <= len(token) <= 4096 or any(ord(c) < 33 or ord(c) > 126 for c in token):
             raise ValueError()
-        _, started, name = process(connection['pid'])
-        if name not in {'agy', 'antigravity'} or started != connection['started']:
+        _, started = process(connection['pid'])
+        if started != connection['started']:
             raise ValueError()
     except (OSError, ValueError, TypeError, KeyError):
-        raise NativeError('The native connection is invalid or the CLI restarted. Send a message in Terminal to let the connection hook reconnect.') from None
+        raise NativeError('The native connection is invalid or the CLI restarted. Restart the add-on to establish a fresh local connection.') from None
 
 
 def rpc(connection, method, payload):
@@ -106,19 +96,8 @@ def load():
         raise NativeError(connection_diagnostic()) from None
 
 
-def pair(quiet=False):
-    address = os.environ.get('ANTIGRAVITY_LS_ADDRESS', '')
-    token = os.environ.get('ANTIGRAVITY_CSRF_TOKEN', '')
-    try:
-        url = urlsplit('http://' + address)
-        if url.hostname not in {'localhost','127.0.0.1','::1'} or url.username or url.password or url.path or url.query or url.fragment or not url.port:
-            raise ValueError()
-        host, port = ('::1' if url.hostname == '::1' else '127.0.0.1'), url.port
-    except ValueError:
-        raise NativeError('No valid local API address was supplied. Run this command through an Antigravity tool.') from None
-    pid, started = cli_parent()
-    connection = dict(pid=pid, started=started, host=host, port=port, token=token)
-    items = summaries(connection)  # Read-only verification before storing credentials.
+def save(connection):
+    validate(connection)
     STATE.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix='.ha-native-', dir=STATE.parent)
     try:
@@ -129,17 +108,13 @@ def pair(quiet=False):
         os.replace(temporary, STATE)
     finally:
         if os.path.exists(temporary): os.unlink(temporary)
-    if not quiet:
-        print(f'Native API connected. Read-only listing succeeded ({len(items)} conversations). No conversations deleted.')
-
 
 DIAGNOSTICS = {
-    'starting': 'Connection hook started but has not completed. Refresh shortly.',
-    'parent': 'Connection hook ran, but could not verify the owning CLI process.',
-    'environment': 'Connection hook ran, but the CLI did not supply its local API address or token. Sending more messages will not fix this.',
-    'verify': 'Connection hook ran, but local API verification failed. Check the installed CLI version.',
-    'storage': 'Connection hook could not save its private connection file.',
-    'connected': 'The last connection hook succeeded, but the saved connection is unavailable. Restart the add-on.',
+    'starting': 'The CLI is starting. Local connection setup runs automatically.',
+    'unavailable': 'The CLI local API could not be verified within 60 seconds. Check the CLI version and restart the add-on. No connection was saved.',
+    'storage': 'The private local connection could not be stored or its process verified.',
+    'connected': 'The saved connection is unavailable. Restart the add-on.',
+    'stopped': 'The CLI has stopped. Restart the add-on to reconnect.',
 }
 
 
@@ -171,33 +146,4 @@ def connection_diagnostic():
             return DIAGNOSTICS[code] + ' [connection:' + code + ']'
     except (OSError, ValueError, KeyError, TypeError):
         pass
-    return 'Connection hook has not reported since startup. In Terminal, open /hooks and check that ha-conversations is enabled. [connection:not-run]'
-
-
-def auto_pair():
-    """Trusted lifecycle hook with redacted, persistent failure diagnostics."""
-    stage = 'parent'
-    try:
-        record_status('starting')
-        pid, started = cli_parent()
-        try:
-            connection = load()
-            if (connection['pid'], connection['started']) == (pid, started):
-                summaries(connection)
-                record_status('connected')
-                return
-        except NativeError:
-            pass
-        stage = 'environment'
-        if not os.environ.get('ANTIGRAVITY_LS_ADDRESS') or not os.environ.get('ANTIGRAVITY_CSRF_TOKEN'):
-            raise NativeError('Missing API environment')
-        stage = 'verify'
-        pair(quiet=True)
-        record_status('connected')
-    except (NativeError, OSError) as error:
-        try:
-            record_status('storage' if isinstance(error, OSError) else stage)
-        except OSError:
-            # A fixed log message helps when even the diagnostic cannot be saved.
-            import sys
-            print('Conversations connection: cannot save diagnostic (storage).', file=sys.stderr)
+    return 'Local connection setup has not reported. Restart the add-on. [connection:not-started]'
