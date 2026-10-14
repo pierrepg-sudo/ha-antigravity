@@ -1,3 +1,8 @@
+## 0.9.5
+
+- Group conversations by their CLI project name and separate archived conversations, also grouped by project.
+- Search includes project names; missing metadata remains visible with clear labels.
+
 ## 0.9.4
 
 - Automatically load and refresh the selected conversation before confirmation and recheck immediately before deletion.

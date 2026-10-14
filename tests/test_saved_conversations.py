@@ -94,3 +94,35 @@ class SavedTests(unittest.TestCase):
             seed(self.root,busy=1)
             with self.assertRaises(native.NativeError):history.prepare({'id':CID})
             rpc.assert_not_called()
+
+    def test_project_names_and_archive_metadata_survive_unloaded_history(self):
+        seed(self.root)
+        projects=self.root/'projects';projects.mkdir()
+        (projects/'project-a.json').write_text('{"id":"project-a","name":"Home Assistant"}')
+        with sqlite3.connect(self.root/'conversation_summaries.db') as db:
+            db.execute('ALTER TABLE conversation_summaries ADD COLUMN project_id TEXT')
+            db.execute('ALTER TABLE conversation_summaries ADD COLUMN raw_summary BLOB')
+            # Summary field 15 contains annotations; archive bool is field 4.
+            db.execute('UPDATE conversation_summaries SET project_id=?,raw_summary=?',
+                       ('project-a',b'\x7a\x02\x20\x01'))
+        with patch.object(native,'load',return_value=CONNECTION),patch.object(native,'summaries',return_value={}):
+            row=history.listing()['items'][0]
+            self.assertEqual(row['projectName'],'Home Assistant')
+            self.assertEqual(row['projectId'],'project-a')
+            self.assertIs(row['archived'],True)
+        with patch.object(native,'load',return_value=CONNECTION),patch.object(native,'summaries',return_value={CID:{'annotations':{'archived':False},'status':'CASCADE_RUN_STATUS_IDLE'}}):
+            self.assertIs(history.listing()['items'][0]['archived'],False)
+
+    def test_archive_parser_handles_defaults_unknown_fields_and_corruption(self):
+        self.assertIs(saved.archived(b'\x7a\x02\x20\x00'),False)
+        self.assertIs(saved.archived(b'\x0a\x01x'),False)
+        self.assertIs(saved.archived(b'\x7a\x04\x28\x01\x20\x01'),True)
+        for value in (None,b'',b'\x7a\x05x',b'\x7a\x02\x20\x03',b'\x80'*11):
+            self.assertIsNone(saved.archived(value))
+
+    def test_project_files_are_read_only_and_symlinks_ignored(self):
+        projects=self.root/'projects';projects.mkdir()
+        (projects/'valid.json').write_text('{"name":"Valid"}')
+        (projects/'invalid.json').write_text('not json')
+        (projects/'link.json').symlink_to(projects/'valid.json')
+        self.assertEqual(saved.project_names(),{'valid':'Valid'})

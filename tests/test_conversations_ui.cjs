@@ -7,15 +7,29 @@ const document={hidden:false,getElementById:get,createElement:()=>new Element(),
 const context=vm.createContext({document,console,AbortController,Date,Error,setTimeout:(fn,ms)=>{timers.set(++next,{fn,ms});return next;},clearTimeout:id=>timers.delete(id),fetch:async(url,opts)=>{calls++;if(opts.method==='POST')posts++;if(url==='conversation-delete')deletes++;if(resolveFetch)await new Promise(r=>resolveFetch=r);return {ok:!fail,json:async()=>fail?{error:'Disconnected'}:(url==='conversation-prepare'?{item:{id:'a',title:'Updated title',revision,blocked:''}}:{items:[{id:'a',title:'A',steps:1,modified:'2026-10-13',revision,blocked:''}]})};}});
 const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
 (async()=>{vm.runInContext(source,context);await flush();assert.equal(calls,1);assert.equal(get('connection').textContent,'Connected');assert([...timers.values()].some(t=>t.ms===15000));
-get('search').value='missing';get('search').oninput();assert.equal(get('list').children[0].textContent,'No conversations match your search.');get('search').value='';get('search').oninput();
-await get('list').children[0].children[1].onclick();assert(get('confirm').open);await vm.runInContext('load()',context);assert.equal(calls,2);assert.equal(timers.size,0);
+get('search').value='missing';get('search').oninput();assert(get('list').children.some(e=>e.textContent==='No conversations match your search.'));get('search').value='';get('search').oninput();
+await get('list').children.find(e=>e.className==='row').children[1].onclick();assert(get('confirm').open);await vm.runInContext('load()',context);assert.equal(calls,2);assert.equal(timers.size,0);
  assert(get('selected').textContent.includes('Updated title'));assert.equal(deletes,0);
  revision='changed';await get('apply').onclick();
  assert.equal(deletes,0);assert(get('error').textContent.includes('confirm again'));
  await get('apply').onclick();assert.equal(deletes,1);assert(!get('confirm').open);
- await get('list').children[0].children[1].onclick();
+ await get('list').children.find(e=>e.className==='row').children[1].onclick();
  fail=true;await get('apply').onclick();assert.equal(deletes,1);assert(get('apply').disabled);fail=false;
  const beforeVisibility=calls;
 get('cancel').onclick();document.hidden=true;listeners.visibilitychange();assert.equal(timers.size,0);document.hidden=false;listeners.visibilitychange();await flush();assert.equal(calls,beforeVisibility+1);
 fail=true;await vm.runInContext('load()',context);assert.equal(get('connection').textContent,'Not connected');assert.equal(get('list').children.length,1);assert([...timers.values()].some(t=>t.ms===30000));assert(posts>0);assert.equal(deletes,1);
+
+vm.runInContext(`items=[
+ {id:'one',title:'First',projectId:'p1',projectName:'Home Assistant',archived:false},
+ {id:'two',title:'Second',projectId:'p2',projectName:'AirPrint',archived:true},
+ {id:'three',title:'Third',projectId:'p3',projectName:'Home Assistant',archived:false},
+ {id:'four',title:'Fourth',projectId:'',projectName:'No project',archived:null}
+];connected=true;render();`,context);
+let headings=get('list').children.filter(e=>e.className==='group-heading').map(e=>e.textContent);
+assert.equal(headings.filter(t=>t==='Home Assistant · 1').length,2);
+assert(headings.includes('AirPrint · 1'));assert(headings.includes('No project · 1'));
+assert(get('list').children.some(e=>e.textContent==='Archived · 1'));
+get('search').value='AirPrint';get('search').oninput();
+assert.equal(get('list').children.filter(e=>e.className==='row').length,1);
+assert(get('list').children.some(e=>e.textContent==='Archived · 1'));
 console.log('UI checks passed: refresh, search, dialog pause, visibility, retry backoff, prepare before confirmation, recheck, changed revision confirmation, failed refresh blocks deletion.');})().catch(e=>{console.error(e);process.exit(1);});

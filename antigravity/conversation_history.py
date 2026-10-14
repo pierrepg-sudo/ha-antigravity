@@ -23,16 +23,26 @@ def item(connection, cid, summary):
         raise HistoryError('Unsupported native summary format.')
     modified = summary.get('lastModifiedTime') or ''
     steps = summary.get('stepCount', 0)
-    revision = hashlib.sha256(json.dumps([connection['pid'],connection['started'],connection['port'],cid,title,status,modified,steps,summary.get('_saved')],sort_keys=True).encode()).hexdigest()
+    project_id = summary.get('projectId') or ''
+    project_name = summary.get('projectName') or ''
+    archive = summary.get('archived')
+    if 'archived' in annotations:
+        archive = annotations['archived'] if isinstance(annotations['archived'], bool) else None
+    if project_id == 'outside-of-project':
+        project_id = ''
+    project_name = project_name or ('Project ' + project_id if project_id else 'No project')
+    revision = hashlib.sha256(json.dumps([connection['pid'],connection['started'],connection['port'],cid,title,status,modified,steps,summary.get('_saved'),project_id,project_name,archive],sort_keys=True).encode()).hexdigest()
     blocked = ('Invalid conversation identifier.' if not UUID.fullmatch(cid) else
                'This conversation is running or its idle state is unrecognized.' if status not in IDLE else '')
-    return {'id':cid, 'title':title, 'steps':steps, 'modified':modified, 'status':status, 'revision':revision, 'blocked':blocked}
+    return {'id':cid, 'title':title, 'steps':steps, 'modified':modified, 'status':status, 'revision':revision, 'blocked':blocked, 'projectId':project_id, 'projectName':project_name, 'archived':archive}
 
 
 def collect(connection):
     rows = saved.read()
     for cid, live in native.summaries(connection).items():
         if cid in rows:
+            if isinstance(live.get('annotations'), dict):
+                rows[cid]['archived'] = live['annotations'].get('archived', False)
             # The CLI index supplies disk history; a live busy state always wins.
             if live.get('status') not in IDLE:
                 rows[cid]['status'] = live.get('status', 'Unknown')
