@@ -48,6 +48,9 @@ class SavedCLITests(unittest.TestCase):
                 return json.loads(body)['cascadeId']
             try:
                 start(1);cid=create();keep=create();time.sleep(.3);stop()
+                # Read the real CLI-created default project from its actual config path.
+                with patch.object(saved,'ROOT',root/'antigravity-cli'):
+                    self.assertEqual(saved.project_names()['default-cli-project'],'CLI Project')
                 # CLI-created trajectory databases are real. Index metadata is a fixture,
                 # since these empty test conversations were created without signing in.
                 start(2)

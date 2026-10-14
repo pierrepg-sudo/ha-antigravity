@@ -619,7 +619,7 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Conversations and native deletion (0.9.5)
+## Conversations and native deletion (0.9.6)
 
 The add-on now owns local API connection setup as part of CLI startup. No hooks,
 terminal messages or manual pairing are required. The launcher generates a fresh
@@ -759,7 +759,7 @@ Deletion automatically prepares the selected saved conversation before opening a
 
 
 Conversation groups use the saved index project_id and read-only local
-projects/*.json names. Unknown names display their project ID; entries without
+~/.gemini/config/projects/*.json names. Unknown names display their project ID; entries without
 a project appear under No project. Archived conversations have their own section
 and project groups. Search includes project names. Archive state is read from
 raw_summary protobuf annotations (CLI 1.3.4 schema), with live API annotations

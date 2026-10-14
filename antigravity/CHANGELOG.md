@@ -1,3 +1,8 @@
+## 0.9.6
+
+- Fix project display names by reading the CLI’s actual config/projects directory.
+- Verify name resolution against the default project file created by the real CLI.
+
 ## 0.9.5
 
 - Group conversations by their CLI project name and separate archived conversations, also grouped by project.

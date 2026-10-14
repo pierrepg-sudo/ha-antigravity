@@ -88,8 +88,8 @@ def archived(raw):
 
 
 def project_names():
-    directory = ROOT / 'projects'
-    if directory.is_symlink():
+    directory = ROOT.parent / 'config' / 'projects'
+    if ROOT.parent.is_symlink() or directory.parent.is_symlink() or directory.is_symlink():
         return {}
     names = {}
     if not directory.exists():

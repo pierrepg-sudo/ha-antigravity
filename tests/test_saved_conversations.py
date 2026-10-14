@@ -25,7 +25,7 @@ def seed(root, cid=CID, busy=0):
 
 class SavedTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
+        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)/'antigravity-cli';self.root.mkdir()
         self.patch=patch.object(saved,'ROOT',self.root);self.patch.start()
     def tearDown(self):self.patch.stop();self.temp.cleanup()
     def test_all_22_saved_entries_are_listed_without_loading_or_writing(self):
@@ -97,7 +97,7 @@ class SavedTests(unittest.TestCase):
 
     def test_project_names_and_archive_metadata_survive_unloaded_history(self):
         seed(self.root)
-        projects=self.root/'projects';projects.mkdir()
+        projects=self.root.parent/'config'/'projects';projects.mkdir(parents=True)
         (projects/'project-a.json').write_text('{"id":"project-a","name":"Home Assistant"}')
         with sqlite3.connect(self.root/'conversation_summaries.db') as db:
             db.execute('ALTER TABLE conversation_summaries ADD COLUMN project_id TEXT')
@@ -121,8 +121,15 @@ class SavedTests(unittest.TestCase):
             self.assertIsNone(saved.archived(value))
 
     def test_project_files_are_read_only_and_symlinks_ignored(self):
-        projects=self.root/'projects';projects.mkdir()
+        projects=self.root.parent/'config'/'projects';projects.mkdir(parents=True)
         (projects/'valid.json').write_text('{"name":"Valid"}')
         (projects/'invalid.json').write_text('not json')
         (projects/'link.json').symlink_to(projects/'valid.json')
         self.assertEqual(saved.project_names(),{'valid':'Valid'})
+
+    def test_project_config_directory_symlink_is_not_followed(self):
+        outside=self.root.parent/'other';outside.mkdir()
+        (outside/'projects').mkdir()
+        (outside/'projects'/'secret.json').write_text('{"name":"Do not read"}')
+        (self.root.parent/'config').symlink_to(outside, target_is_directory=True)
+        self.assertEqual(saved.project_names(),{})
