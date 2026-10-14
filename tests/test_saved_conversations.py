@@ -1,0 +1,77 @@
+import sys
+from pathlib import Path
+sys.path.insert(0,str(Path(__file__).parents[1]/'antigravity'))
+import sqlite3
+import tempfile
+import unittest
+from unittest.mock import patch
+import saved_conversations as saved
+import conversation_history as history
+import native_connection as native
+
+CID = '12345678-1234-1234-1234-123456789012'
+CONNECTION = dict(pid=42,started='1',host='127.0.0.1',port=42,token='test')
+SCHEMA = '''CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, title TEXT,
+step_count INTEGER, last_modified_time TEXT, status TEXT, not_fully_idle INTEGER,
+parent_conversation_id TEXT)'''
+
+def seed(root, cid=CID, busy=0):
+    directory=root/'conversations';directory.mkdir(exist_ok=True)
+    (directory/(cid+'.db')).touch()
+    with sqlite3.connect(root/'conversation_summaries.db') as db:
+        db.execute(SCHEMA.replace('CREATE TABLE','CREATE TABLE IF NOT EXISTS'))
+        db.execute('INSERT OR REPLACE INTO conversation_summaries VALUES (?,?,?,?,?,?,?)',
+            (cid,'Saved title',12,'2026-10-01T12:00:00Z','CASCADE_RUN_STATUS_IDLE',busy,''))
+
+class SavedTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
+        self.patch=patch.object(saved,'ROOT',self.root);self.patch.start()
+    def tearDown(self):self.patch.stop();self.temp.cleanup()
+    def test_all_22_saved_entries_are_listed_without_loading_or_writing(self):
+        for i in range(22):seed(self.root,f'{i:08x}-1234-1234-1234-123456789012')
+        before=(self.root/'conversation_summaries.db').read_bytes()
+        phantom='ffffffff-1234-1234-1234-123456789012'
+        with patch.object(native,'load',return_value=CONNECTION),patch.object(native,'summaries',return_value={phantom:{'status':'CASCADE_RUN_STATUS_IDLE'}}),patch.object(native,'rpc') as rpc:
+            rows=history.listing()['items']
+            self.assertEqual(len(rows),22);self.assertTrue(all(r['title']=='Saved title' and r['steps']==12 for r in rows));rpc.assert_not_called()
+        self.assertEqual(before,(self.root/'conversation_summaries.db').read_bytes())
+    def test_stale_index_row_cannot_resurrect_deleted_file(self):
+        seed(self.root);(self.root/'conversations'/f'{CID}.db').unlink()
+        self.assertEqual(saved.read(),{})
+    def test_busy_or_unindexed_files_cannot_be_deleted(self):
+        seed(self.root,busy=1)
+        self.assertTrue(history.item(CONNECTION,CID,saved.read()[CID])['blocked'])
+        (self.root/'conversation_summaries.db').unlink()
+        self.assertTrue(history.item(CONNECTION,CID,saved.read()[CID])['blocked'])
+    def test_symlink_and_unsupported_schema_fail_closed(self):
+        seed(self.root);db=self.root/'conversation_summaries.db';db.unlink();db.symlink_to(self.root/'conversations'/f'{CID}.db')
+        with self.assertRaises(native.NativeError):saved.read()
+        db.unlink()
+        with sqlite3.connect(db) as con:con.execute('CREATE TABLE incompatible (id TEXT)')
+        with self.assertRaises(native.NativeError):saved.read()
+    def test_saved_delete_loads_checks_idle_and_requires_file_absence(self):
+        seed(self.root)
+        with patch.object(native,'load',return_value=CONNECTION),patch.object(native,'summaries',return_value={}) as summaries,patch.object(native,'rpc') as rpc:
+            row=history.listing()['items'][0];payload=dict(id=CID,revision=row['revision'],confirm=True)
+            summaries.side_effect=[{}, {CID:{'status':'CASCADE_RUN_STATUS_IDLE'}}, {}, {}]
+            with self.assertRaisesRegex(native.NativeError,'still listed'):history.delete(payload)
+            self.assertEqual([c.args[1] for c in rpc.call_args_list],[native.LOAD,native.DELETE])
+    def test_load_failure_or_busy_state_never_deletes(self):
+        seed(self.root)
+        with patch.object(native,'load',return_value=CONNECTION),patch.object(native,'summaries',return_value={}) as summaries,patch.object(native,'rpc') as rpc:
+            row=history.listing()['items'][0];payload=dict(id=CID,revision=row['revision'],confirm=True)
+            rpc.side_effect=native.NativeError('load failed')
+            with self.assertRaises(native.NativeError):history.delete(payload)
+            self.assertEqual(rpc.call_args.args[1],native.LOAD)
+            rpc.reset_mock();rpc.side_effect=None
+            summaries.side_effect=[{},{CID:{'status':'CASCADE_RUN_STATUS_RUNNING'}}]
+            with self.assertRaises(native.NativeError):history.delete(payload)
+            self.assertEqual([c.args[1] for c in rpc.call_args_list],[native.LOAD])
+    def test_changed_file_invalidates_confirmation(self):
+        seed(self.root)
+        with patch.object(native,'load',return_value=CONNECTION),patch.object(native,'summaries',return_value={}),patch.object(native,'rpc') as rpc:
+            row=history.listing()['items'][0]
+            (self.root/'conversations'/f'{CID}.db').write_bytes(b'changed')
+            with self.assertRaises(native.NativeError):history.delete(dict(id=CID,revision=row['revision'],confirm=True))
+            rpc.assert_not_called()

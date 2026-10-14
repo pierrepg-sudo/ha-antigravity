@@ -619,7 +619,7 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Conversations and native deletion (0.9.2)
+## Conversations and native deletion (0.9.3)
 
 The add-on now owns local API connection setup as part of CLI startup. No hooks,
 terminal messages or manual pairing are required. The launcher generates a fresh
@@ -653,25 +653,42 @@ off to 30–60 seconds after errors. Refresh requests do not overlap. Hidden pag
 open deletion dialogs pause polling. Failed reads clear the list so stale entries
 cannot be deleted. Search text is retained. Manual Refresh remains available.
 
-Open **Conversations**, refresh, then **Delete → confirm**. No terminal selection,
-F4, exit or restart is needed for deletion. The menu uses the live native listing;
-its scope is whatever GetAllCascadeTrajectories returns. Inclusion of all archived
-or Google-hosted conversations is not established, and no include_archived flag is
-sent. Running and unrecognized states are blocked. Test a disposable conversation
-first: listing was verified on the user's CLI; deletion is not yet device-verified.
+Open **Conversations**, refresh, then **Delete → confirm**. Listing reads
+`/data/home/.gemini/antigravity-cli/conversation_summaries.db` in SQLite read-only
+mode and matches rows against `.db`/`.pb` files in its `conversations` directory.
+This includes saved conversations not loaded into the current language-server
+memory. Stale index rows without backing files are excluded, as are empty unsaved
+API placeholders. Child conversations are managed with their parent. Google-hosted
+history and the picker's Other tab are outside this local CLI view.
+
+Titles, steps and dates come from the saved index. Missing or unsupported metadata
+never grants deletion: such entries are blocked or an explicit read error is shown.
+The index's busy flag and the API's live busy state both prevent deletion. No
+conversation is loaded merely by opening or refreshing this page.
 
 Requests go only to the pinned local process/port, without HTTP proxies or redirects.
 The saved process start time is rechecked on every request; an add-on restart
-establishes a fresh connection automatically. Tokens stay on the host and never enter browser responses or logs.
-Browser mutations require CSRF and explicit confirmation, with a fresh native
-lookup and selection revision check. DeleteCascadeTrajectory receives the exact
-cascadeId. A follow-up read must confirm absence before success is reported.
-Deletions are never retried automatically; close the dialog and refresh after an uncertain outcome. Read-only listing retries automatically.
+establishes a fresh connection automatically. Tokens stay on the host and never enter
+browser responses or logs. Browser mutations require CSRF and explicit confirmation.
+For a saved entry, LoadTrajectory loads the selected ID before checking its native
+idle state. The saved index and backing-file revision are checked again before
+DeleteCascadeTrajectory receives the exact ID. If loading changes/migrates the
+conversation, close the dialog, refresh and confirm the updated selection.
 
-The previous SQLite listing and guided terminal deletion panel have been fully
-removed. No history database writes, file deletion fallback, or add-on Undo exists.
-Existing legacy backup files are untouched. Antigravity controls native cleanup of
-associated conversation data. This internal API may change across CLI versions.
+Success requires absence from both the native listing and backing files. Deletions
+are never retried automatically. The add-on never edits the history database,
+deletes history files itself, or drives terminal keys. Existing legacy backups are
+untouched. Antigravity controls cleanup of associated data; there is no add-on Undo.
+
+Tests cover 22 saved entries while the API contains only an empty placeholder,
+read-only listing, busy/unknown states, stale confirmations, unsupported schemas,
+symlink rejection, and failed or incomplete deletion. An isolated real CLI 1.3.4
+test creates two conversation databases, restarts, deletes one through the production
+handler, restarts again, and verifies the other remains loadable. Summary-index
+metadata is seeded for those empty synthetic conversations; no Google login is used.
+The test CLI and descendants have outgoing connect/datagram syscalls denied. Live
+signed-in HAOS deletion still needs device validation. The internal API and index
+schema may change between upstream releases.
 
 
 ## Folder downloads, copy and move (0.6.0)

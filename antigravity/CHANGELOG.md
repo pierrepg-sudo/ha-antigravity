@@ -1,3 +1,11 @@
+## 0.9.3
+
+- List saved CLI conversations from the read-only history index and backing files, including older entries absent from the in-memory API.
+- Omit empty unsaved API placeholders; preserve titles, step counts and dates from saved history.
+- Load a selected saved conversation through the CLI before native deletion; check idle state and selection revision again, then verify both API and backing-file absence.
+- Require fresh confirmation if loading migrates or changes a saved conversation; never retry deletion automatically.
+- Verify saved deletion across CLI restarts with outbound networking disabled in the real-CLI tests.
+
 ## 0.9.2
 
 - Replace credential-dependent hooks with a launcher-owned authenticated local connection established automatically at CLI startup.

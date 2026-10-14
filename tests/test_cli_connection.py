@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 import native_connection as native
 import launch_cli
+from network_guard import block_outbound
 import conversation_history
 
 
@@ -18,7 +19,7 @@ class RealCLITests(unittest.TestCase):
             root=Path(directory)
             with patch.object(native, 'STATE', root/'connection.json'):
                 master, slave=pty.openpty()
-                child, token=launch_cli.start(os.environ['ANTIGRAVITY_TEST_BINARY'], ['--gemini_dir='+str(root/'gemini')], root/'cli.log', stdin=slave, stdout=slave, stderr=slave, cwd=directory, start_new_session=True)
+                child, token=launch_cli.start(os.environ['ANTIGRAVITY_TEST_BINARY'], ['--gemini_dir='+str(root/'gemini')], root/'cli.log', stdin=slave, stdout=slave, stderr=slave, cwd=directory, start_new_session=True, preexec_fn=block_outbound, env={'HOME':directory,'PATH':'/usr/bin:/bin','TERM':'xterm-256color'})
                 os.close(slave)
                 # Some test runners mount host /proc inside a nested PID namespace.
                 # In that case only identity lookup is adapted; launcher, CLI, token,

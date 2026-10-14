@@ -11,6 +11,7 @@ STATE = Path('/data/home/.gemini/antigravity-cli/ha-native-connection.json')
 SERVICE = '/exa.language_server_pb.LanguageServerService/'
 LIST = 'GetAllCascadeTrajectories'
 DELETE = 'DeleteCascadeTrajectory'
+LOAD = 'LoadTrajectory'
 
 class NativeError(Exception):
     pass
@@ -48,7 +49,7 @@ def validate(connection):
 
 
 def rpc(connection, method, payload):
-    if method not in {LIST, DELETE}:
+    if method not in {LIST, DELETE, LOAD}:
         raise NativeError('Unsupported native operation.')
     validate(connection)
     client = http.client.HTTPConnection(connection['host'], connection['port'], timeout=8)
