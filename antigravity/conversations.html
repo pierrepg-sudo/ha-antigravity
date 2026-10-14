@@ -27,7 +27,7 @@ function render(){
   for(const group of [...groups.values()].sort((a,b)=>(a[0].projectName||'No project').localeCompare(b[0].projectName||'No project'))){
    const folder=document.createElement('details');folder.className='project-folder';
    folder.dataset.key=JSON.stringify([label,group[0].projectId||'']);
-   folder.open=searching||(folderState.get(folder.dataset.key)??true);
+   folder.open=searching||(folderState.get(folder.dataset.key)??false);
    const heading=document.createElement('summary');heading.className='group-heading';heading.textContent=(group[0].projectName||'No project')+' · '+group.length;
    folder.append(heading);$('list').append(folder);
  for(const item of group){

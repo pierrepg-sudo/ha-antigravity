@@ -1,3 +1,8 @@
+## 0.9.8
+
+- Default project folders to collapsed while preserving choices during refresh.
+- Launch with --continue to reopen the workspace’s latest session instead of creating an empty conversation on each restart.
+
 ## 0.9.7
 
 - Add collapsible project folders in both Projects and Archived.

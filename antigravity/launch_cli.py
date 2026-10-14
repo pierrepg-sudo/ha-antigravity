@@ -10,6 +10,9 @@ import threading
 import time
 import native_connection as native
 
+# Resume the workspace's last session instead of creating a new one on each boot.
+STARTUP_ARGS = ['--remote-control', '--continue']
+
 
 def start(binary, args, log, **stdio):
     token = secrets.token_urlsafe(48)
@@ -59,7 +62,7 @@ def main():
     # Temporary logs are session-owned and removed when this CLI exits.
     with tempfile.TemporaryDirectory(prefix='.ha-cli-', dir=native.STATE.parent) as directory:
         log = Path(directory) / 'cli.log'
-        child, token = start('/data/home/.local/bin/agy', ['--remote-control'], log)
+        child, token = start('/data/home/.local/bin/agy', STARTUP_ARGS, log)
         stop = threading.Event()
         thread = threading.Thread(target=connect, args=(child, token, log, stop), daemon=True)
         thread.start()

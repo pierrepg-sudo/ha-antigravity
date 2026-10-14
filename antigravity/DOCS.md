@@ -619,7 +619,7 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Conversations and native deletion (0.9.7)
+## Conversations and native deletion (0.9.8)
 
 The add-on now owns local API connection setup as part of CLI startup. No hooks,
 terminal messages or manual pairing are required. The launcher generates a fresh
@@ -766,6 +766,15 @@ raw_summary protobuf annotations (CLI 1.3.4 schema), with live API annotations
 taking precedence. Missing or malformed archive metadata is labelled, never
 inferred from inactivity. Grouping does not archive, move or modify history.
 
-Tap a project heading to collapse or expand its conversations. Folder choices are
+Project folders start collapsed. Tap a project heading to expand or collapse its conversations. Folder choices are
 retained while the page is open, including automatic refreshes. Search temporarily
 expands matching folders; clearing search restores your choices.
+
+
+The launcher uses `--remote-control --continue`. The CLI reopens the most recent
+conversation for the startup workspace using its own session cache. If that
+workspace has no saved session, or it was deleted, the CLI starts a fresh session.
+This avoids accumulating empty startup conversations during normal restarts;
+existing conversations are not automatically deleted. This reopens context without
+submitting a new prompt. Use /new when you want a fresh conversation.
+See https://antigravity.google/docs/cli/commands/resume for the native cache behavior.
