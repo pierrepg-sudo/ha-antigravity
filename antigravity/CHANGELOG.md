@@ -1,3 +1,8 @@
+## 0.9.7
+
+- Add collapsible project folders in both Projects and Archived.
+- Preserve expanded/collapsed state during refresh; search temporarily expands matching folders.
+
 ## 0.9.6
 
 - Fix project display names by reading the CLI’s actual config/projects directory.
