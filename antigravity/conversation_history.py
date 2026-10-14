@@ -57,7 +57,7 @@ def listing():
         rows = collect(connection)
         items = [item(connection,cid,summary) for cid,summary in rows.items()]
         items.sort(key=lambda row:str(row['modified']), reverse=True)
-        return {'items':items}
+        return {'items':items, 'projects':[{'id':key,'name':name} for key,name in sorted(saved.project_names().items(), key=lambda pair:pair[1].casefold()) if key != 'outside-of-project']}
 
 
 

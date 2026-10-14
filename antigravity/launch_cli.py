@@ -1,5 +1,8 @@
 """Own the CLI's local authentication and publish a verified private connection."""
 import os
+import json
+import socket
+import conversation_session as session
 from pathlib import Path
 import re
 import secrets
@@ -55,31 +58,81 @@ def connect(child, token, log, stop, timeout=60):
     return False
 
 
+def handoff(request, child):
+    if not isinstance(request, dict) or set(request) != {'payload', 'pid', 'started'}:
+        raise native.NativeError('Invalid session request.')
+    connection = native.load()
+    if connection['pid'] != child.pid or request['pid'] != child.pid or request['started'] != connection['started']:
+        raise native.NativeError('The CLI session changed. Refresh and try again.')
+    args = session.launch_args(request['payload'], connection)
+    args = session.materialize(request['payload'], connection, args)
+    child.terminate()
+    child.wait(timeout=8)
+    return args
+
+
 def main():
     native.STATE.parent.mkdir(parents=True, exist_ok=True)
     native.STATE.unlink(missing_ok=True)
     native.record_status('starting')
-    # Temporary logs are session-owned and removed when this CLI exits.
-    with tempfile.TemporaryDirectory(prefix='.ha-cli-', dir=native.STATE.parent) as directory:
-        log = Path(directory) / 'cli.log'
-        child, token = start('/data/home/.local/bin/agy', STARTUP_ARGS, log)
-        stop = threading.Event()
-        thread = threading.Thread(target=connect, args=(child, token, log, stop), daemon=True)
-        thread.start()
+    path = session.socket_path()
+    path.unlink(missing_ok=True)
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+        listener.bind(str(path))
+        os.chmod(path, 0o600)
+        listener.listen(1)
+        listener.settimeout(.25)
+        child = None
         def terminate(signum, frame):
-            if child.poll() is None:
+            if child is not None and child.poll() is None:
                 child.send_signal(signum)
+            raise SystemExit(0)
         signal.signal(signal.SIGTERM, terminate)
-        # Both processes share the terminal; let the CLI handle Ctrl+C itself.
         signal.signal(signal.SIGINT, lambda *_: None)
+        args = STARTUP_ARGS
         try:
-            result = child.wait()
+            while True:
+                with tempfile.TemporaryDirectory(prefix='.ha-cli-', dir=native.STATE.parent) as directory:
+                    log = Path(directory) / 'cli.log'
+                    child, token = start('/data/home/.local/bin/agy', args, log)
+                    stop = threading.Event()
+                    thread = threading.Thread(target=connect, args=(child, token, log, stop), daemon=True)
+                    thread.start()
+                    switched = False
+                    try:
+                        while child.poll() is None:
+                            try:
+                                client, _ = listener.accept()
+                            except socket.timeout:
+                                continue
+                            with client:
+                                client.settimeout(3)
+                                try:
+                                    request = json.loads(client.makefile('rb').readline(8193))
+                                    next_args = handoff(request, child)
+                                    args = next_args
+                                    switched = True
+                                    result = {'ok': True}
+                                except native.NativeError as error:
+                                    result = {'error': str(error)}
+                                except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired):
+                                    result = {'error': 'Could not switch the terminal session. Check Terminal before retrying.'}
+                                try:
+                                    client.sendall(json.dumps(result).encode() + b'\n')
+                                except OSError:
+                                    pass
+                            if switched:
+                                break
+                    finally:
+                        stop.set()
+                        thread.join(timeout=18)
+                        native.STATE.unlink(missing_ok=True)
+                    if not switched:
+                        return child.wait()
         finally:
-            stop.set()
-            thread.join(timeout=18)
+            path.unlink(missing_ok=True)
             native.STATE.unlink(missing_ok=True)
             native.record_status('stopped')
-        return result
 
 
 if __name__ == '__main__':

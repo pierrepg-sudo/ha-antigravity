@@ -1,3 +1,10 @@
+## 0.9.9
+
+- Add New conversation with an existing-project selector and a No project default.
+- Add Open in terminal to saved conversations, with a confirmed idle-session handoff.
+- Validate project membership through the native API and block switching while the CLI is working.
+- Preserve auto-refresh, collapsed project folders, archive grouping and deletion checks.
+
 ## 0.9.8
 
 - Default project folders to collapsed while preserving choices during refresh.

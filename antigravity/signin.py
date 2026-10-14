@@ -1,5 +1,6 @@
 """Mobile controls and OAuth helper; localhost behind admin-only HA ingress."""
 import github_connection
+import conversation_session
 import conversation_history
 import json
 import secrets
@@ -160,7 +161,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path not in {'/input', '/conversation-prepare', '/conversation-delete', '/github-action'}:
+        if self.path not in {'/input', '/conversation-prepare', '/conversation-delete', '/conversation-session', '/github-action'}:
             self.send_error(404)
             return
         status = 200
@@ -180,6 +181,8 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('Invalid request.')
             if self.path == '/github-action':
                 result = github_connection.action(payload)
+            elif self.path == '/conversation-session':
+                result = conversation_session.switch(payload)
             elif self.path == '/conversation-prepare':
                 result = conversation_history.prepare(payload)
             else:

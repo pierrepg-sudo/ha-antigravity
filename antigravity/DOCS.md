@@ -619,7 +619,26 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Conversations and native deletion (0.9.8)
+## Conversations and native deletion (0.9.9)
+
+The Conversations page is also a session launcher. Choose **New conversation**,
+select an existing project or leave **No project**, then confirm. Existing entries
+have **Open in terminal**. Both actions hand off to the terminal controls page.
+Save unsent terminal text first: switching gracefully stops the idle CLI process
+and launches its replacement with `--conversation=<exact ID>`. Running or unknown
+native trajectory states block switching. Managed workers are separate processes.
+The launcher accepts only validated requests through a private mode-0600 Unix
+socket, rechecks the child PID/start time and live idle states, and never sends
+blind terminal keystrokes or force-kills the CLI. Session changes require browser
+CSRF and confirmation. A lost response is not automatically retried.
+
+New conversations use native `StartCascade` with an explicit project environment.
+**No project** uses the CLI's `outside-of-project` identifier, not its default
+`CLI Project`. The returned ID and project metadata are verified before handing
+off. If creation succeeds but handoff fails, refresh history before trying again;
+the created conversation is preserved. Session switching reconnects the local API
+and remote-control session. The real-CLI tests cover creation and project metadata;
+the complete signed-in terminal handoff still requires HAOS device validation.
 
 The add-on now owns local API connection setup as part of CLI startup. No hooks,
 terminal messages or manual pairing are required. The launcher generates a fresh
@@ -650,7 +669,7 @@ other global hooks are preserved. The antigravity-connect helper is removed.
 
 The page refreshes every 15 seconds while visible, immediately on return, and backs
 off to 30–60 seconds after errors. Refresh requests do not overlap. Hidden pages and
-open deletion dialogs pause polling. Failed reads clear the list so stale entries
+open conversation dialogs pause polling. Failed reads clear the list so stale entries
 cannot be deleted. Search text is retained. Manual Refresh remains available.
 
 Open **Conversations**, then **Delete → confirm**. Listing reads

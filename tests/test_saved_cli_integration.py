@@ -17,6 +17,7 @@ from network_guard import block_outbound
 import conversation_history as history
 import native_connection as native
 import saved_conversations as saved
+import conversation_session as session
 
 @unittest.skipUnless(os.environ.get('ANTIGRAVITY_TEST_BINARY'),'Set ANTIGRAVITY_TEST_BINARY for live CLI checks')
 class SavedCLITests(unittest.TestCase):
@@ -40,9 +41,9 @@ class SavedCLITests(unittest.TestCase):
                     time.sleep(.1)
                 self.fail('CLI local listener did not start')
             def create():
-                # Test-only RPC; production deliberately cannot create/run conversations.
+                # Exercise the native API's explicit unclassified project configuration.
                 client=http.client.HTTPConnection(connection['host'],connection['port'],timeout=8)
-                client.request('POST',native.SERVICE+'StartCascade',json.dumps({'source':'CORTEX_TRAJECTORY_SOURCE_CLI'}),
+                client.request('POST',native.SERVICE+'StartCascade',json.dumps({'source':'CORTEX_TRAJECTORY_SOURCE_CLI','projectEnvConfig':{'projectId':'outside-of-project','defaultProjectEnvironment':{}}}),
                     {'Content-Type':'application/json','x-codeium-csrf-token':connection['token']})
                 response=client.getresponse();body=response.read();client.close();self.assertEqual(response.status,200)
                 return json.loads(body)['cascadeId']
@@ -82,5 +83,10 @@ class SavedCLITests(unittest.TestCase):
                     with self.assertRaises(native.NativeError):native.rpc(connection,native.LOAD,{'cascadeId':cid})
                     native.rpc(connection,native.LOAD,{'cascadeId':keep})
                     self.assertIn(keep,native.summaries(connection))
+                    for project in ('', 'default-cli-project'):
+                        payload={'action':'new','projectId':project,'confirm':True}
+                        args=session.materialize(payload,connection,session.launch_args(payload,connection))
+                        created=args[1].split('=',1)[1]
+                        self.assertEqual(native.summaries(connection)[created]['trajectoryMetadata']['projectId'],project or 'outside-of-project')
             finally:
                 stop();os.close(master);os.close(slave)

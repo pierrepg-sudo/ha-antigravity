@@ -12,6 +12,7 @@ SERVICE = '/exa.language_server_pb.LanguageServerService/'
 LIST = 'GetAllCascadeTrajectories'
 DELETE = 'DeleteCascadeTrajectory'
 LOAD = 'LoadTrajectory'
+START = 'StartCascade'
 
 class NativeError(Exception):
     pass
@@ -49,7 +50,7 @@ def validate(connection):
 
 
 def rpc(connection, method, payload):
-    if method not in {LIST, DELETE, LOAD}:
+    if method not in {LIST, DELETE, LOAD, START}:
         raise NativeError('Unsupported native operation.')
     validate(connection)
     client = http.client.HTTPConnection(connection['host'], connection['port'], timeout=8)
