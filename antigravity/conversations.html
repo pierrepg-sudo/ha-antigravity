@@ -4,7 +4,7 @@
 </style><main><header><div><div class="eyebrow">ANTIGRAVITY</div><h1>Conversations</h1><p class="subtitle">Your conversation history</p></div><a class="nav" href="controls">← Terminal</a></header>
 <section class="panel" aria-label="Connection and search"><div class="toolbar"><div><span class="badge" id="connection">Connecting</span><p id="updated">Auto-refresh · every 15 seconds</p></div><button id="refresh">Refresh</button></div><p id="status" role="status" aria-live="polite">Checking the CLI connection…</p><label for="search">Search conversations</label><input id="search" type="search" placeholder="Search title or ID" autocomplete="off"></section>
 <div id="count"></div><div id="list" aria-label="Conversations"></div>
-<details><summary>Connection help &amp; deletion</summary><p>The add-on connects to the local CLI automatically at startup. No message or hook is required. If connection setup fails, restart the add-on and share the connection status and CLI version. This page refreshes automatically while visible.</p><p>Only idle conversations can be deleted. Each deletion requires confirmation and cannot be undone here. This list includes locally saved CLI conversations. If loading an older conversation changes it, refresh and confirm again. The CLI handles deletion and associated cleanup.</p></details>
+<details><summary>Connection help &amp; deletion</summary><p>The add-on connects to the local CLI automatically at startup. No message or hook is required. If connection setup fails, restart the add-on and share the connection status and CLI version. This page refreshes automatically while visible.</p><p>Only idle conversations can be deleted. Each deletion requires confirmation and cannot be undone here. This list includes locally saved CLI conversations. The selected conversation refreshes before confirmation and immediately before deletion. If it changes, review and confirm the updated entry. The CLI handles deletion and associated cleanup.</p></details>
 <dialog id="confirm" aria-labelledby="confirmTitle"><h2 id="confirmTitle">Delete conversation?</h2><p id="selected"></p><p>This removes the conversation and may clean up its associated data. There is no undo.</p><p id="error" role="alert"></p><div class="actions"><button id="cancel">Cancel</button><button id="apply" class="delete">Delete conversation</button></div></dialog></main>
 <script>
 const csrf='__CSRF__';let items=[],busy=false,pending=null,connected=false,timer=null,failures=0;
@@ -23,7 +23,13 @@ function render(){
    if(!text)continue;const line=document.createElement('div');line.className='meta';line.textContent=text;info.append(line);
   }
   const button=document.createElement('button');button.textContent='Delete';button.className='delete';button.setAttribute('aria-label','Delete '+item.title);button.dataset.blocked=String(Boolean(item.blocked));button.disabled=busy||Boolean(item.blocked);
-  button.onclick=()=>{clearTimeout(timer);pending={id:item.id,revision:item.revision,confirm:true};$('selected').textContent=item.title+' — '+item.id;$('error').textContent='';$('apply').disabled=false;dialog.showModal();};
+  button.onclick=async()=>{
+   if(busy)return;clearTimeout(timer);pending=null;setBusy(true);
+   $('selected').textContent=item.title+' — '+item.id;$('error').textContent='Refreshing conversation…';dialog.showModal();
+   try{select(await prepare(item.id));$('error').textContent='';}
+   catch(e){$('error').textContent=e.message;}
+   finally{setBusy(false);}
+  };
   el.append(info,button);$('list').append(el);
  }
  if(!filtered.length){const empty=document.createElement('div');empty.className='empty';empty.textContent=!connected?'Waiting for a connection to load your conversations.':query?'No conversations match your search.':'No conversations yet.';$('list').append(empty);}
@@ -42,11 +48,27 @@ async function load(){if(busy||dialog.open||document.hidden)return;clearTimeout(
 $('refresh').onclick=load;$('search').oninput=render;$('cancel').onclick=()=>dialog.close();
 dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault();});dialog.addEventListener('close',()=>{pending=null;schedule();});
 document.addEventListener('visibilitychange',()=>{clearTimeout(timer);if(!document.hidden)load();});
+function select(item){
+ if(item.blocked)throw new Error(item.blocked);
+ pending={id:item.id,revision:item.revision,confirm:true};
+ $('selected').textContent=item.title+' — '+item.id;
+ items=items.map(row=>row.id===item.id?item:row);render();
+}
+async function prepare(id){
+ const r=await fetch('conversation-prepare',{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify({id})}),d=await r.json();
+ if(!r.ok)throw new Error(d.error||'Could not refresh this conversation. Close and try again.');
+ if(!d.item||d.item.id!==id||typeof d.item.revision!=='string')throw new Error('Unexpected conversation details.');
+ return d.item;
+}
 $('apply').onclick=async()=>{
  if(busy||!pending)return;setBusy(true);clearTimeout(timer);
  try{
+  $('error').textContent='Checking conversation…';
+  const current=await prepare(pending.id),previous=pending.revision;
+  select(current);
+  if(current.revision!==previous){$('error').textContent='Conversation updated. Review the refreshed details and confirm again.';return;}
   const r=await fetch('conversation-delete',{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(pending)}),d=await r.json();
-  if(!r.ok)throw new Error(d.error||'Deletion could not be verified. Close this dialog and refresh before retrying.');
+  if(!r.ok)throw new Error(d.error||'Deletion could not be verified. Close this dialog before retrying.');
   dialog.close();await refresh();$('status').textContent='Conversation deleted.';
  }catch(e){$('error').textContent=e.message;$('status').textContent=e.message;pending=null;}
  finally{setBusy(false);schedule();}

@@ -160,7 +160,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path not in {'/input', '/conversation-delete', '/github-action'}:
+        if self.path not in {'/input', '/conversation-prepare', '/conversation-delete', '/github-action'}:
             self.send_error(404)
             return
         status = 200
@@ -180,6 +180,8 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('Invalid request.')
             if self.path == '/github-action':
                 result = github_connection.action(payload)
+            elif self.path == '/conversation-prepare':
+                result = conversation_history.prepare(payload)
             else:
                 result = conversation_history.delete(payload) if self.path == '/conversation-delete' else send_input(payload)
         except github_connection.ConnectionError as error:

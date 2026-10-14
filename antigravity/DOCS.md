@@ -619,7 +619,7 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Conversations and native deletion (0.9.3)
+## Conversations and native deletion (0.9.4)
 
 The add-on now owns local API connection setup as part of CLI startup. No hooks,
 terminal messages or manual pairing are required. The launcher generates a fresh
@@ -653,7 +653,7 @@ off to 30–60 seconds after errors. Refresh requests do not overlap. Hidden pag
 open deletion dialogs pause polling. Failed reads clear the list so stale entries
 cannot be deleted. Search text is retained. Manual Refresh remains available.
 
-Open **Conversations**, refresh, then **Delete → confirm**. Listing reads
+Open **Conversations**, then **Delete → confirm**. Listing reads
 `/data/home/.gemini/antigravity-cli/conversation_summaries.db` in SQLite read-only
 mode and matches rows against `.db`/`.pb` files in its `conversations` directory.
 This includes saved conversations not loaded into the current language-server
@@ -673,7 +673,8 @@ browser responses or logs. Browser mutations require CSRF and explicit confirmat
 For a saved entry, LoadTrajectory loads the selected ID before checking its native
 idle state. The saved index and backing-file revision are checked again before
 DeleteCascadeTrajectory receives the exact ID. If loading changes/migrates the
-conversation, close the dialog, refresh and confirm the updated selection.
+conversation, preparation refreshes the selection automatically. Changes after the
+confirmation appears require reviewing and confirming the refreshed selection again.
 
 Success requires absence from both the native listing and backing files. Deletions
 are never retried automatically. The add-on never edits the history database,
@@ -753,3 +754,5 @@ controls and page position. The iframe stays loaded, so this does not reconnect 
 restart the CLI. The Home Assistant app's own header may remain visible.
 If you still have the previous standalone terminal open, reopen the add-on's Web UI
 after updating to use the new expand/exit controls.
+
+Deletion automatically prepares the selected saved conversation before opening an actionable confirmation and again before sending delete. Preparation can load/migrate old history but never deletes. A changed revision requires another explicit confirmation. Failed or ambiguous delete requests are never retried automatically.

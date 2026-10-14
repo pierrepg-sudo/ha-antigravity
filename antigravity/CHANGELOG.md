@@ -1,3 +1,8 @@
+## 0.9.4
+
+- Automatically load and refresh the selected conversation before confirmation and recheck immediately before deletion.
+- Changed conversations require renewed confirmation; active conversations remain protected.
+
 ## 0.9.3
 
 - List saved CLI conversations from the read-only history index and backing files, including older entries absent from the in-memory API.

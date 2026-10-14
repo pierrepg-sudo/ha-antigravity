@@ -50,6 +50,34 @@ def listing():
         return {'items':items}
 
 
+
+def prepare(payload):
+    """Load saved history and return a fresh confirmation; never delete."""
+    cid = payload.get('id')
+    if set(payload) != {'id'} or not isinstance(cid, str) or not UUID.fullmatch(cid):
+        raise HistoryError('Invalid conversation selection.')
+    with LOCK:
+        connection = native.load()
+        rows = collect(connection)
+        if cid not in rows:
+            raise HistoryError('The selected conversation is no longer listed.')
+        current = item(connection, cid, rows[cid])
+        if current['blocked']:
+            raise HistoryError(current['blocked'])
+        if '_saved' in rows[cid]:
+            native.rpc(connection, native.LOAD, {'cascadeId': cid})
+            loaded = native.summaries(connection).get(cid)
+            if loaded is None or loaded.get('status') not in IDLE:
+                raise HistoryError('The saved conversation is not idle. No deletion was attempted.')
+        rows = collect(connection)
+        if cid not in rows:
+            raise HistoryError('The selected conversation is no longer listed.')
+        current = item(connection, cid, rows[cid])
+        if current['blocked']:
+            raise HistoryError(current['blocked'])
+        return {'item': current}
+
+
 def delete(payload):
     if set(payload) != {'id','revision','confirm'} or payload['confirm'] is not True:
         raise HistoryError('Confirm the selected conversation first.')

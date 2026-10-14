@@ -75,3 +75,22 @@ class SavedTests(unittest.TestCase):
             (self.root/'conversations'/f'{CID}.db').write_bytes(b'changed')
             with self.assertRaises(native.NativeError):history.delete(dict(id=CID,revision=row['revision'],confirm=True))
             rpc.assert_not_called()
+
+    def test_prepare_refreshes_after_load_without_deleting(self):
+        seed(self.root)
+        with patch.object(native,'load',return_value=CONNECTION),patch.object(native,'summaries',return_value={CID:{'status':'CASCADE_RUN_STATUS_IDLE'}}),patch.object(native,'rpc') as rpc:
+            old=history.listing()['items'][0]
+            rpc.side_effect=lambda *args:(self.root/'conversations'/f'{CID}.db').write_bytes(b'migrated')
+            current=history.prepare({'id':CID})['item']
+            self.assertNotEqual(old['revision'],current['revision'])
+            self.assertEqual(current['revision'],history.listing()['items'][0]['revision'])
+            self.assertEqual([c.args[1] for c in rpc.call_args_list],[native.LOAD])
+            self.assertTrue(saved.exists(CID))
+
+    def test_prepare_rejects_missing_busy_and_invalid(self):
+        with patch.object(native,'load',return_value=CONNECTION),patch.object(native,'summaries',return_value={}),patch.object(native,'rpc') as rpc:
+            for payload in ({'id':CID},{'id':'bad'},{'id':CID,'confirm':True}):
+                with self.assertRaises(native.NativeError):history.prepare(payload)
+            seed(self.root,busy=1)
+            with self.assertRaises(native.NativeError):history.prepare({'id':CID})
+            rpc.assert_not_called()

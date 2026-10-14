@@ -68,14 +68,10 @@ class SavedCLITests(unittest.TestCase):
                     rows=history.listing()['items'];self.assertEqual({r['id'] for r in rows},{cid,keep})
                     row=next(r for r in rows if r['id']==cid)
                     self.assertEqual(row['title'],'Older saved conversation')
-                    try:
-                        outcome=history.delete(dict(id=cid,revision=row['revision'],confirm=True))
-                    except native.NativeError as error:
-                        # Loading an old database can migrate it. Require a new selection.
-                        self.assertIn('changed while loading',str(error))
-                        self.assertTrue(saved.exists(cid))
-                        row=next(r for r in history.listing()['items'] if r['id']==cid)
-                        outcome=history.delete(dict(id=cid,revision=row['revision'],confirm=True))
+                    row=history.prepare({'id':cid})['item']
+                    checked=history.prepare({'id':cid})['item']
+                    self.assertEqual(row['revision'],checked['revision'])
+                    outcome=history.delete(dict(id=cid,revision=checked['revision'],confirm=True))
                     self.assertTrue(outcome['ok'])
                     self.assertFalse(saved.exists(cid));self.assertTrue(saved.exists(keep))
                     stop();start(3)

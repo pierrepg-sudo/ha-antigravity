@@ -52,6 +52,14 @@ class MobileTests(unittest.TestCase):
                     self.assertEqual(json.load(r)['items'],[])
                     self.assertEqual(r.headers['Cache-Control'],'no-store')
                 listing.assert_called_once()
+            preparation=json.dumps({'id':'12345678-1234-1234-1234-123456789012'}).encode()
+            with patch.object(m.conversation_history,'prepare',return_value={'item':{}}) as prepare:
+                with self.assertRaises(HTTPError) as forbidden:
+                    urlopen(Request(base+'/conversation-prepare',data=preparation,headers={'Content-Type':'application/json'}))
+                self.assertEqual(forbidden.exception.code,403);prepare.assert_not_called()
+                with urlopen(Request(base+'/conversation-prepare',data=preparation,headers={'Content-Type':'application/json','X-Antigravity-CSRF':m.CSRF})) as response:
+                    self.assertEqual(json.load(response),{'item':{}})
+                prepare.assert_called_once_with(json.loads(preparation))
             deletion=json.dumps({'id':'12345678-1234-1234-1234-123456789012','revision':'example','confirm':True}).encode()
             with patch.object(m.conversation_history,'delete',return_value={'ok':True}) as delete:
                 with self.assertRaises(HTTPError) as forbidden:
