@@ -2,10 +2,14 @@ import unittest
 from unittest.mock import patch
 import conversation_session as session
 import native_connection as native
+import tempfile
+from pathlib import Path
 
 CID='12345678-1234-1234-1234-123456789abc'
 class SessionTests(unittest.TestCase):
     def setUp(self):
+        directory=tempfile.TemporaryDirectory();self.addCleanup(directory.cleanup)
+        state=patch.object(native,'STATE',Path(directory.name)/'connection.json');state.start();self.addCleanup(state.stop)
         self.names=patch.object(session.saved,'project_names',return_value={'p1':'Project one'});self.names.start();self.addCleanup(self.names.stop)
         self.live=patch.object(native,'summaries',return_value={});self.summaries=self.live.start();self.addCleanup(self.live.stop)
     def test_new_and_project_validation(self):

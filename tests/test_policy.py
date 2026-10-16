@@ -43,7 +43,9 @@ class PolicyTests(unittest.TestCase):
             self.assertEqual(result['colorScheme'], 'light')
             self.assertEqual(result['permissions']['allow'], policy.ALLOW+['read_url(docs.python.org)'])
             self.assertIn('command(*)',result['permissions']['deny'])
-            self.assertIn('unsandboxed(*)',result['permissions']['deny'])
+            self.assertNotIn('unsandboxed(*)',result['permissions']['deny'])
+            unclassified=other.parent/'projects/outside-of-project.json'
+            self.assertEqual(json.loads(unclassified.read_text())['id'],'outside-of-project')
             self.assertIn('read_file(/secret)', result['permissions']['deny'])
             self.assertIn('read_file(/private)', result['permissions']['ask'])
             self.assertNotIn('mcp(*)', result['permissions']['ask'])

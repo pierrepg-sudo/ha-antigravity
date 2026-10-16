@@ -103,6 +103,15 @@ def change(payload):
                 os.unlink(name, dir_fd=fd)
             else:
                 raise ValueError('Only regular files and folders can be deleted.')
+        elif action == 'rename':
+            target = payload.get('newName')
+            if not isinstance(target, str) or not target or len(target.encode()) > 240 or len(parts(target)) != 1:
+                raise ValueError('Use a single filename or folder name.')
+            info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+            if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
+                raise ValueError('Only regular files and folders can be renamed.')
+            rename_new(fd, name, fd, target)
+            name = target
         elif action == 'mkdir':
             os.mkdir(name, 0o2750 if INPUT_MODE.get() else 0o2770, dir_fd=fd)
         elif action == 'upload':

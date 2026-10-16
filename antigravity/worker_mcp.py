@@ -3,6 +3,18 @@ import json
 import re
 import socket
 import sys
+import os
+import shlex
+
+
+def project_output():
+    path = os.environ.get('HA_PROJECT_OUTPUT', '/data/workspace/outputs')
+    suffix = path.removeprefix('/data/workspace/outputs/')
+    if path == '/data/workspace/outputs':
+        return path
+    if not path.startswith('/data/workspace/outputs/') or '/' in suffix or '\\' in suffix or suffix in ('', '.', '..') or any(ord(c) < 32 for c in suffix):
+        raise ValueError('Invalid project output directory')
+    return path
 
 SOCKET = '/run/antigravity-worker/worker.sock'
 TOOL = {'name': 'run',
@@ -133,8 +145,8 @@ def dispatch(request):
     params = request.get('params', {})
     if method == 'initialize':
         return {'protocolVersion': '2024-11-05', 'capabilities': {'tools': {}},
-                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.9.9'},
-                'instructions': INSTRUCTIONS}
+                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.10.0'},
+                'instructions': INSTRUCTIONS + '\nThis session saves generated files by default in ' + project_output() + '. Use this absolute directory for native file writes. Worker commands start there; it is not a trusted configuration workspace.'}
     if method == 'ping':
         return {}
     if method == 'tools/list':
@@ -151,6 +163,8 @@ def dispatch(request):
             if tool:
                 detail['inputSchema'] = tool['inputSchema']
             return {'content': [{'type': 'text', 'text': json.dumps(detail)}], 'isError': True}
+        if name in ('run', 'start') and project_output() != '/data/workspace/outputs':
+            args = dict(args, command='cd -- ' + shlex.quote(project_output()) + ' && ' + args['command'])
         payload = args if name == 'run' else {'action': name, 'args': args}
         try:
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:

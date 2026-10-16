@@ -1,3 +1,12 @@
+## 0.10.0
+
+- Open Web UI starts in Conversations.
+- Repair the persisted Unclassified project needed by CLI resume; remove the obsolete managed unsandboxed permission rule while retaining command denial.
+- Add project creation and confirmed project/conversation rename, archive and restore actions. Whole-project deletion checks its conversations and preserves generated files.
+- Add file/folder renaming, including synchronized managed project-folder naming.
+- Give projects created here a same-named Outputs folder; opening existing projects assigns one without adopting or overwriting unrelated folders. Worker defaults are scoped to the launched conversation session.
+- Add a live CLI model catalog selector with per-conversation preferences, applied through a confirmed idle-session restart.
+
 ## 0.9.9
 
 - Add New conversation with an existing-project selector and a No project default.

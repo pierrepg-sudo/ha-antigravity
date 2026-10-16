@@ -147,7 +147,7 @@ class Handler(BaseHTTPRequestHandler):
                     result = workspace_files.transfer(payload, AREAS[source_area])
                 finally:
                     TRANSFER_LOCK.release()
-            elif payload.get('action') == 'delete':
+            elif payload.get('action') in ('delete', 'rename'):
                 if not TRANSFER_LOCK.acquire(blocking=False):
                     raise workspace_files.FileOperationError('Another folder operation is running. Try again shortly.')
                 try:

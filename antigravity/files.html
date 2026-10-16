@@ -32,6 +32,22 @@ function clipboardControls(){
  $('#clipboardStatus').textContent=clipboard?(clipboard.action==='copy'?'Copy: ':'Move: ')+clipboard.sourceArea+'/'+clipboard.source+' — open the destination folder and tap Paste.':'';
 }
 function selectItem(action,path,name){clipboard={action,sourceArea:area,source:path,name};clipboardControls();}
+async function renameItem(entry){
+ const newName=prompt('New name',entry.name);if(!newName||newName===entry.name)return;
+ if(area==='outputs'&&!current&&entry.kind==='folder'){
+  const response=await fetch('management-context',{cache:'no-store'}),context=await response.json();
+  if(!response.ok)throw new Error('Could not check project folders. Try again when Conversations is available.');
+  const project=context.projects.find(p=>p.folder===entry.name);
+  if(project){
+   const post=async(url,payload)=>{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':context.csrf},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok)throw new Error(d.error);return d;};
+   const payload={kind:'project',id:project.id,action:'rename',name:newName};
+   const prepared=await post('management-prepare',payload);
+   if(!confirm('Rename the project and its output folder together? Stop any workers using the folder first.'))return;
+   await post('management-action',{...payload,...prepared,confirm:true});await browse(current);return;
+  }
+ }
+ await request('file-action',{action:'rename',path:current,name:entry.name,newName});await browse(current);
+}
 async function downloadItem(path,name,folder){
  // A native download avoids retaining a 500 MiB Blob in the mobile page.
  const link=document.createElement('a');
@@ -70,6 +86,7 @@ async function browse(path){
    });remove.className='danger';remove.setAttribute('aria-label','Delete '+e.name);actions.append(remove);}
    const more=document.createElement('details');more.className='more';const summary=document.createElement('summary');summary.textContent='More ···';summary.setAttribute('aria-label','More actions for '+e.name);const extra=document.createElement('div');extra.className='actions';
    extra.append(button('Copy',async()=>{selectItem('copy',path,e.name);more.open=false;}));
+   if(!readOnly)extra.append(button('Rename',()=>renameItem(e)));
    if(!readOnly)extra.append(button('Move',async()=>{selectItem('move',path,e.name);more.open=false;}));
    extra.append(button('File path',async()=>{$('#pathText').value=root+'/'+path;$('#copy').textContent='Copy path';$('#pathDialog').showModal();more.open=false;}));more.append(summary,extra);actions.append(more);row.append(actions);
   }

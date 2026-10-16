@@ -619,7 +619,61 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Conversations and native deletion (0.9.9)
+## Conversation and project management (0.10.0)
+
+**Open Web UI** now opens Conversations; **Terminal** still opens the console.
+Projects remain collapsed by default. Create a project with **New project**, or
+expand one to rename, archive, restore or delete it. Conversations have their own
+rename/archive/restore/delete controls. Archiving a project groups its conversations
+under Archived without altering each conversation's individual archive flag.
+The built-in CLI Project and unclassified groups cannot be deleted/renamed as
+projects, but their conversations can be managed individually.
+
+Every project mutation prepares the selection before confirmation and rechecks
+it afterwards. Project deletion is limited to 200 conversations per operation,
+rejects busy/unknown states and changed selections, and reports partial completion
+if a later native request fails. It never retries deletion automatically. Generated
+files are kept; delete them separately in Files if wanted.
+
+New projects created here get `/data/workspace/outputs/<project name>`; existing
+projects get a folder when opened or used for a new conversation here. Names must
+be valid single folder names. Existing unrelated folders are never adopted or
+merged automatically: use a unique project name if there is a collision. Existing
+files in the outputs root are not moved. Unclassified conversations use the root.
+The launcher supplies a session-specific output directory to the restricted MCP
+worker. Commands default to it, and MCP instructions tell the agent to use it for
+generated files. Explicit paths in existing scripts still take precedence. The
+protected CLI control workspace remains unchanged; writable outputs are not loaded
+as trusted workspace hooks or configuration. Use Conversations to switch project
+contexts; switching in the CLI's own picker does not reinitialize MCP defaults.
+
+Files has **More → Rename** for regular files/folders, with atomic no-overwrite
+renames. Renaming a managed root output folder through Files updates the project
+name and binding too. Renaming from Conversations renames the bound output folder.
+Stop workers using that folder first, then reopen its conversations afterwards to
+refresh their session defaults. Project metadata and filesystem updates are not a
+single native transaction; if the API fails, the folder binding remains accurate
+and the UI reports failure. Refresh before retrying.
+
+Terminal has a **Saved model for this conversation** dropdown. Its options come
+from the signed-in CLI's `agy models` catalog, not a hard-coded list. Choosing one
+requires confirmation, checks that the same conversation is still active and idle,
+then restarts that terminal with `--model=<slug>`. Preferences are stored by
+conversation ID and reapplied on opening and add-on restart. Clear the override to
+use the CLI default. This selector manages its own explicit preferences.
+An unavailable saved model can be cleared with **More → Reset model preference**
+on its conversation before reopening it.
+Changes made through the CLI's `/model` command are not imported into it. Send a first
+message or open a saved conversation if the session cache has no active ID yet.
+Available-model/account behavior and the complete signed-in HAOS handoff require
+device validation; local tests use an unsigned-in CLI with outbound networking denied.
+
+Startup persists the previously synthetic `outside-of-project` record so the CLI
+can resolve unclassified conversations on resume. Existing project records are
+preserved. The invalid generated `unsandboxed(*)` deny entry is removed; `command(*)`
+remains denied, with the existing worker isolation and private-path protections.
+
+### Native connection and deletion
 
 The Conversations page is also a session launcher. Choose **New conversation**,
 select an existing project or leave **No project**, then confirm. Existing entries

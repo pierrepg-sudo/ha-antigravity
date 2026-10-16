@@ -6,7 +6,7 @@ import threading
 import native_connection as native
 import saved_conversations as saved
 
-LOCK = threading.Lock()
+LOCK = threading.RLock()
 UUID = re.compile(r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\Z')
 IDLE = {'CASCADE_RUN_STATUS_IDLE', 'CASCADE_RUN_STATUS_DONE', 'CASCADE_RUN_STATUS_COMPLETED',
         'CASCADE_RUN_STATUS_CANCELLED', 'CASCADE_RUN_STATUS_CANCELED', 'CASCADE_RUN_STATUS_FAILED'}
@@ -43,10 +43,13 @@ def collect(connection):
         if cid in rows:
             if isinstance(live.get('annotations'), dict):
                 rows[cid]['archived'] = live['annotations'].get('archived', False)
+                if live['annotations'].get('title'):
+                    rows[cid]['summary'] = live['annotations']['title']
             # The CLI index supplies disk history; a live busy state always wins.
             if live.get('status') not in IDLE:
                 rows[cid]['status'] = live.get('status', 'Unknown')
         elif live.get('stepCount', 0) or live.get('summary') or (live.get('annotations') or {}).get('title'):
+            live = dict(live, projectId=(live.get('trajectoryMetadata') or {}).get('projectId', live.get('projectId', '')))
             rows[cid] = live
     return rows
 
@@ -57,7 +60,8 @@ def listing():
         rows = collect(connection)
         items = [item(connection,cid,summary) for cid,summary in rows.items()]
         items.sort(key=lambda row:str(row['modified']), reverse=True)
-        return {'items':items, 'projects':[{'id':key,'name':name} for key,name in sorted(saved.project_names().items(), key=lambda pair:pair[1].casefold()) if key != 'outside-of-project']}
+        import conversation_management as management
+        return {'items':items, 'projects':management.projects(connection)}
 
 
 

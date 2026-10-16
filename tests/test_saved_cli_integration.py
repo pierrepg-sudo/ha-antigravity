@@ -67,7 +67,7 @@ class SavedCLITests(unittest.TestCase):
                 def identity(pid):
                     if pid!=child.pid or child.poll() is not None:raise ProcessLookupError()
                     return os.getpid(),connection['started']
-                with patch.object(saved,'ROOT',root/'antigravity-cli'),patch.object(native,'load',side_effect=lambda:connection),patch.object(native,'process',side_effect=identity):
+                with patch.object(saved,'ROOT',root/'antigravity-cli'),patch.object(native,'STATE',root/'connection.json'),patch.object(session.management,'OUTPUTS',root),patch.object(session.management.files,'ROOT',str(root)),patch.object(native,'load',side_effect=lambda:connection),patch.object(native,'process',side_effect=identity):
                     self.assertEqual(native.summaries(connection),{})
                     rows=history.listing()['items'];self.assertEqual({r['id'] for r in rows},{cid,keep})
                     row=next(r for r in rows if r['id']==cid)
@@ -88,5 +88,31 @@ class SavedCLITests(unittest.TestCase):
                         args=session.materialize(payload,connection,session.launch_args(payload,connection))
                         created=args[1].split('=',1)[1]
                         self.assertEqual(native.summaries(connection)[created]['trajectoryMetadata']['projectId'],project or 'outside-of-project')
+                    # Actual project CRUD and annotation persistence with no outbound access.
+                    manager=session.management
+                    new=manager.create({'name':'Managed Output'})
+                    folder=Path(new['folder']);(folder/'keep.txt').write_text('keep generated files')
+                    request={'kind':'project','id':new['id'],'action':'rename','name':'Renamed Output'}
+                    manager.action(dict(request,**manager.prepare(request),confirm=True))
+                    self.assertTrue((root/'Renamed Output/keep.txt').exists())
+                    for action in ('archive','restore'):
+                        request={'kind':'project','id':new['id'],'action':action}
+                        manager.action(dict(request,**manager.prepare(request),confirm=True))
+                        self.assertEqual(manager.project(connection,new['id']).get('archived',False),action=='archive')
+                    request={'kind':'project','id':new['id'],'action':'delete'}
+                    manager.action(dict(request,**manager.prepare(request),confirm=True))
+                    self.assertTrue((root/'Renamed Output/keep.txt').exists())
+                    self.assertNotIn(new['id'],saved.project_names())
+                    request={'kind':'conversation','id':keep,'action':'rename','name':'Verified rename'}
+                    manager.action(dict(request,**manager.prepare(request),confirm=True))
+                    self.assertEqual(native.summaries(connection)[keep]['annotations']['title'],'Verified rename')
+                    request={'kind':'conversation','id':keep,'action':'archive'}
+                    manager.action(dict(request,**manager.prepare(request),confirm=True))
+                    self.assertTrue(native.summaries(connection)[keep]['annotations']['archived'])
+                    stop();start(4)
+                    native.rpc(connection,native.LOAD,{'cascadeId':keep})
+                    annotations=native.summaries(connection)[keep]['annotations']
+                    self.assertEqual(annotations['title'],'Verified rename')
+                    self.assertTrue(annotations['archived'])
             finally:
                 stop();os.close(master);os.close(slave)

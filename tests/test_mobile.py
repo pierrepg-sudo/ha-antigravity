@@ -69,6 +69,14 @@ class MobileTests(unittest.TestCase):
                     self.assertTrue(json.load(response)['ok'])
                 delete.assert_called_once_with(json.loads(deletion))
             data=json.dumps({'key':'Tab'}).encode()
+            for route,method in [('management-prepare','prepare'),('management-action','action'),('project-create','create')]:
+                with patch.object(m.conversation_management,method,return_value={'ok':True}) as handler:
+                    with self.assertRaises(HTTPError) as forbidden:
+                        urlopen(Request(base+'/'+route,data=b'{}',headers={'Content-Type':'application/json'}))
+                    self.assertEqual(forbidden.exception.code,403);handler.assert_not_called()
+                    with urlopen(Request(base+'/'+route,data=b'{}',headers={'Content-Type':'application/json','X-Antigravity-CSRF':m.CSRF})) as response:
+                        self.assertTrue(json.load(response)['ok'])
+                    handler.assert_called_once_with({})
             with self.assertRaises(HTTPError) as ctx:
                 urlopen(Request(base+'/input',data=data,headers={'Content-Type':'application/json'}))
             self.assertEqual(ctx.exception.code,403)

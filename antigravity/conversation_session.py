@@ -4,6 +4,9 @@ import socket
 import native_connection as native
 import saved_conversations as saved
 import conversation_history as history
+import conversation_management as management
+import conversation_models as models
+import os
 
 
 def socket_path():
@@ -19,11 +22,16 @@ def launch_args(payload, connection):
         if not isinstance(project, str) or (project and project not in saved.project_names()):
             raise native.NativeError('The selected project is no longer available. Refresh and select it again.')
         args = None  # Created through the native API after the launcher rechecks idle state.
-    elif action == 'open' and set(payload) == {'action', 'id', 'confirm'}:
+    elif (action == 'open' and set(payload) == {'action', 'id', 'confirm'}) or (action == 'model' and set(payload) == {'action', 'id', 'model', 'confirm'}):
         cid = payload['id']
         if not isinstance(cid, str) or not history.UUID.fullmatch(cid) or cid not in history.collect(connection):
             raise native.NativeError('The selected conversation is no longer available.')
         args = ['--remote-control', '--conversation=' + cid]
+        if action == 'model':
+            if cid != models.active_id():
+                raise native.NativeError('The active conversation changed. Refresh the model selector.')
+            if not isinstance(payload['model'], str) or (payload['model'] and payload['model'] not in {m['id'] for m in models.catalog()}):
+                raise native.NativeError('Select a currently available model.')
     else:
         raise native.NativeError('Invalid session request.')
     # Check every loaded trajectory, including ones omitted from the history UI.
@@ -53,8 +61,13 @@ def switch(payload):
 
 def materialize(payload, connection, args):
     if args is not None:
-        return args
+        cid = payload['id']
+        row = history.collect(connection).get(cid, {})
+        project = row.get('projectId') or (row.get('trajectoryMetadata') or {}).get('projectId', '')
+        return configure_session(payload, connection, args, cid, project)
     project = payload['projectId'] or 'outside-of-project'
+    with management.preference_lock():
+        management.ensure_folder(connection, project)
     result = native.rpc(connection, native.START, {
         'source': 'CORTEX_TRAJECTORY_SOURCE_CLI',
         'projectEnvConfig': {'projectId': project, 'defaultProjectEnvironment': {}}})
@@ -64,4 +77,26 @@ def materialize(payload, connection, args):
     summary = native.summaries(connection).get(cid, {})
     if summary.get('trajectoryMetadata', {}).get('projectId') != project:
         raise native.NativeError('The new conversation project could not be verified. Check history before retrying.')
-    return ['--remote-control', '--conversation=' + cid]
+    return configure_session(payload, connection, ['--remote-control', '--conversation=' + cid], cid, project)
+
+
+def configure_session(payload, connection, args, cid, project):
+    with management.preference_lock():
+        folder = management.ensure_folder(connection, project)
+        state = management.read_state()
+        state.setdefault('contexts', {})[cid] = folder
+        management.write_state(state)
+    model = payload['model'] if payload.get('action') == 'model' else models.preferences().get(cid, '')
+    if model:
+        if model not in {m['id'] for m in models.catalog()}:
+            raise native.NativeError('The saved model is no longer available. Reset its preference before reopening.')
+        args = [*args, '--model=' + model]
+    return args
+
+
+def environment(args):
+    cid = next((arg.split('=', 1)[1] for arg in args if arg.startswith('--conversation=')), models.active_id())
+    folder = management.read_state().get('contexts', {}).get(cid, '/data/workspace/outputs')
+    env = dict(os.environ)
+    env['HA_PROJECT_OUTPUT'] = folder
+    return env

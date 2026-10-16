@@ -3,7 +3,7 @@
 *{box-sizing:border-box}body{margin:0;background:#11151c;color:#edf3fa;font:16px system-ui}main{max-width:960px;margin:auto;padding:24px 16px 40px}header,.toolbar,.actions,.row{display:flex;align-items:center;justify-content:space-between;gap:12px}header{margin-bottom:24px}.eyebrow{font-size:11px;letter-spacing:.16em;color:#a4b2c4}h1{font-size:28px;margin:5px 0}h2{font-size:21px}p{line-height:1.5}.subtitle,.meta{color:#a4b2c4}.subtitle{margin:4px 0 0;font-size:14px}button,input,select,.nav{font:inherit;border:1px solid #303c4b;border-radius:12px;min-height:44px;padding:10px 14px}button,.nav{background:#222d3b;color:#edf3fa;cursor:pointer}.nav{text-decoration:none;display:inline-flex;align-items:center}button:hover,.nav:hover{border-color:#b1cfff}button:disabled{opacity:.45;cursor:default}:focus-visible{outline:2px solid #b1cfff;outline-offset:3px}.panel{background:#1b222d;border:1px solid #303c4b;border-radius:18px;padding:18px;margin-bottom:18px}.toolbar{align-items:flex-start}.badge{display:inline-block;font-size:12px;border-radius:20px;padding:5px 10px;background:#29384b;color:#b1cfff}#updated{font-size:12px;margin:8px 0 0;color:#a4b2c4}#status{font-size:14px;margin:14px 0 0;overflow-wrap:anywhere}label{display:block;font-size:13px;color:#a4b2c4;margin:20px 0 8px}input,select{width:100%;background:#11151c;color:#edf3fa}#count{font-size:13px;color:#a4b2c4;margin:18px 2px 10px}.row{background:#1b222d;border:1px solid #303c4b;border-radius:16px;padding:16px;margin-bottom:10px}.info{min-width:0;flex:1;overflow-wrap:anywhere}.meta{font-size:12px;margin-top:6px}.delete{background:#35242e;color:#ffb7bf}.project-folder{margin:12px 0 18px;border:1px solid #303c4b;border-radius:16px;padding:0 12px}.project-folder>.group-heading{font-size:16px;font-weight:600;color:#b1cfff;min-height:48px;padding:14px 2px;overflow-wrap:anywhere}.project-folder>.row{margin-top:4px}.section-heading{font-size:21px;margin:28px 2px 12px}.empty{text-align:center;padding:36px 20px;color:#a4b2c4;border:1px dashed #303c4b;border-radius:16px}details{font-size:13px;color:#a4b2c4;margin-top:20px}summary{cursor:pointer;padding:8px 0}dialog{width:min(94vw,520px);border:1px solid #303c4b;border-radius:20px;background:#1b222d;color:#edf3fa;padding:24px}dialog::backdrop{background:#000b}.actions{justify-content:flex-end}#selected{overflow-wrap:anywhere}#error{color:#ffb7bf}#apply{background:#743443}a{color:#b1cfff}@media(max-width:420px){main{padding:18px 12px}h1{font-size:25px}.row{gap:8px;padding:14px}.nav{padding:10px}.panel{padding:16px}}
 .row-actions{display:flex;flex-direction:column;gap:8px}.actions{flex-wrap:wrap}#newConversation,#sessionApply{background:#b1cfff;color:#182b45;font-weight:600}#sessionError{color:#ffb7bf}</style><main><header><div><div class="eyebrow">ANTIGRAVITY</div><h1>Conversations</h1><p class="subtitle">Your projects and conversations</p></div><a class="nav" href="controls">← Terminal</a></header>
 <section class="panel" aria-label="Connection and search"><div class="toolbar"><div><span class="badge" id="connection">Connecting</span><p id="updated">Auto-refresh · every 15 seconds</p></div><button id="refresh">Refresh</button></div><p id="status" role="status" aria-live="polite">Checking the CLI connection…</p><label for="search">Search conversations</label><input id="search" type="search" placeholder="Search title, project or ID" autocomplete="off"></section>
-<button id="newConversation">＋ New conversation</button><div id="count"></div><div id="list" aria-label="Conversations"></div>
+<div class="actions"><button id="newProject">＋ New project</button><button id="newConversation">＋ New conversation</button></div><div id="count"></div><div id="list" aria-label="Conversations"></div>
 <details><summary>Connection help &amp; deletion</summary><p>The add-on connects to the local CLI automatically at startup. No message or hook is required. If connection setup fails, restart the add-on and share the connection status and CLI version. This page refreshes automatically while visible.</p><p>Only idle conversations can be deleted. Each deletion requires confirmation and cannot be undone here. This list includes locally saved CLI conversations, grouped by project. Archived conversations appear separately. Missing project names use their project ID; unavailable archive metadata is labelled. The selected conversation refreshes before confirmation and immediately before deletion. If it changes, review and confirm the updated entry. The CLI handles deletion and associated cleanup.</p></details>
 <dialog id="confirm" aria-labelledby="confirmTitle"><h2 id="confirmTitle">Delete conversation?</h2><p id="selected"></p><p>This removes the conversation and may clean up its associated data. There is no undo.</p><p id="error" role="alert"></p><div class="actions"><button id="cancel">Cancel</button><button id="apply" class="delete">Delete conversation</button></div></dialog>
 <dialog id="sessionDialog" aria-labelledby="sessionTitle"><h2 id="sessionTitle">New conversation</h2><p id="sessionSelected"></p><div id="projectField"><label for="project">Project</label><select id="project"><option value="">No project</option></select></div><p>This switches the terminal session. Save any unsent text first. Switching is unavailable while the CLI is working.</p><p id="sessionError" role="alert"></p><div class="actions"><button id="sessionCancel">Cancel</button><button id="sessionApply">Start conversation</button></div></dialog></main>
@@ -19,18 +19,29 @@ function render(){
  searching=Boolean(query);
  const filtered=items.filter(i=>(i.title+' '+i.id+' '+(i.projectName||'No project')).toLocaleLowerCase().includes(query));
  $('count').textContent=connected?`${filtered.length} of ${items.length} conversations`:'';
- const sections=[['Projects',filtered.filter(i=>i.archived!==true)],['Archived',filtered.filter(i=>i.archived===true)]];
+ const archivedProjects=new Set(projects.filter(p=>p.archived).map(p=>p.id));
+ const isArchived=i=>i.archived===true||archivedProjects.has(i.projectId);
+ const sections=[['Projects',filtered.filter(i=>!isArchived(i))],['Archived',filtered.filter(isArchived)]];
  for(const [label,entries] of sections){
   if(!connected)continue;
   const heading=document.createElement('h2');heading.className='section-heading';heading.textContent=label+' · '+entries.length;$('list').append(heading);
   const groups=new Map();
   for(const entry of entries){const key=entry.projectId||'';if(!groups.has(key))groups.set(key,[]);groups.get(key).push(entry);}
-  for(const group of [...groups.values()].sort((a,b)=>(a[0].projectName||'No project').localeCompare(b[0].projectName||'No project'))){
+  for(const p of projects){if(Boolean(p.archived)===(label==='Archived')&&!groups.has(p.id)&&(!query||p.name.toLocaleLowerCase().includes(query)))groups.set(p.id,[]);}
+  for(const [id,group] of groups){group.project=projects.find(p=>p.id===id)||{id,name:group[0]?.projectName||'No project'};}
+  for(const group of [...groups.values()].sort((a,b)=>a.project.name.localeCompare(b.project.name))){
    const folder=document.createElement('details');folder.className='project-folder';
-   folder.dataset.key=JSON.stringify([label,group[0].projectId||'']);
+   folder.dataset.key=JSON.stringify([label,group.project.id||'']);
    folder.open=searching||(folderState.get(folder.dataset.key)??false);
-   const heading=document.createElement('summary');heading.className='group-heading';heading.textContent=(group[0].projectName||'No project')+' · '+group.length;
+   const heading=document.createElement('summary');heading.className='group-heading';heading.textContent=group.project.name+' · '+group.length;
    folder.append(heading);$('list').append(folder);
+   if(group.project.id&&!['default-cli-project','outside-of-project'].includes(group.project.id)){
+    const actions=document.createElement('div');actions.className='actions';
+    for(const [action,text] of [['rename','Rename project'],[group.project.archived?'restore':'archive',group.project.archived?'Restore project':'Archive project'],['delete','Delete project']]){
+     const button=document.createElement('button');button.textContent=text;button.onclick=()=>manage('project',group.project,action);actions.append(button);
+    }folder.append(actions);
+    if(group.project.folder){const path=document.createElement('p');path.className='meta';path.textContent='/data/workspace/outputs/'+group.project.folder;folder.append(path);}
+   }
  for(const item of group){
   const el=document.createElement('article');el.className='row';const info=document.createElement('div');info.className='info';
   const title=document.createElement('strong');title.textContent=item.title;info.append(title);
@@ -48,6 +59,8 @@ function render(){
   };
   const open=document.createElement('button');open.textContent='Open in terminal';open.setAttribute('aria-label','Open '+item.title+' in terminal');open.onclick=()=>showSession(item);
   const actions=document.createElement('div');actions.className='row-actions';actions.append(open,button);
+  const more=document.createElement('details'),moreTitle=document.createElement('summary');moreTitle.textContent='More ···';more.append(moreTitle);
+  for(const [action,text] of [['rename','Rename'],[item.archived?'restore':'archive',item.archived?'Restore':'Archive'],['reset-model','Reset model preference']]){const control=document.createElement('button');control.textContent=text;control.onclick=()=>manage('conversation',item,action);more.append(control);}actions.append(more);
   el.append(info,actions);folder.append(el);
  }
   }
@@ -100,7 +113,7 @@ function showSession(item=null){
  $('sessionTitle').textContent=item?'Open conversation':'New conversation';
  $('sessionSelected').textContent=item?item.title:'Choose a project, or leave this conversation unclassified.';
  $('projectField').hidden=Boolean(item);$('project').replaceChildren();
- for(const project of [{id:'',name:'No project'},...projects]){const option=document.createElement('option');option.value=project.id;option.textContent=project.name;$('project').append(option);}
+ for(const project of [{id:'',name:'No project'},...projects.filter(p=>!p.archived)]){const option=document.createElement('option');option.value=project.id;option.textContent=project.name;$('project').append(option);}
  $('project').value='';$('sessionApply').textContent=item?'Open in terminal':'Start conversation';$('sessionError').textContent='';$('sessionDialog').showModal();
 }
 $('newConversation').onclick=()=>showSession();
@@ -117,6 +130,25 @@ $('sessionApply').onclick=async()=>{
   window.location.href='controls';
  }catch(error){$('sessionError').textContent=error.message;}
  finally{setBusy(false);}
+};
+async function managementRequest(endpoint,payload){
+ const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(payload)}),d=await r.json();
+ if(!r.ok)throw new Error(d.error||'Operation failed. Refresh before retrying.');return d;
+}
+async function manage(kind,item,action){
+ if(busy)return;clearTimeout(timer);setBusy(true);
+ try{
+  const payload={kind,id:item.id,action};
+  if(action==='rename'){payload.name=window.prompt('New name',item.title||item.name);if(!payload.name)return;}
+  const prepared=await managementRequest('management-prepare',payload);
+  const warning=action==='delete'?`Permanently delete ${prepared.count} conversation(s)${kind==='project'?' and this project':''}? Generated output files are kept. This cannot be undone.`:action==='reset-model'?'Clear this conversation’s saved model preference? The CLI default will apply next time you open it.':action==='rename'&&kind==='project'?'Rename this project and its managed output folder? Stop any workers using this folder first, then reopen the conversation after renaming.':`${action==='archive'?'Archive':action==='restore'?'Restore':'Rename'} ${item.title||item.name}?`;
+  if(!window.confirm(warning))return;
+  await managementRequest('management-action',{...payload,...prepared,confirm:true});await refresh();
+ }catch(error){$('status').textContent=error.message;}finally{setBusy(false);schedule();}
+}
+$('newProject').onclick=async()=>{
+ if(busy)return;const name=window.prompt('Project name (also used for its output folder)');if(!name)return;
+ setBusy(true);try{await managementRequest('project-create',{name});await refresh();$('status').textContent='Project and output folder created.';}catch(error){$('status').textContent=error.message;}finally{setBusy(false);schedule();}
 };
 render();load();
 </script></html>

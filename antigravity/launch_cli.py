@@ -68,6 +68,8 @@ def handoff(request, child):
     args = session.materialize(request['payload'], connection, args)
     child.terminate()
     child.wait(timeout=8)
+    if request['payload'].get('action') == 'model':
+        session.models.remember(request['payload']['id'], request['payload']['model'])
     return args
 
 
@@ -90,11 +92,14 @@ def main():
         signal.signal(signal.SIGTERM, terminate)
         signal.signal(signal.SIGINT, lambda *_: None)
         args = STARTUP_ARGS
+        cached_model = session.models.preferences().get(session.models.active_id(), '')
+        if cached_model:
+            args = [*args, '--model=' + cached_model]
         try:
             while True:
                 with tempfile.TemporaryDirectory(prefix='.ha-cli-', dir=native.STATE.parent) as directory:
                     log = Path(directory) / 'cli.log'
-                    child, token = start('/data/home/.local/bin/agy', args, log)
+                    child, token = start('/data/home/.local/bin/agy', args, log, env=session.environment(args))
                     stop = threading.Event()
                     thread = threading.Thread(target=connect, args=(child, token, log, stop), daemon=True)
                     thread.start()

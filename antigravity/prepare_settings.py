@@ -15,7 +15,7 @@ DENY = ['read_file(/data/worker-state)', 'write_file(/data/worker-state)', 'writ
         'read_file(/data/home/.gemini/antigravity-cli)',
         'read_file(/data/home/.gemini/config)',
         'write_file(/data/home)', 'write_file(/run/antigravity)',
-        'read_file(/proc)', 'command(*)', 'unsandboxed(*)', 'read_file(/run/antigravity-files)',
+        'read_file(/proc)', 'command(*)', 'read_file(/run/antigravity-files)',
         'write_file(/opt/antigravity-workspace)']
 ASK = ['execute_url(*)']
 
@@ -156,12 +156,18 @@ def prepare(path, domains=None):
     added_ask = [x for x in required_ask if x not in ask]
     settings['permissions'] = {
         'allow': list(ALLOW) + github_grants + [f'read_url({domain})' for domain in domains],
-        'deny': list(dict.fromkeys(permissions.get('deny', []) + DENY)),
+        'deny': list(dict.fromkeys([x for x in permissions.get('deny', []) if x != 'unsandboxed(*)'] + DENY)),
         'ask': list(dict.fromkeys(ask + required_ask)),
     }
     write_config(hooks_path, hooks, 'Global hook configuration')
     path.with_name('ha-native-status.json').unlink(missing_ok=True)
     write_config(path, settings, 'CLI settings')
+    # The API synthesizes this project, but CLI resume reads its JSON file.
+    # Persist it before --continue runs; never overwrite an existing record.
+    unclassified = config_path.parent / 'projects/outside-of-project.json'
+    if not unclassified.exists():
+        write_config(unclassified, {'id': 'outside-of-project', 'name': 'Unclassified',
+                                   'projectResources': {}}, 'Unclassified project')
     write_config(state_path, {'addedAsk': added_ask}, 'Managed permission state')
     # The fixed CLI workspace is root-owned: generated outputs cannot install
     # auto-loaded workspace hooks or MCP configurations into the active workspace.

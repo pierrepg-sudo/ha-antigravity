@@ -87,7 +87,7 @@ def archived(raw):
         return None
 
 
-def project_names():
+def project_records():
     directory = ROOT.parent / 'config' / 'projects'
     if ROOT.parent.is_symlink() or directory.parent.is_symlink() or directory.is_symlink():
         return {}
@@ -110,12 +110,16 @@ def project_names():
                 continue
             project = json.loads(content)
             if isinstance(project, dict) and isinstance(project.get('name'), str):
-                names[path.stem] = project['name']
+                names[path.stem] = project
                 if isinstance(project.get('id'), str):
-                    names[project['id']] = project['name']
+                    names[project['id']] = project
         except (OSError, ValueError):
             continue
     return names
+
+
+def project_names():
+    return {key: value['name'] for key, value in project_records().items()}
 
 
 def read():

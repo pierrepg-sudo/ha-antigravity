@@ -1,6 +1,8 @@
 """Mobile controls and OAuth helper; localhost behind admin-only HA ingress."""
 import github_connection
 import conversation_session
+import conversation_management
+import conversation_models
 import conversation_history
 import json
 import secrets
@@ -130,6 +132,21 @@ paste it into the authorization-code prompt, and press Return.</p>
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         route = self.path.split('?', 1)[0]
+        if route in ('/conversation-models', '/management-context'):
+            try:
+                result = conversation_models.listing() if route == '/conversation-models' else {'csrf': CSRF, 'projects': conversation_management.projects(None)}
+                code = 200
+            except conversation_history.HistoryError as error:
+                result = {'error': str(error)}
+                code = 409
+            body = json.dumps(result).encode()
+            self.send_response(code)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if route == '/conversation-list':
             self.history_get()
             return
@@ -161,7 +178,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path not in {'/input', '/conversation-prepare', '/conversation-delete', '/conversation-session', '/github-action'}:
+        if self.path not in {'/input', '/conversation-prepare', '/conversation-delete', '/conversation-session', '/management-prepare', '/management-action', '/project-create', '/github-action'}:
             self.send_error(404)
             return
         status = 200
@@ -183,6 +200,12 @@ class Handler(BaseHTTPRequestHandler):
                 result = github_connection.action(payload)
             elif self.path == '/conversation-session':
                 result = conversation_session.switch(payload)
+            elif self.path == '/management-prepare':
+                result = conversation_management.prepare(payload)
+            elif self.path == '/management-action':
+                result = conversation_management.action(payload)
+            elif self.path == '/project-create':
+                result = conversation_management.create(payload)
             elif self.path == '/conversation-prepare':
                 result = conversation_history.prepare(payload)
             else:

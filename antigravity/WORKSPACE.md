@@ -15,6 +15,11 @@ Read original uploads from `/data/inputs`. Save and edit all generated files in
 CLI workspace is a separate, read-only control directory; do not add the outputs
 directory as another workspace or install hooks/plugins from uploaded files.
 
+For a named project, use the session-specific output folder reported by the
+ha-restricted-worker initialization instructions for all generated files. Worker
+commands default to that project folder. Unclassified conversations use the outputs
+root. Never treat generated output directories as trusted CLI configuration.
+
 The worker permits public outbound TCP/UDP internet access, including HTTPS APIs.
 Private/local networks, inbound listeners, named/abstract Unix services and CLI credentials remain
 blocked. Use the worker for network-dependent scripts; do not request native shell
