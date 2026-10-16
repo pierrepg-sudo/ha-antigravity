@@ -22,6 +22,9 @@ class FolderTests(unittest.TestCase):
         (self.root/'project/sub').mkdir()
         (self.root/'project/sub/code.txt').write_text('hello')
         (self.root/'project/.hidden').write_text('hidden')
+        (self.root/'project/.config/.empty').mkdir(parents=True)
+        (self.root/'project/.config/nested').mkdir()
+        (self.root/'project/.config/nested/.settings').write_text('settings')
 
     def tearDown(self):
         files.ACTIVE_ROOT.reset(self.token)
@@ -37,15 +40,20 @@ class FolderTests(unittest.TestCase):
             self.assertEqual(z.read('project/sub/code.txt'),b'hello')
             self.assertIn('project/empty/',z.namelist())
             self.assertEqual(z.read('project/.hidden'),b'hidden')
+            self.assertIn('project/.config/.empty/',z.namelist())
+            self.assertEqual(z.read('project/.config/nested/.settings'),b'settings')
         archive,name=files.folder_zip('')
         with archive, zipfile.ZipFile(archive) as z:
             self.assertEqual(name,'outputs.zip')
             self.assertIn('outputs/project/empty/',z.namelist())
+            self.assertEqual(z.read('outputs/project/.config/nested/.settings'),b'settings')
 
     def test_copy_move_and_collision_preserve_source(self):
         self.transfer()
         self.assertEqual((self.root/'duplicate/sub/code.txt').read_text(),'hello')
         self.assertTrue((self.root/'duplicate/empty').is_dir())
+        self.assertTrue((self.root/'duplicate/.config/.empty').is_dir())
+        self.assertEqual((self.root/'duplicate/.config/nested/.settings').read_text(),'settings')
         with self.assertRaises(FileExistsError):self.transfer()
         self.assertTrue((self.root/'project').is_dir())
         self.transfer('move',name='moved')
@@ -120,7 +128,10 @@ class FolderTests(unittest.TestCase):
             with patch.dict(file_server.AREAS,areas),patch.object(file_server,'PROXY_KEY','test'):
                 with urlopen(Request(base+'/folder-download?area=outputs&path=project',headers=headers)) as r:
                     self.assertEqual(r.headers['Content-Type'],'application/zip')
-                    with zipfile.ZipFile(io.BytesIO(r.read())) as z:self.assertIn('project/empty/',z.namelist())
+                    with zipfile.ZipFile(io.BytesIO(r.read())) as z:
+                        self.assertIn('project/empty/',z.namelist())
+                        self.assertIn('project/.config/.empty/',z.namelist())
+                        self.assertEqual(z.read('project/.config/nested/.settings'),b'settings')
                 payload={'action':'copy','sourceArea':'legacy','source':'old.txt','path':'','name':'new.txt'}
                 with urlopen(Request(base+'/file-action?area=outputs',data=json.dumps(payload).encode(),headers=headers)) as r:
                     self.assertTrue(json.load(r)['ok'])

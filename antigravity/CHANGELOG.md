@@ -1,3 +1,8 @@
+## 0.10.3
+
+- Keep conversation titles readable when More is expanded: stack actions below details on mobile and bound their width on larger screens.
+- Clarify that folder ZIPs include hidden files and folders; extend regression coverage to nested hidden contents and empty hidden folders, including the download endpoint.
+
 ## 0.10.2
 
 - Accept model reports with name-first columns, tab separators, table borders and ANSI formatting, including catalog output on stderr.

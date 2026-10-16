@@ -795,8 +795,8 @@ schema may change between upstream releases.
 ## Folder downloads, copy and move (0.6.0)
 
 In **Files**, choose **Download ZIP** beside a folder, or **Download folder ZIP**
-to download the folder currently open. Nested files, hidden files and empty folders
-are included. The archive downloads after preparation. ZIP generation is limited to
+to download the folder currently open. All nested files and folders, including hidden files, hidden folders and empty
+folders, are included. The archive downloads after preparation. ZIP generation is limited to
 500 MiB of uncompressed file contents, 10,000 entries and 64 levels. A link, special
 file, unreadable item or detected source change aborts the archive with an error;
 contents are never silently skipped. This is not a snapshot of actively edited data.

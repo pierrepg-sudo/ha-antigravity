@@ -15,5 +15,13 @@ input,select,textarea{box-sizing:border-box;font:16px/1.4 system-ui!important;ba
 .model-controls{background:var(--panel);padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
 .model-controls label,.model-controls p{grid-column:1/-1;margin:0;font-size:13px;color:var(--muted)}
 .model-controls select{width:100%;min-width:0}
+/* Keep expanded conversation actions from shrinking the title column. */
+.conversations #list .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,230px);align-items:start}
+.conversations #list .row-actions{min-width:0;width:100%}
+.conversations #list .row-actions button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.conversations #list .row-actions details{min-width:0;margin-top:0}
+.conversations #list .row-actions summary{min-height:44px;padding:12px 0}
+.conversations #list .more-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+@media(max-width:640px){.conversations #list .row{grid-template-columns:minmax(0,1fr);gap:16px}.conversations #list .row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.conversations #list .row-actions details{grid-column:1/-1}.conversations #list .more-actions{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}}
 a.button{display:inline-flex;justify-content:center;align-items:center;min-height:44px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--accent);color:#182b45;font:600 15px/1.35 system-ui;text-decoration:none}
 @media(max-width:420px){header>.app-links,header>.top-links{width:100%;justify-content:flex-start}.model-controls{grid-template-columns:minmax(0,1fr)}.model-controls button{justify-self:start}}
