@@ -50,4 +50,12 @@ await get('sessionApply').onclick();assert.equal(context.window.location.href,'c
 get('sessionCancel').onclick();
 await descendants(get('list')).find(e=>e.className==='row').children[1].children[0].onclick();
 assert.equal(get('sessionTitle').textContent,'Open conversation');assert.equal(get('projectField').hidden,true);
-console.log('UI checks passed: refresh, search, dialog pause, visibility, retry backoff, prepare before confirmation, recheck, changed revision confirmation, failed refresh blocks deletion.');})().catch(e=>{console.error(e);process.exit(1);});
+const choice=vm.runInContext('chooseProjectFiles({name:"Test project",folder:"Test project"})',context);
+assert(get('projectDeleteDialog').open);assert.equal(get('projectDeleteFiles').value,'keep');
+assert.equal(get('projectDeleteReview').disabled,false);assert.equal(get('projectDeleteCancel').disabled,false);
+get('projectDeleteReview').onclick();get('projectDeleteDialog').onclose();assert.equal(await choice,'keep');
+const destructiveChoice=vm.runInContext('chooseProjectFiles({name:"Test project",folder:"Test project"})',context);
+get('projectDeleteFiles').value='delete';get('projectDeleteReview').onclick();get('projectDeleteDialog').onclose();assert.equal(await destructiveChoice,'delete');
+const cancelChoice=vm.runInContext('chooseProjectFiles({name:"Test project",folder:"Test project"})',context);
+get('projectDeleteCancel').onclick();get('projectDeleteDialog').onclose();assert.equal(await cancelChoice,null);
+console.log('UI checks passed: refresh, search, confirmation/recheck safety, project file retention default, explicit deletion choice and cancellation.');})().catch(e=>{console.error(e);process.exit(1);});

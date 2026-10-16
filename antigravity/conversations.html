@@ -7,6 +7,7 @@
 <details><summary>Connection help &amp; deletion</summary><p>The add-on connects to the local CLI automatically at startup. No message or hook is required. If connection setup fails, restart the add-on and share the connection status and CLI version. This page refreshes automatically while visible.</p><p>Only idle conversations can be deleted. Each deletion requires confirmation and cannot be undone here. This list includes locally saved CLI conversations, grouped by project. Archived conversations appear separately. Missing project names use their project ID; unavailable archive metadata is labelled. The selected conversation refreshes before confirmation and immediately before deletion. If it changes, review and confirm the updated entry. The CLI handles deletion and associated cleanup.</p></details>
 <dialog id="confirm" aria-labelledby="confirmTitle"><h2 id="confirmTitle">Delete conversation?</h2><p id="selected"></p><p>This removes the conversation and may clean up its associated data. There is no undo.</p><p id="error" role="alert"></p><div class="actions"><button id="cancel">Cancel</button><button id="apply" class="delete">Delete conversation</button></div></dialog>
 <dialog id="sessionDialog" aria-labelledby="sessionTitle"><h2 id="sessionTitle">New conversation</h2><p id="sessionSelected"></p><div id="projectField"><label for="project">Project</label><select id="project"><option value="">No project</option></select></div><p>This switches the terminal session. Save any unsent text first. Switching is unavailable while the CLI is working.</p><p id="sessionError" role="alert"></p><div class="actions"><button id="sessionCancel">Cancel</button><button id="sessionApply">Start conversation</button></div></dialog></main>
+<dialog id="projectDeleteDialog" aria-labelledby="projectDeleteTitle"><h2 id="projectDeleteTitle">Delete project?</h2><p id="projectDeleteName"></p><label for="projectDeleteFiles">Generated folder and files</label><select id="projectDeleteFiles"><option value="keep">Keep folder and files (recommended)</option><option value="delete">Permanently delete folder and all files</option></select><p>Project conversations will be permanently deleted. Stop any workers writing to this project first. You will review a final confirmation before deletion.</p><div class="actions"><button id="projectDeleteCancel">Cancel</button><button id="projectDeleteReview" class="delete">Review deletion</button></div></dialog>
 <script>
 const csrf='__CSRF__';let items=[],busy=false,pending=null,connected=false,timer=null,failures=0;
 const folderState=new Map();let searching=false,projects=[],sessionRequest=null;
@@ -135,13 +136,25 @@ async function managementRequest(endpoint,payload){
  const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(payload)}),d=await r.json();
  if(!r.ok)throw new Error(d.error||'Operation failed. Refresh before retrying.');return d;
 }
+function chooseProjectFiles(item){
+ return new Promise(resolve=>{
+  const dialog=$('projectDeleteDialog');$('projectDeleteName').textContent=item.name;$('projectDeleteFiles').value='keep';
+  $('projectDeleteCancel').disabled=false;$('projectDeleteReview').disabled=false;
+  $('projectDeleteFiles').disabled=!item.folder;
+  let answer=null;dialog.onclose=()=>resolve(answer);
+  $('projectDeleteCancel').onclick=()=>dialog.close();
+  $('projectDeleteReview').onclick=()=>{answer=$('projectDeleteFiles').value;dialog.close();};
+  dialog.showModal();
+ });
+}
 async function manage(kind,item,action){
  if(busy)return;clearTimeout(timer);setBusy(true);
  try{
   const payload={kind,id:item.id,action};
+  if(action==='delete'&&kind==='project'){payload.files=await chooseProjectFiles(item);if(payload.files===null)return;}
   if(action==='rename'){payload.name=window.prompt('New name',item.title||item.name);if(!payload.name)return;}
   const prepared=await managementRequest('management-prepare',payload);
-  const warning=action==='delete'?`Permanently delete ${prepared.count} conversation(s)${kind==='project'?' and this project':''}? Generated output files are kept. This cannot be undone.`:action==='reset-model'?'Clear this conversation’s saved model preference? The CLI default will apply next time you open it.':action==='rename'&&kind==='project'?'Rename this project and its managed output folder? Stop any workers using this folder first, then reopen the conversation after renaming.':`${action==='archive'?'Archive':action==='restore'?'Restore':'Rename'} ${item.title||item.name}?`;
+  const warning=action==='delete'?`Permanently delete ${prepared.count} conversation(s)${kind==='project'?' and project '+prepared.projectName:''}? ${payload.files==='delete'?'ALSO permanently delete /data/workspace/outputs/'+prepared.folder+' and EVERYTHING inside it.':'Keep the generated folder and files.'} This cannot be undone.`:action==='reset-model'?'Clear this conversation’s saved model preference? The CLI default will apply next time you open it.':action==='rename'&&kind==='project'?'Rename this project and its managed output folder? Stop any workers using this folder first, then reopen the conversation after renaming.':`${action==='archive'?'Archive':action==='restore'?'Restore':'Rename'} ${item.title||item.name}${kind==='project'?' in both Conversations and Files (paths stay unchanged)':''}?`;
   if(!window.confirm(warning))return;
   await managementRequest('management-action',{...payload,...prepared,confirm:true});await refresh();
  }catch(error){$('status').textContent=error.message;}finally{setBusy(false);schedule();}

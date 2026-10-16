@@ -1,3 +1,10 @@
+## 0.10.1
+
+- Ask whether to keep or permanently delete the generated folder when deleting a project; default to keeping files and revalidate the selection before deletion.
+- Add an Archived projects section in Files, synchronized with project Archive/Restore in Conversations. File paths stay unchanged to avoid breaking scripts.
+- Guard linked project folders against direct deletion, moving and renaming in the file service, including stale-page requests. Use the project management controls instead.
+- Open Files in Outputs by default.
+
 ## 0.10.0
 
 - Open Web UI starts in Conversations.

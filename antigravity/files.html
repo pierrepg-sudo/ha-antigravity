@@ -4,7 +4,7 @@
 :root{--bg:#11151c;--panel:#1b222d;--line:#303c4b;--muted:#a4b2c4;--text:#edf3fa;--accent:#a9c9ff;--red:#ffadb2}*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,sans-serif;padding:24px 18px 40px;max-width:960px;margin-inline:auto}button,input,select,summary,a{touch-action:manipulation}button,input,select{font:inherit;color:inherit;min-height:44px;border:1px solid var(--line);border-radius:12px;background:#232d3b;padding:10px 14px}button,summary{cursor:pointer}button:hover{background:#2e3b4e}button:disabled{opacity:.45;cursor:default}button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}a{color:var(--accent);text-decoration:none}h1,h2,h3,p{margin:0}h1{font-size:30px;letter-spacing:-1px;line-height:1.15}h3{font-size:21px;overflow-wrap:anywhere}.eyebrow{font-size:11px;letter-spacing:1.8px;color:var(--accent);font-weight:700;margin-bottom:6px}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}header a{padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-size:13px}.location{padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:18px}.location-top{display:flex;align-items:center;gap:12px}.location label{font-size:12px;color:var(--muted);font-weight:600}.location select{flex:1;min-width:0;max-width:100%;background:#111923}.hint{font-size:12px;color:var(--muted);margin-top:8px}#where{font:12px/1.5 ui-monospace,monospace;color:var(--muted);overflow-wrap:anywhere;margin-top:12px}#breadcrumbs{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:8px}#breadcrumbs button{background:none;border:none;padding:4px 7px;color:var(--accent);font-size:13px;min-height:36px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.toolbar button{font-size:13px;flex:1;padding:10px;white-space:nowrap}.primary{background:#b1cfff;color:#132439;border-color:transparent;font-weight:650}.primary:hover{background:#c5dcff}.danger{color:var(--red);background:#35242d;border-color:#56313b}.danger:hover{background:#4b2c38}.quiet{background:transparent}#clipboardBar{border:1px solid #4c6689;background:#1b2c41;border-radius:14px;padding:12px;margin:12px 0}#clipboardStatus{font-size:13px;overflow-wrap:anywhere}#clipboardBar .actions{margin-top:10px}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1;font-size:13px}.section-title{display:flex;align-items:center;justify-content:space-between;margin-top:24px;margin-bottom:8px}.section-title h2{font-size:16px}#count{color:var(--muted);font-size:12px}#status{font-size:13px;color:var(--accent);overflow-wrap:anywhere;margin-bottom:10px}#status:empty{display:none}#status.error{color:var(--red)}#list{display:grid;gap:10px}.row{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;min-width:0}.name{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:transparent;border:0;padding:2px 0 12px;min-width:0}.name:hover{background:transparent}.file-icon{display:grid;place-items:center;border-radius:12px;background:#253b56;color:#bfd8ff;width:42px;height:44px;flex-shrink:0}.file-icon svg{width:24px;height:24px}.file-info{min-width:0;flex:1}.filename{display:block;overflow-wrap:anywhere;font-weight:600;font-size:15px}.metadata{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:2px}.row-actions{display:flex;gap:8px;align-items:flex-start}.row-actions>button{flex:1;font-size:13px;padding:8px 10px}.more{flex:1;min-width:0}.more summary{list-style:none;border:1px solid var(--line);border-radius:12px;min-height:44px;padding:10px;text-align:center;font-size:13px;color:var(--muted)}.more summary::-webkit-details-marker{display:none}.more[open]{flex:2}.more .actions{margin-top:8px;flex-direction:column}.empty{text-align:center;padding:38px 18px;border:1px dashed var(--line);border-radius:16px;color:var(--muted)}.empty strong{display:block;color:var(--text);margin-bottom:6px}.help{margin-top:22px;color:var(--muted);font-size:12px}.help summary{min-height:44px;padding:12px 0}.help p{padding-bottom:8px}dialog{width:calc(100% - 32px);max-width:520px;max-height:85dvh;overflow:auto;border:1px solid #43536a;border-radius:20px;background:#1b2431;color:var(--text);padding:24px;box-shadow:0 24px 80px #0008}dialog::backdrop{background:#060b13bb;backdrop-filter:blur(3px)}dialog p{margin:12px 0 20px;color:var(--muted);font-size:14px;overflow-wrap:anywhere}dialog .actions{margin-top:20px}dialog input{width:100%;min-width:0}textarea{width:100%;font:13px/1.5 ui-monospace,monospace;border:1px solid var(--line);border-radius:12px;background:#111923;color:var(--text);padding:12px;resize:vertical}#text{height:45vh}#deleteName{color:var(--text);font-weight:600}.modal-error{color:var(--red);font-size:13px;margin-top:12px}.loading #list{opacity:.6}@media(min-width:700px){body{padding-top:36px}.toolbar{max-width:600px}#list{grid-template-columns:repeat(2,minmax(0,1fr))}.location{padding:20px}.location-top{max-width:430px}}@media(prefers-reduced-motion:no-preference){button{transition:background .15s ease}}
 </style></head><body>
 <header><div><p class="eyebrow">ANTIGRAVITY</p><h1>Files</h1></div><a href="controls">← Terminal</a></header>
-<section class="location" aria-label="File location"><div class="location-top"><label for="area">LOCATION</label><select id="area"><option value="inputs">Inputs</option><option value="outputs">Outputs</option><option value="legacy">Existing files</option></select></div><p id="areaHint" class="hint"></p><nav id="breadcrumbs" aria-label="Folder navigation"></nav><p id="where"></p></section>
+<section class="location" aria-label="File location"><div class="location-top"><label for="area">LOCATION</label><select id="area"><option value="outputs" selected>Outputs</option><option value="archived">Archived projects</option><option value="inputs">Inputs</option><option value="legacy">Existing files</option></select></div><p id="areaHint" class="hint"></p><nav id="breadcrumbs" aria-label="Folder navigation"></nav><p id="where"></p></section>
 <div class="toolbar"><button id="uploadOpen" class="primary">↑ Upload</button><button id="folder">+ Folder</button><button id="zipCurrent">↓ Folder ZIP</button><button id="refresh" class="quiet">Refresh</button></div>
 <section id="clipboardBar" hidden aria-label="Selected item"><p id="clipboardStatus" aria-live="polite"></p><div class="actions"><button id="pasteItem" class="primary">Paste here</button><button id="clearClipboard" class="quiet">Cancel</button></div></section>
 <div class="section-title"><h2>Your files</h2><span id="count"></span></div><p id="status" role="status" aria-live="polite"></p><main id="list" aria-label="Files and folders"></main>
@@ -15,7 +15,7 @@
 <dialog id="deleteDialog" aria-labelledby="deleteTitle"><h3 id="deleteTitle">Delete item?</h3><p id="deleteName"></p><p id="deleteWarning"></p><p id="deleteError" class="modal-error" role="alert"></p><div class="actions"><button id="deleteCancel" class="quiet" autofocus>Cancel</button><button id="deleteConfirm" class="danger">Delete permanently</button></div></dialog>
 <script>
 
-const csrf='__CSRF__';let current='';let area='inputs';let root='/data/inputs';let readOnly=false;let busy=false;let pendingDelete=null;let clipboard=null;const $=s=>document.querySelector(s);const status=$('#status');
+const csrf='__CSRF__';let current='';let area='outputs';let root='/data/workspace/outputs';let readOnly=false;let busy=false;let pendingDelete=null;let clipboard=null;const $=s=>document.querySelector(s);const status=$('#status');
 const join=n=>current?current+'/'+n:n;
 function scoped(url){return url+(url.includes('?')?'&':'?')+'area='+encodeURIComponent(area);}
 async function request(url,body){url=scoped(url);const r=await fetch(url,body?{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(body)}:{});const d=await r.json();if(!r.ok)throw new Error(d.error||'Request failed');return d;}
@@ -34,7 +34,7 @@ function clipboardControls(){
 function selectItem(action,path,name){clipboard={action,sourceArea:area,source:path,name};clipboardControls();}
 async function renameItem(entry){
  const newName=prompt('New name',entry.name);if(!newName||newName===entry.name)return;
- if(area==='outputs'&&!current&&entry.kind==='folder'){
+ if(['outputs','archived'].includes(area)&&!current&&entry.kind==='folder'){
   const response=await fetch('management-context',{cache:'no-store'}),context=await response.json();
   if(!response.ok)throw new Error('Could not check project folders. Try again when Conversations is available.');
   const project=context.projects.find(p=>p.folder===entry.name);
@@ -48,6 +48,17 @@ async function renameItem(entry){
  }
  await request('file-action',{action:'rename',path:current,name:entry.name,newName});await browse(current);
 }
+async function archiveProject(entry){
+ const response=await fetch('management-context',{cache:'no-store'}),context=await response.json();
+ if(!response.ok)throw new Error(context.error||'Project management is unavailable.');
+ const project=context.projects.find(p=>p.id===entry.project.id&&p.folder===entry.name);
+ if(!project)throw new Error('Project changed. Refresh before trying again.');
+ const action=project.archived?'restore':'archive';
+ const post=async(url,payload)=>{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':context.csrf},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok)throw new Error(d.error);return d;};
+ const payload={kind:'project',id:project.id,action},prepared=await post('management-prepare',payload);
+ if(!confirm(`${action==='archive'?'Archive':'Restore'} ${project.name} in both Conversations and Files? File paths will stay unchanged.`))return;
+ await post('management-action',{...payload,...prepared,confirm:true});await browse(current);
+}
 async function downloadItem(path,name,folder){
  // A native download avoids retaining a 500 MiB Blob in the mobile page.
  const link=document.createElement('a');
@@ -60,8 +71,8 @@ const icons={folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 function size(bytes){return bytes<1024?bytes+' B':bytes<1048576?(bytes/1024).toFixed(1)+' KB':(bytes/1048576).toFixed(1)+' MB';}
 async function browse(path){
  const d=await request('file-list?path='+encodeURIComponent(path));current=d.path;root=d.root;readOnly=d.readOnly;
- for(const id of ['folder','uploadOpen'])$('#'+id).hidden=readOnly;
- $('#areaHint').textContent={inputs:'Original files · protected from direct agent edits',outputs:'Working files · available to your agent',legacy:'Previous workspace · read-only'}[area];
+ for(const id of ['folder','uploadOpen','zipCurrent'])$('#'+id).hidden=readOnly||(area==='archived'&&!current);
+ $('#areaHint').textContent={inputs:'Original files · protected from direct agent edits',outputs:'Working files · archived projects are shown separately',archived:'Archived projects · Restore returns a project to Outputs and Conversations. Paths stay unchanged.',legacy:'Previous workspace · read-only'}[area];
  $('#where').textContent=root+(current?'/'+current:'');$('#breadcrumbs').replaceChildren();
  $('#breadcrumbs').append(button($('#area').selectedOptions[0].textContent,()=>browse('')));
  let partial='';for(const segment of current.split('/').filter(Boolean)){partial=partial?partial+'/'+segment:segment;const destination=partial;const separator=document.createElement('span');separator.textContent='›';$('#breadcrumbs').append(separator,button(segment,()=>browse(destination)));}
@@ -80,14 +91,16 @@ async function browse(path){
    const actions=document.createElement('div');actions.className='row-actions';
    actions.append(button(e.kind==='folder'?'↓ ZIP':'↓ Download',()=>downloadItem(path,e.name+(e.kind==='folder'?'.zip':''),e.kind==='folder')));
    if(!readOnly){const remove=button('Delete',async()=>{
+    if(e.project){throw new Error('This folder is linked to '+e.project.name+'. Delete the project in Conversations and choose whether to keep its files.');}
     pendingDelete={path:current,name:e.name,kind:e.kind};$('#deleteTitle').textContent=e.kind==='folder'?'Delete folder?':'Delete file?';$('#deleteName').textContent=e.name;
     $('#deleteWarning').textContent=e.kind==='folder'?'This permanently deletes this folder and everything inside it. This cannot be undone.':'This permanently deletes this file. This cannot be undone.';
     $('#deleteError').textContent='';$('#deleteDialog').showModal();$('#deleteCancel').focus();
    });remove.className='danger';remove.setAttribute('aria-label','Delete '+e.name);actions.append(remove);}
    const more=document.createElement('details');more.className='more';const summary=document.createElement('summary');summary.textContent='More ···';summary.setAttribute('aria-label','More actions for '+e.name);const extra=document.createElement('div');extra.className='actions';
    extra.append(button('Copy',async()=>{selectItem('copy',path,e.name);more.open=false;}));
+   if(e.project&&!['default-cli-project','outside-of-project'].includes(e.project.id))extra.append(button(e.project.archived?'Restore project':'Archive project',()=>archiveProject(e)));
    if(!readOnly)extra.append(button('Rename',()=>renameItem(e)));
-   if(!readOnly)extra.append(button('Move',async()=>{selectItem('move',path,e.name);more.open=false;}));
+   if(!readOnly&&!e.project)extra.append(button('Move',async()=>{selectItem('move',path,e.name);more.open=false;}));
    extra.append(button('File path',async()=>{$('#pathText').value=root+'/'+path;$('#copy').textContent='Copy path';$('#pathDialog').showModal();more.open=false;}));more.append(summary,extra);actions.append(more);row.append(actions);
   }
   $('#list').append(row);

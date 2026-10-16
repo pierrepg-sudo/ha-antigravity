@@ -76,7 +76,7 @@ def read_file(path, preview=False):
             return data, names[-1]
 
 
-def change(payload):
+def change(payload, expected_identity=None):
     action = payload.get('action')
     path = payload.get('path', '')
     name = payload.get('name')
@@ -87,6 +87,8 @@ def change(payload):
             if payload.get('confirm') is not True:
                 raise ValueError('Delete requires confirmation.')
             info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+            if expected_identity is not None and (info.st_dev, info.st_ino) != expected_identity:
+                raise FileOperationError('The selected folder was replaced. The replacement was not deleted.')
             if stat.S_ISDIR(info.st_mode):
                 if payload.get('kind') != 'folder':
                     raise ValueError('Folder deletion requires explicit folder confirmation.')

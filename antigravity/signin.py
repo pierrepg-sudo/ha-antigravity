@@ -132,9 +132,11 @@ paste it into the authorization-code prompt, and press Return.</p>
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         route = self.path.split('?', 1)[0]
-        if route in ('/conversation-models', '/management-context'):
+        if route in ('/conversation-models', '/management-context', '/project-folders'):
             try:
-                result = conversation_models.listing() if route == '/conversation-models' else {'csrf': CSRF, 'projects': conversation_management.projects(None)}
+                result = conversation_models.listing() if route == '/conversation-models' else {'projects': conversation_management.projects(None)}
+                if route == '/management-context':
+                    result['csrf'] = CSRF
                 code = 200
             except conversation_history.HistoryError as error:
                 result = {'error': str(error)}

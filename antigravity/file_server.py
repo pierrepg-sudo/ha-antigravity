@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 import secrets
 import threading
+import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit, quote
 import workspace_files
@@ -11,11 +12,39 @@ import workspace_files
 CSRF = secrets.token_hex(32)
 PROXY_KEY = None
 TRANSFER_LOCK = threading.Lock()
-AREAS = {'inputs': '/data/inputs', 'outputs': '/data/workspace/outputs', 'legacy': '/data/workspace'}
+AREAS = {'inputs': '/data/inputs', 'outputs': '/data/workspace/outputs', 'archived': '/data/workspace/outputs', 'legacy': '/data/workspace'}
+
+
+def project_folders():
+    # The separate file-service UID must not read the CLI's private state or token.
+    client = http.client.HTTPConnection('127.0.0.1', 7682, timeout=5)
+    try:
+        client.request('GET', '/project-folders')
+        response = client.getresponse()
+        body = response.read(1024 * 1024 + 1)
+        if response.status != 200 or len(body) > 1024 * 1024:
+            raise ValueError()
+        projects = json.loads(body)['projects']
+        if not isinstance(projects, list) or any(not isinstance(p, dict) or not isinstance(p.get('folder'), str) for p in projects):
+            raise ValueError()
+        return {p['folder']: p for p in projects if p['folder']}
+    except (OSError, ValueError, KeyError, TypeError, http.client.HTTPException):
+        raise workspace_files.FileOperationError('Project folder protection is unavailable. Reopen Conversations, then retry. No file operation was performed.') from None
+    finally:
+        client.close()
+
+
+def guard_project_folder(area, payload):
+    if area not in ('outputs', 'archived') or payload.get('action') not in ('delete', 'rename', 'move'):
+        return
+    path = payload.get('source', '') if payload['action'] == 'move' else '/'.join(filter(None, [payload.get('path', ''), payload.get('name', '')]))
+    names = workspace_files.parts(path)
+    if len(names) == 1 and names[0] in project_folders():
+        raise workspace_files.FileOperationError('This folder is linked to a project. Manage its deletion, name or archive state in Conversations; direct deletion/moving is protected, including archived projects.')
 
 
 def select_area(query):
-    values = query.get('area', ['inputs'])
+    values = query.get('area', ['outputs'])
     if len(values) != 1 or values[0] not in AREAS:
         raise ValueError('Unknown file area')
     return values[0]
@@ -80,7 +109,14 @@ class Handler(BaseHTTPRequestHandler):
             area = select_area(query)
             token = workspace_files.ACTIVE_ROOT.set(AREAS[area])
             path = query.get('path', [''])[0]
+            projects = project_folders() if area in ('outputs', 'archived') and (not path or area == 'archived') else {}
+            if area == 'archived' and path:
+                names = workspace_files.parts(path)
+                if not projects.get(names[0], {}).get('archived'):
+                    raise workspace_files.FileOperationError('This project is no longer archived. Open Outputs to find its files.')
             if route == '/folder-download':
+                if area == 'archived' and not path:
+                    raise workspace_files.FileOperationError('Open an archived project folder before downloading its ZIP.')
                 if not TRANSFER_LOCK.acquire(blocking=False):
                     raise workspace_files.FileOperationError('Another folder operation is running. Try again shortly.')
                 try:
@@ -99,6 +135,9 @@ class Handler(BaseHTTPRequestHandler):
                 result = workspace_files.listing(path) if route == '/file-list' else workspace_files.read_file(path, preview=True)
                 if route == '/file-list':
                     result.update(root=AREAS[area], readOnly=area == 'legacy')
+                    if area in ('outputs', 'archived') and not path:
+                        result['entries'] = [dict(entry, project=projects.get(entry['name'])) for entry in result['entries']
+                                             if bool(projects.get(entry['name'], {}).get('archived')) == (area == 'archived')]
                 self.respond(200, json.dumps(result).encode())
         except workspace_files.FileOperationError as error:
             self.respond(400, json.dumps({'error': str(error)}).encode())
@@ -135,6 +174,10 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('Invalid payload')
             tokens = [(workspace_files.ACTIVE_ROOT, workspace_files.ACTIVE_ROOT.set(AREAS[area])),
                       (workspace_files.INPUT_MODE, workspace_files.INPUT_MODE.set(area == 'inputs'))]
+            if area == 'archived':
+                names = workspace_files.parts(payload.get('path', ''))
+                if not names or not project_folders().get(names[0], {}).get('archived'):
+                    raise workspace_files.FileOperationError('Open an archived project folder to edit its contents. Use Archive/Restore for whole projects.')
             if payload.get('action') in ('copy', 'move'):
                 source_area = payload.get('sourceArea')
                 if not isinstance(source_area, str) or source_area not in AREAS:
@@ -144,6 +187,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not TRANSFER_LOCK.acquire(blocking=False):
                     raise workspace_files.FileOperationError('Another folder operation is running. Try again shortly.')
                 try:
+                    guard_project_folder(source_area, payload)
                     result = workspace_files.transfer(payload, AREAS[source_area])
                 finally:
                     TRANSFER_LOCK.release()
@@ -151,6 +195,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not TRANSFER_LOCK.acquire(blocking=False):
                     raise workspace_files.FileOperationError('Another folder operation is running. Try again shortly.')
                 try:
+                    guard_project_folder(area, payload)
                     result = workspace_files.change(payload)
                 finally:
                     TRANSFER_LOCK.release()

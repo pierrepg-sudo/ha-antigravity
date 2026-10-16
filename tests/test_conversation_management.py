@@ -54,6 +54,31 @@ class ManagementTests(unittest.TestCase):
         models.remember('one','')
         self.assertEqual(models.preferences(),{'two':'model-b'})
 
+    def test_project_deletion_file_choice_and_revision(self):
+        import saved_conversations
+        for choice in ('keep','delete'):
+            folder=self.root/choice;folder.mkdir();(folder/'generated.txt').write_text('test')
+            manager.write_state({'folders':{'p1':choice}})
+            request={'kind':'project','id':'p1','action':'delete','files':choice}
+            with patch.object(native,'load',return_value={}),patch.object(manager,'project',return_value={'id':'p1','name':'Test'}),patch.object(history,'collect',return_value={}),patch.object(native,'rpc'),patch.object(saved_conversations,'project_names',return_value={}):
+                prepared=manager.prepare(request)
+                changed=dict(request,files='delete' if choice=='keep' else 'keep',**prepared,confirm=True)
+                with self.assertRaises(native.NativeError):manager.action(changed)
+                self.assertTrue(folder.exists())
+                manager.action(dict(request,**prepared,confirm=True))
+                self.assertEqual(folder.exists(),choice=='keep')
+                self.assertNotIn('p1',manager.read_state()['folders'])
+
+    def test_folder_replacement_invalidates_delete_confirmation(self):
+        folder=self.root/'Project';folder.mkdir()
+        manager.write_state({'folders':{'p1':'Project'}})
+        request={'kind':'project','id':'p1','action':'delete','files':'delete'}
+        with patch.object(native,'load',return_value={}),patch.object(manager,'project',return_value={'id':'p1','name':'Project'}),patch.object(history,'collect',return_value={}),patch.object(native,'rpc') as rpc:
+            prepared=manager.prepare(request)
+            folder.rename(self.root/'original');folder.mkdir()
+            with self.assertRaises(native.NativeError):manager.action(dict(request,**prepared,confirm=True))
+            rpc.assert_not_called();self.assertTrue(folder.exists())
+
     def test_model_catalog_uses_cli_slugs(self):
         with patch.object(models,'_catalog',(0,[])),patch.object(models.subprocess,'run',return_value=Mock(returncode=0,stdout='gemini-example-high    Gemini Example (High)\nclaude-example    Claude Example\n')):
             result=models.catalog()

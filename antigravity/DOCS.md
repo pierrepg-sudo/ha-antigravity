@@ -619,7 +619,7 @@ Tabs become four spaces. Terminal control characters are rejected. Pasted text
 uses a CSRF-protected request and a temporary tmux buffer, removed after use;
 this helper does not write it to disk or log it. The CLI may retain submitted prompts.
 
-## Conversation and project management (0.10.0)
+## Conversation and project management (0.10.1)
 
 **Open Web UI** now opens Conversations; **Terminal** still opens the console.
 Projects remain collapsed by default. Create a project with **New project**, or
@@ -632,8 +632,29 @@ projects, but their conversations can be managed individually.
 Every project mutation prepares the selection before confirmation and rechecks
 it afterwards. Project deletion is limited to 200 conversations per operation,
 rejects busy/unknown states and changed selections, and reports partial completion
-if a later native request fails. It never retries deletion automatically. Generated
-files are kept; delete them separately in Files if wanted.
+if a later native request fails. It never retries deletion automatically. Project
+deletion asks whether to **Keep folder and files** (the default) or permanently
+delete the bound output folder and everything inside it. The final confirmation
+shows the freshly checked folder path; a changed folder invalidates confirmation.
+Stop workers writing to that folder first. File cleanup runs only after project
+deletion is verified. If cleanup fails, check Outputs: some files may have been
+removed. Retained folders become ordinary folders in Outputs, even if the deleted
+project was archived. No unrelated or unbound folders are deleted.
+
+Files opens in **Outputs**. **Archived projects** is a separate view of archived
+projects' generated folders and contents. Archive/Restore in either Conversations
+or a project folder's **More** menu in Files updates the same project metadata;
+refreshing the other tool shows the change. This is a virtual archive: physical
+paths stay unchanged, so existing scripts and worker paths do not break. Download
+an archived project ZIP from its folder, not the archive section root. An Outputs
+root ZIP still contains all physical output files, including archived projects.
+
+Files blocks direct deletion or moving of any folder still linked to a project,
+including archived projects. This protection is checked server-side immediately
+before the operation and fails closed if project metadata is unavailable. Use
+Conversations to delete the project and choose its file-retention policy. Regular
+file and subfolder operations inside a project remain available. Project-aware
+renaming uses the existing management confirmation instead of direct file rename.
 
 New projects created here get `/data/workspace/outputs/<project name>`; existing
 projects get a folder when opened or used for a new conversation here. Names must

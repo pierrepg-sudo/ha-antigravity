@@ -12,6 +12,41 @@ import file_server
 
 
 class FileServerTests(unittest.TestCase):
+    def test_project_sections_and_server_side_folder_guards(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            for name in ('Active','Archived','Loose'):
+                (root/name).mkdir();(root/name/'keep.txt').write_text('preserve')
+            projects={'Active':{'id':'p1','name':'Active','folder':'Active','archived':False},
+                      'Archived':{'id':'p2','name':'Archived','folder':'Archived','archived':True}}
+            server=file_server.ThreadingHTTPServer(('127.0.0.1',0),file_server.Handler)
+            thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+            base='http://127.0.0.1:'+str(server.server_port)
+            headers={'X-Antigravity-File-Key':'test','X-Antigravity-CSRF':file_server.CSRF,'Content-Type':'application/json'}
+            try:
+                with patch.dict(file_server.AREAS,{'outputs':folder,'archived':folder}),patch.object(file_server,'PROXY_KEY','test'),patch.object(file_server,'project_folders',return_value=projects) as lookup:
+                    def listing(area=''):
+                        with urlopen(Request(base+'/file-list'+area,headers=headers)) as response:return json.load(response)['entries']
+                    self.assertEqual({e['name'] for e in listing()},{'Active','Loose'})
+                    self.assertEqual({e['name'] for e in listing('?area=archived')},{'Archived'})
+                    projects['Active']['archived']=True
+                    self.assertEqual({e['name'] for e in listing('?area=archived')},{'Active','Archived'})
+                    projects['Active']['archived']=False
+                    for payload in [
+                        {'action':'delete','name':'Active','kind':'folder','confirm':True},
+                        {'action':'rename','name':'Active','newName':'Other'},
+                        {'action':'move','sourceArea':'outputs','source':'Active','path':'Loose','name':'Active'}]:
+                        with self.assertRaises(HTTPError) as denied:
+                            urlopen(Request(base+'/file-action?area=outputs',data=json.dumps(payload).encode(),headers=headers))
+                        self.assertEqual(denied.exception.code,400)
+                        self.assertTrue((root/'Active/keep.txt').exists())
+                    lookup.side_effect=file_server.workspace_files.FileOperationError('Unavailable')
+                    with self.assertRaises(HTTPError):
+                        urlopen(Request(base+'/file-action?area=outputs',data=json.dumps({'action':'delete','name':'Loose','kind':'folder','confirm':True}).encode(),headers=headers))
+                    self.assertTrue((root/'Loose/keep.txt').exists())
+            finally:
+                server.shutdown();server.server_close();thread.join()
+
     def test_areas_csrf_upload_and_readonly_legacy(self):
         with tempfile.TemporaryDirectory() as folder:
             areas = {key: str(Path(folder) / key) for key in ('inputs', 'outputs', 'legacy')}

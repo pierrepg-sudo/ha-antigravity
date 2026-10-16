@@ -8,6 +8,7 @@ import tempfile
 import uuid
 import fcntl
 import threading
+import stat
 from contextlib import contextmanager
 import native_connection as native
 import saved_conversations as saved
@@ -123,6 +124,10 @@ def selection(payload, connection):
         raise native.NativeError('Invalid management action.')
     if payload['action'] == 'reset-model' and payload['kind'] != 'conversation':
         raise native.NativeError('Model preferences belong to individual conversations.')
+    if payload.get('files', 'keep') not in ('keep', 'delete'):
+        raise native.NativeError('Choose whether to keep or delete project files.')
+    if payload.get('files', 'keep') == 'delete' and (payload['kind'] != 'project' or payload['action'] != 'delete'):
+        raise native.NativeError('File deletion is only available when deleting a project.')
     ident = payload.get('id')
     if payload['action'] == 'rename':
         valid_name(payload.get('name'))
@@ -140,7 +145,19 @@ def selection(payload, connection):
     if len(ids) > 200:
         raise native.NativeError('Manage projects with more than 200 conversations in smaller batches.')
     entries = [history.prepare({'id': cid})['item'] for cid in sorted(ids)]
-    revision = hashlib.sha256(json.dumps([obj, entries, read_state().get('folders', {})], sort_keys=True).encode()).hexdigest()
+    folder = read_state().get('folders', {}).get(ident) if obj is not None else None
+    identity = None
+    if folder and payload['action'] == 'delete' and payload.get('files', 'keep') == 'delete':
+        valid_name(folder)
+        with files.directory('') as root:
+            try:
+                info = os.stat(folder, dir_fd=root, follow_symlinks=False)
+            except FileNotFoundError:
+                raise native.NativeError('The project folder is missing. Choose Keep files to delete only the project.') from None
+            if not stat.S_ISDIR(info.st_mode):
+                raise native.NativeError('The project folder changed or is a link. Files were not selected for deletion.')
+            identity = [info.st_dev, info.st_ino]
+    revision = hashlib.sha256(json.dumps([obj, entries, read_state().get('folders', {}), payload.get('files', 'keep'), identity], sort_keys=True).encode()).hexdigest()
     return obj, entries, revision
 
 
@@ -148,7 +165,9 @@ def prepare(payload):
     import conversation_history as history
     with history.LOCK:
         obj, entries, revision = selection(payload, native.load())
-        return {'revision': revision, 'count': len(entries)}
+        return {'revision': revision, 'count': len(entries),
+                'folder': read_state().get('folders', {}).get(obj['id'], '') if obj else '',
+                'projectName': obj.get('name', '') if obj else ''}
 
 
 def action(payload):
@@ -168,6 +187,13 @@ def action(payload):
                 conversation_models.remember(payload['id'], '')
                 return {'ok': True}
             if operation == 'delete':
+                cleanup_identity = None
+                if obj is not None and payload.get('files', 'keep') == 'delete':
+                    selected_folder = read_state().get('folders', {}).get(obj['id'])
+                    if selected_folder:
+                        with files.directory('') as root:
+                            info = os.stat(selected_folder, dir_fd=root, follow_symlinks=False)
+                            cleanup_identity = (info.st_dev, info.st_ino)
                 for row in entries:
                     history.delete({'id': row['id'], 'revision': row['revision'], 'confirm': True})
                     completed += 1
@@ -178,6 +204,16 @@ def action(payload):
                     native.rpc(connection, 'DeleteProject', {'id': obj['id']})
                     if obj['id'] in saved.project_names():
                         raise native.NativeError('Project deletion could not be verified.')
+                    state = read_state()
+                    folder = state.get('folders', {}).pop(obj['id'], None)
+                    for row in entries:
+                        state.get('contexts', {}).pop(row['id'], None)
+                    write_state(state)
+                    if folder and payload.get('files', 'keep') == 'delete':
+                        try:
+                            files.change({'action': 'delete', 'path': '', 'name': valid_name(folder), 'kind': 'folder', 'confirm': True}, expected_identity=cleanup_identity)
+                        except (OSError, ValueError, files.FileOperationError):
+                            raise native.NativeError('The project was deleted, but folder cleanup did not finish. Some files may have been removed. Check Outputs before deleting anything else.') from None
                 return {'ok': True, 'deleted': completed}
             if obj is None:
                 annotations = {'title': payload['name']} if operation == 'rename' else {'archived': operation == 'archive'}

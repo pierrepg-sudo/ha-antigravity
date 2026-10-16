@@ -132,6 +132,7 @@ class FolderTests(unittest.TestCase):
                 with self.assertRaises(HTTPError) as error:
                     urlopen(Request(base+'/file-action?area=outputs',data=json.dumps(payload).encode(),headers={'Content-Type':'application/json','X-Antigravity-File-Key':'test'}))
                 self.assertEqual(error.exception.code,403)
+                protection=patch.object(file_server,'project_folders',return_value={});protection.start();self.addCleanup(protection.stop)
                 deletion={'action':'delete','name':'project','path':'','kind':'folder','confirm':True}
                 with self.assertRaises(HTTPError) as error:
                     urlopen(Request(base+'/file-action?area=legacy',data=json.dumps(deletion).encode(),headers=headers))
