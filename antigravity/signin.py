@@ -119,7 +119,7 @@ def render(url):
 <title>Antigravity sign-in</title><style>
 body{font:17px system-ui;background:#181a20;color:#eee;max-width:650px;margin:40px auto;padding:20px;line-height:1.5}
 a{color:#9bc9ff}.button{display:block;padding:16px;margin:20px 0;background:#255dad;color:white;border-radius:10px;text-align:center;text-decoration:none}
-</style><h1>Antigravity sign-in</h1>
+</style><link rel="stylesheet" href="ui.css"><div class="app-links"><a href="conversations">Conversations</a><a href="files">Files</a><a href="controls">Terminal</a></div><h1>Antigravity sign-in</h1>
 <p>Use the Google account with your AI Pro subscription.</p>''' + action + '''
 <p>After Google sign-in, copy the authorization code, open the terminal below,
 paste it into the authorization-code prompt, and press Return.</p>
@@ -132,6 +132,15 @@ paste it into the authorization-code prompt, and press Return.</p>
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         route = self.path.split('?', 1)[0]
+        if route == '/ui.css':
+            body = Path(__file__).with_name('ui.css').read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/css; charset=utf-8')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if route in ('/conversation-models', '/management-context', '/project-folders'):
             try:
                 result = conversation_models.listing() if route == '/conversation-models' else {'projects': conversation_management.projects(None)}

@@ -84,6 +84,16 @@ class ManagementTests(unittest.TestCase):
             result=models.catalog()
             self.assertEqual([r['id'] for r in result],['gemini-example-high','claude-example'])
 
+    def test_model_catalog_report_columns_and_stderr(self):
+        samples=['Gemini Example (High)\tgemini-example-high',
+                 '│ Gemini Example (High) │ gemini-example-high │',
+                 '\x1b[32mgemini-example-high\x1b[0m  Gemini Example (High)']
+        for sample in samples:
+            self.assertEqual(models.parse_catalog(sample),[{'id':'gemini-example-high','name':'Gemini Example (High)'}])
+        self.assertEqual(models.parse_catalog('Fetching available models...\nError: sign in required\nUsage: agy models'),[])
+        with patch.object(models,'_catalog',(0,[])),patch.object(models.subprocess,'run',return_value=Mock(returncode=0,stdout='',stderr=samples[0])):
+            self.assertEqual(models.catalog()[0]['id'],'gemini-example-high')
+
     def test_reset_model_requires_confirmation_and_preserves_other_preferences(self):
         models.remember('one','model-a');models.remember('two','model-b')
         with patch.object(native,'load',return_value={}),patch.object(manager,'selection',return_value=(None,[],'current')):

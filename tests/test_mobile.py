@@ -29,6 +29,9 @@ class MobileTests(unittest.TestCase):
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         base='http://127.0.0.1:'+str(server.server_port)
         try:
+            with urlopen(base+'/ui.css') as r:
+                self.assertIn('text/css',r.headers['Content-Type'])
+                self.assertIn('--accent:#b1cfff',r.read().decode())
             with urlopen(base+'/controls') as r:
                 body=r.read().decode()
                 self.assertIn(m.CSRF,body)
@@ -46,6 +49,9 @@ class MobileTests(unittest.TestCase):
             with urlopen(base+'/conversations') as r:
                 menu=r.read().decode()
                 self.assertIn('Delete conversation?',menu)
+                self.assertIn('href="files"',menu)
+                self.assertIn('href="controls"',menu)
+                self.assertIn('href="ui.css"',menu)
                 self.assertIn(m.CSRF,menu)
             with patch.object(m.conversation_history,'listing',return_value={'items':[]}) as listing:
                 with urlopen(base+'/conversation-list') as r:

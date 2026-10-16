@@ -9,11 +9,11 @@ body.terminal-expanded>:not(.terminal-shell){display:none!important}
 body.terminal-expanded .terminal-shell{position:fixed;inset:0;z-index:1000;width:100%;height:100%;height:100dvh;display:flex;flex-direction:column;border:0;border-radius:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
 body.terminal-expanded .terminal-heading{flex-shrink:0}
 body.terminal-expanded iframe,body.terminal-expanded #history{flex:1;min-height:0;height:0}
-</style></head><body>
+</style><link rel="stylesheet" href="ui.css"></head><body>
 <header><div><p class="eyebrow">ANTIGRAVITY</p><h1>Terminal</h1></div><div class="top-links"><a href="conversations">Conversations</a><a href="files">Files</a></div></header>
 <div class="statusbar"><details class="worker"><summary id="workerSummary">Checking worker…</summary><p id="workerStatus" role="status">Checking restricted worker…</p><button id="refreshWorker">Refresh worker status</button></details><details class="connections"><summary>Connections</summary><a href="signin">Google sign-in</a><a href="github">GitHub</a></details></div>
 <section class="terminal-shell" aria-label="Terminal display"><div class="terminal-heading"><span>CONSOLE</span><button id="toggleFullscreen" type="button" aria-pressed="false">Full-screen terminal ↗</button></div>
-<div style="background:var(--panel);padding:12px"><label for="modelSelect">Saved model for this conversation</label><select id="modelSelect" style="max-width:100%;padding:10px;background:#232d3b;color:var(--text);border-radius:10px" disabled><option>Loading…</option></select><button id="reloadModels">Refresh models</button><p id="modelStatus" role="status"></p></div>
+<div class="model-controls"><label for="modelSelect">Saved model for this conversation</label><select id="modelSelect" disabled><option>Loading…</option></select><button id="reloadModels">Refresh models</button><p id="modelStatus" role="status"></p></div>
 <iframe src="./" title="Live Antigravity terminal"></iframe>
 <div id="history" hidden tabindex="0" role="region" aria-label="Terminal output history"><pre id="historyText"></pre></div></section>
 <div id="historyTools"><button id="showHistory">Scroll history</button><button id="older" hidden>Page up</button><button id="newer" hidden>Page down</button><button id="refreshHistory" hidden>Refresh history</button><button id="live" hidden>Live terminal</button></div>
@@ -45,13 +45,16 @@ fetch('worker-status', {cache:'no-store'}).then(r=>{if(!r.ok)throw Error();retur
 document.querySelector('#refreshWorker').addEventListener('click', refreshWorker);
 refreshWorker();
 const csrf='__CSRF__';let busy=false;
-let modelConversation='';
+let modelConversation='',modelRequest=0;
 async function refreshModels(){
- const select=document.getElementById('modelSelect');select.disabled=true;
- try{const response=await fetch('conversation-models',{cache:'no-store'}),data=await response.json();if(!response.ok)throw new Error(data.error);modelConversation=data.id;select.replaceChildren();
+ const request=++modelRequest,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+ const select=document.getElementById('modelSelect'),reload=document.getElementById('reloadModels');select.disabled=true;reload.disabled=true;
+ select.replaceChildren();const loading=document.createElement('option');loading.textContent='Loading…';select.append(loading);document.getElementById('modelStatus').textContent='Checking available models…';
+ try{const response=await fetch('conversation-models',{cache:'no-store',signal:controller.signal}),data=await response.json();if(request!==modelRequest)return;if(!response.ok)throw new Error(data.error);modelConversation=data.id;select.replaceChildren();
  for(const model of [{id:'',name:'CLI default (no saved override)'},...data.models]){const option=document.createElement('option');option.value=model.id;option.textContent=model.name;select.append(option);}select.value=data.selected;
  document.getElementById('modelStatus').textContent=modelConversation?'Selection is saved per conversation. Applying it restarts the idle terminal session.':'Send a first message or open a saved conversation to enable model selection.';select.disabled=!modelConversation;
- }catch(error){document.getElementById('modelStatus').textContent=error.message;}
+ }catch(error){if(request!==modelRequest)return;modelConversation='';select.replaceChildren();const unavailable=document.createElement('option');unavailable.textContent='Models unavailable';select.append(unavailable);document.getElementById('modelStatus').textContent=(error.name==='AbortError'?'Model lookup timed out.':error.message)+' Press Refresh models to retry. You can also use /model in Terminal.';}
+ finally{clearTimeout(timer);if(request===modelRequest)reload.disabled=false;}
 }
 document.getElementById('reloadModels').onclick=refreshModels;
 document.getElementById('modelSelect').onchange=async event=>{

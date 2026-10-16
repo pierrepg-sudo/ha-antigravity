@@ -1,0 +1,19 @@
+/* Shared app controls: New project (secondary), New conversation (primary). */
+:root{--bg:#11151c;--panel:#1b222d;--line:#303c4b;--text:#edf3fa;--muted:#a4b2c4;--accent:#b1cfff}
+html body [hidden]{display:none!important}
+body{background:var(--bg)!important;color:var(--text)!important;font-family:system-ui,-apple-system,sans-serif!important}
+button:not(.name),a.nav,.app-links a,.top-links a{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px!important;padding:10px 14px!important;border:1px solid var(--line)!important;border-radius:12px!important;background:#222d3b!important;color:var(--text)!important;font:400 15px/1.35 system-ui,-apple-system,sans-serif!important;text-decoration:none!important;letter-spacing:normal!important;cursor:pointer}
+button.primary,#newConversation,#sessionApply{background:var(--accent)!important;color:#182b45!important;font-weight:600!important}
+button.delete,button.danger,#apply{background:#35242e!important;color:#ffb7bf!important}
+button:disabled{opacity:.45!important;cursor:default!important}
+button:hover:not(:disabled),.app-links a:hover,.top-links a:hover{border-color:var(--accent)!important}
+:focus-visible{outline:2px solid var(--accent)!important;outline-offset:3px}
+.app-links,.top-links{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+header{flex-wrap:wrap;gap:14px!important}
+.eyebrow{color:var(--accent)!important;font-size:11px!important;font-weight:600!important;letter-spacing:.16em!important}
+input,select,textarea{box-sizing:border-box;font:16px/1.4 system-ui!important;background:var(--bg)!important;color:var(--text)!important;border:1px solid var(--line)!important;border-radius:12px!important;padding:10px 14px!important;max-width:100%}
+.model-controls{background:var(--panel);padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.model-controls label,.model-controls p{grid-column:1/-1;margin:0;font-size:13px;color:var(--muted)}
+.model-controls select{width:100%;min-width:0}
+a.button{display:inline-flex;justify-content:center;align-items:center;min-height:44px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--accent);color:#182b45;font:600 15px/1.35 system-ui;text-decoration:none}
+@media(max-width:420px){header>.app-links,header>.top-links{width:100%;justify-content:flex-start}.model-controls{grid-template-columns:minmax(0,1fr)}.model-controls button{justify-self:start}}

@@ -12,6 +12,28 @@ import saved_conversations as saved
 _catalog = (0, [])
 
 
+def parse_catalog(text):
+    # CLI reports may put the name first, use a single tab, or draw a table.
+    text = re.sub(r'\x1b\][^\x07]*(?:\x07|\x1b\\)', '', text)
+    text = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', text)
+    options = {}
+    slug = r'[a-z0-9]+(?:[._:-][a-z0-9]+)+'
+    for line in text.splitlines():
+        cells = [c.strip(' `') for c in re.split(r'\t+|\s{2,}|[│|]', line.strip()) if c.strip(' `')]
+        ids = [c for c in cells if re.fullmatch(slug, c) and len(c) <= 150 and c not in ('model-id', 'model_id')]
+        if not ids:
+            match = re.fullmatch(r'(' + slug + r')\s+(.+)', line.strip())
+            if match:
+                ids, cells = [match[1]], [match[1], match[2]]
+        if len(ids) == 1:
+            model = ids[0]
+            if model in ('model-id', 'model_id'):
+                continue
+            labels = [c for c in cells if c != model and re.search('[A-Z]', c)]
+            options[model] = {'id': model, 'name': labels[0][:180] if labels else model}
+    return list(options.values())
+
+
 def catalog():
     global _catalog
     if time.monotonic() - _catalog[0] < 60 and _catalog[1]:
@@ -23,12 +45,9 @@ def catalog():
         raise native.NativeError('Model catalog unavailable. Check Google sign-in and try again.') from None
     if result.returncode:
         raise native.NativeError('Sign in to the CLI to load its available models.')
-    text = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', result.stdout)
-    options = []
-    for line in text.splitlines():
-        match = re.fullmatch(r'\s*([a-z0-9][a-z0-9._:-]{1,150})\s{2,}(.{1,180})\s*', line)
-        if match:
-            options.append({'id': match[1], 'name': match[2].strip()})
+    options = parse_catalog(result.stdout)
+    if not options and isinstance(result.stderr, str):
+        options = parse_catalog(result.stderr)
     if not options:
         raise native.NativeError('The installed CLI returned an unsupported model catalog format.')
     _catalog = time.monotonic(), options

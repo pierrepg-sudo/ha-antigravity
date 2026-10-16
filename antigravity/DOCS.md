@@ -622,6 +622,9 @@ this helper does not write it to disk or log it. The CLI may retain submitted pr
 ## Conversation and project management (0.10.1)
 
 **Open Web UI** now opens Conversations; **Terminal** still opens the console.
+Conversations, Files and Terminal link directly to one another. Their controls,
+along with the connection pages, share the same primary/secondary button theme
+from `ui.css`. Destructive actions retain a distinct red style.
 Projects remain collapsed by default. Create a project with **New project**, or
 expand one to rename, archive, restore or delete it. Conversations have their own
 rename/archive/restore/delete controls. Archiving a project groups its conversations
@@ -677,8 +680,11 @@ single native transaction; if the API fails, the folder binding remains accurate
 and the UI reports failure. Refresh before retrying.
 
 Terminal has a **Saved model for this conversation** dropdown. Its options come
-from the signed-in CLI's `agy models` catalog, not a hard-coded list. Choosing one
-requires confirmation, checks that the same conversation is still active and idle,
+from the signed-in CLI's `agy models` catalog, not a hard-coded list.
+The catalog reader accepts name-first and slug-first reports, tab/table formatting
+and output on either stream. Failed or timed-out requests show **Models unavailable**
+with **Refresh models** for retry; `/model` remains available in the terminal.
+Choosing a model requires confirmation, checks that the same conversation is still active and idle,
 then restarts that terminal with `--model=<slug>`. Preferences are stored by
 conversation ID and reapplied on opening and add-on restart. Clear the override to
 use the CLI default. This selector manages its own explicit preferences.

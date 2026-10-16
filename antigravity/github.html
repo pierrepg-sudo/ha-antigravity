@@ -2,8 +2,8 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GitHub connection</title><style>
 body{font:17px system-ui;background:#181a20;color:#eee;max-width:700px;margin:24px auto;padding:18px;line-height:1.5}a{color:#9bc9ff}input[type=password]{box-sizing:border-box;width:100%;padding:14px;background:#242833;color:white;border:1px solid #8794aa;border-radius:8px;font:inherit}button{font:inherit;padding:12px;margin:10px 8px 0 0;border-radius:8px;background:#303b50;color:white;border:1px solid #8794aa}button:disabled{opacity:.5}label{display:block;margin:18px 0}#status{padding:14px;background:#242833;border-radius:8px;overflow-wrap:anywhere}small{display:block;color:#ccd2db}
-</style></head><body>
-<a href="controls">← Terminal</a><h1>Connect GitHub</h1>
+</style><link rel="stylesheet" href="ui.css"></head><body>
+<div class="app-links"><a href="conversations">Conversations</a><a href="files">Files</a><a href="controls">Terminal</a></div><h1>Connect GitHub</h1>
 <p>Connect the official GitHub MCP server to the CLI. This connection will appear as <b>ha-github</b> in MCP tools, not in the plugin marketplace.</p>
 <ol><li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create a fine-grained personal access token in GitHub</a>.</li>
 <li>Choose the repository owner, a suitable expiry, and <b>Only select repositories</b>. Select the projects this CLI may publish to.</li>

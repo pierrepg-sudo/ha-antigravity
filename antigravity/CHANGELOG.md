@@ -1,3 +1,10 @@
+## 0.10.2
+
+- Accept model reports with name-first columns, tab separators, table borders and ANSI formatting, including catalog output on stderr.
+- Replace the stuck model Loading label with a clear unavailable/retry state; time out stalled browser requests.
+- Use shared primary/secondary/destructive button styling across app pages, based on the Conversations controls.
+- Add both Conversations and Terminal navigation to Files, and Files and Terminal navigation to Conversations.
+
 ## 0.10.1
 
 - Ask whether to keep or permanently delete the generated folder when deleting a project; default to keeping files and revalidate the selection before deletion.
