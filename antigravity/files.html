@@ -109,6 +109,11 @@ async function browse(path){
    extra.append(button('Copy',async()=>{selectItem('copy',path,e.name);more.open=false;}));
    if(e.project&&!['default-cli-project','outside-of-project'].includes(e.project.id))extra.append(button(e.project.archived?'Restore project':'Archive project',()=>archiveProject(e)));
    if(!readOnly)extra.append(button('Rename',()=>renameItem(e)));
+   if(!readOnly&&e.kind==='file'&&e.name.toLowerCase().endsWith('.zip'))extra.append(button('Extract ZIP',async()=>{
+    status.textContent='Extracting '+e.name+'…';more.open=false;
+    const result=await request('file-action',{action:'extract',path:current,name:e.name});
+    await browse(current);status.textContent='Extracted to '+result.name+'. The original ZIP was kept.';
+   }));
    if(!readOnly&&!e.project)extra.append(button('Move',async()=>{selectItem('move',path,e.name);more.open=false;}));
    extra.append(button('File path',async()=>{$('#pathText').value=root+'/'+path;$('#copy').textContent='Copy path';$('#pathDialog').showModal();more.open=false;}));more.append(summary,extra);actions.append(more);row.append(actions);
   }

@@ -1,3 +1,8 @@
+## 0.10.10
+
+- Add Files → More → Extract ZIP, creating a new folder named after the archive while retaining the original ZIP.
+- Preserve hidden files and empty folders; reject unsafe paths, links, damaged archives and expanded contents above 500 MiB without leaving partial output or overwriting existing folders.
+
 ## 0.10.9
 
 - Accept chunked file uploads forwarded by streaming ingress, fixing the Invalid request error after enabling large uploads.

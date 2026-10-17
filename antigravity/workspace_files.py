@@ -266,6 +266,80 @@ def folder_zip(path):
         raise
 
 
+def extract_zip(payload):
+    """Extract privately, validating every member, then publish without overwrite."""
+    import shutil
+    import zipfile
+    import zlib
+    name = payload.get('name')
+    if not isinstance(name, str) or len(parts(name)) != 1 or not name.lower().endswith('.zip'):
+        raise FileOperationError('Choose a ZIP file to extract.')
+    label = name[:-4]
+    if not label or len(parts(label)) != 1 or len(label.encode()) > 240:
+        raise FileOperationError('Rename the ZIP to a valid folder name first.')
+    with directory(payload.get('path', '')) as parent:
+        with open_regular(parent, name) as source:
+            before = os.fstat(source.fileno())
+            if before.st_size > DOWNLOAD_LIMIT:
+                raise FileOperationError('ZIP extraction limit is 500 MiB.')
+            temp = '.extract-' + secrets.token_hex(16)
+            os.mkdir(temp, 0o700, dir_fd=parent)
+            stage = os.open(temp, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+            try:
+                budget = Budget()
+                directories = set()
+                members = set()
+                with zipfile.ZipFile(source) as archive:
+                    if len(archive.infolist()) > ENTRY_LIMIT:
+                        raise FileOperationError('ZIP has too many entries (maximum 10,000).')
+                    for member in archive.infolist():
+                        raw = member.orig_filename
+                        path = raw[:-1] if member.is_dir() else raw
+                        names = parts(path)
+                        if not names or ':' in names[0] or path in members:
+                            raise FileOperationError('ZIP contains an invalid or duplicate path.')
+                        members.add(path)
+                        mode = member.external_attr >> 16
+                        kind = stat.S_IFMT(mode)
+                        if member.flag_bits & 1 or kind not in (0, stat.S_IFREG, stat.S_IFDIR):
+                            raise FileOperationError('Encrypted ZIP entries, links and special files cannot be extracted.')
+                        if kind == stat.S_IFDIR and not member.is_dir():
+                            raise FileOperationError('ZIP contains an invalid folder entry.')
+                        for depth in range(1, len(names) + (1 if member.is_dir() else 0)):
+                            folder = '/'.join(names[:depth])
+                            if folder not in directories:
+                                budget.entry(depth)
+                                os.mkdir(folder, 0o2750 if INPUT_MODE.get() else 0o2770, dir_fd=stage)
+                                directories.add(folder)
+                        if member.is_dir():
+                            continue
+                        budget.entry(len(names))
+                        if member.file_size > TREE_LIMIT - budget.bytes:
+                            raise FileOperationError('ZIP expanded contents exceed 500 MiB.')
+                        out = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                                      (0o640 if INPUT_MODE.get() else 0o660) | (mode & 0o110), dir_fd=stage)
+                        with os.fdopen(out, 'wb') as target, archive.open(member) as stream:
+                            while True:
+                                data = stream.read(64 * 1024)
+                                if not data:
+                                    break
+                                budget.consume(len(data))
+                                target.write(data)
+                if snapshot(before) != snapshot(os.fstat(source.fileno())):
+                    raise FileOperationError('The ZIP changed during extraction. Try again when it is idle.')
+                os.fchmod(stage, 0o2750 if INPUT_MODE.get() else 0o2770)
+                rename_new(parent, temp, parent, label)
+            except (zipfile.BadZipFile, NotImplementedError, RuntimeError, EOFError, zlib.error) as error:
+                raise FileOperationError('ZIP is damaged, encrypted or uses unsupported compression.') from error
+            finally:
+                os.close(stage)
+                try:
+                    shutil.rmtree(temp, dir_fd=parent)
+                except FileNotFoundError:
+                    pass
+    return {'ok': True, 'name': label}
+
+
 def rename_new(source_fd, source, target_fd, target):
     """Linux atomic rename with RENAME_NOREPLACE: never race an existence check."""
     import ctypes

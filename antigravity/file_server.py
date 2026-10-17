@@ -315,6 +315,14 @@ class Handler(BaseHTTPRequestHandler):
                     result = workspace_files.transfer(payload, AREAS[source_area])
                 finally:
                     TRANSFER_LOCK.release()
+            elif payload.get('action') == 'extract':
+                if not TRANSFER_LOCK.acquire(blocking=False):
+                    raise workspace_files.FileOperationError('Another folder operation is running. Try again shortly.')
+                try:
+                    self.connection.settimeout(300)
+                    result = workspace_files.extract_zip(payload)
+                finally:
+                    TRANSFER_LOCK.release()
             elif payload.get('action') in ('delete', 'rename'):
                 if not TRANSFER_LOCK.acquire(blocking=False):
                     raise workspace_files.FileOperationError('Another folder operation is running. Try again shortly.')

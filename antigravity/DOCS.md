@@ -938,3 +938,7 @@ Proxy errors include the HTTP status when no JSON error is available.
 Files, Conversations and Terminal share panel borders, spacing, typography,
 button roles, dialog styling and More disclosures. Navigation remains at the
 upper right; Files toolbar controls use two columns on small screens.
+
+### Extract a ZIP in Files
+
+Choose **More → Extract ZIP** on a ZIP file in a writable location. `example.zip` creates `example/` beside it, with all archive contents, including hidden files and empty directories. The original ZIP is retained. Existing destinations are never overwritten; rename the ZIP first if its folder name already exists. Extraction permits up to 500 MiB of expanded contents, 10,000 entries (including parent folders), and 64 levels. Unsafe paths, symbolic links, special files and encrypted or damaged archives are rejected. Failed extraction removes its temporary output.
