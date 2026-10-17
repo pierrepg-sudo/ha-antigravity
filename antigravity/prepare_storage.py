@@ -16,12 +16,25 @@ def managed_directory(path, uid, gid, mode):
     path.chmod(mode)
 
 
+def remote_project_directory(base):
+    """The native GetDefaultProjectDir API chooses ~/Documents if present."""
+    documents = base / 'home/Documents'
+    outputs = base / 'workspace/outputs'
+    if not os.path.lexists(documents):
+        documents.symlink_to(outputs, target_is_directory=True)
+    elif not documents.is_symlink() or os.readlink(documents) != str(outputs):
+        # Do not replace or relocate existing user documents during startup.
+        print('Remote project default unchanged: home/Documents already exists. '
+              'Choose /data/workspace/outputs explicitly in the remote project dialog.', flush=True)
+
+
 def prepare(base=Path('/data'), runtime=Path('/run/antigravity')):
     # Startup runs before any non-root services. Refuse unexpected path types.
     managed_directory(base, 0, 0, 0o755)
     managed_directory(base / 'home', 1000, 1000, 0o700)
     managed_directory(base / 'workspace', 0, 0, 0o755)
     managed_directory(base / 'workspace/outputs', 1000, 1000, 0o2770)
+    remote_project_directory(base)
     managed_directory(base / 'worker-state', 1002, 1002, 0o700)
     managed_directory(base / 'inputs', 1001, 1000, 0o2750)
     # Inputs must remain owned by the file service, including after restores.

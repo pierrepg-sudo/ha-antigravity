@@ -109,3 +109,22 @@ class ManagementTests(unittest.TestCase):
             self.assertIn('Project One',worker_mcp.dispatch({'method':'initialize'})['instructions'])
         with patch.dict(os.environ,{'HA_PROJECT_OUTPUT':'/data/workspace/outputs/../private'}):
             with self.assertRaises(ValueError):worker_mcp.project_output()
+
+    def test_remote_output_project_is_registered_without_moving_files(self):
+        folder=self.root/'Remote project';folder.mkdir();(folder/'keep').write_text('data')
+        record={'id':'remote','name':'Remote project','projectResources':{'resources':[{'folderUri':folder.as_uri()}]}}
+        with patch.object(manager.saved,'project_records',return_value={'remote':record}):
+            self.assertEqual(manager.projects(None)[0]['folder'],'Remote project')
+            self.assertEqual(manager.read_state()['folders']['remote'],'Remote project')
+            with patch.object(manager,'project',return_value=record):
+                self.assertEqual(manager.ensure_folder({},'remote'),str(folder))
+        self.assertEqual((folder/'keep').read_text(),'data')
+
+    def test_remote_folder_ambiguous_external_and_symlink_not_adopted(self):
+        folder=self.root/'Remote';folder.mkdir()
+        def record(path):return {'name':'Remote','projectResources':{'resources':[{'folderUri':path.as_uri()}]}}
+        self.assertEqual(manager.sync_project_folders({'a':record(folder),'b':record(folder)}),{})
+        (self.root/'link').symlink_to(folder)
+        self.assertEqual(manager.sync_project_folders({'a':record(self.root/'link')}),{})
+        self.assertEqual(manager.sync_project_folders({'a':record(self.root.parent)}),{})
+        self.assertEqual(manager.sync_project_folders({'a':{'name':'Remote'}}),{})

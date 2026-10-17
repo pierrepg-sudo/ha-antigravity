@@ -1,3 +1,9 @@
+## 0.10.12
+
+- Recognize native remote projects linked to real immediate Output folders, enabling the same Files project protections and management controls.
+- Provide a Documents compatibility link to Outputs for the CLI’s hard-coded remote project directory default. Existing Documents content is preserved with a startup notice.
+- Update native project folder resources when a linked project is renamed.
+
 ## 0.10.11
 
 - Extract ZIP contents directly into the current folder without adding a folder named after the ZIP. Preserve folders inside the archive and reject existing destination names before publishing contents.

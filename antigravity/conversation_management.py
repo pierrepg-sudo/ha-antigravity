@@ -9,6 +9,7 @@ import uuid
 import fcntl
 import threading
 import stat
+from urllib.parse import urlsplit, unquote
 from contextlib import contextmanager
 import native_connection as native
 import saved_conversations as saved
@@ -85,11 +86,62 @@ def project(connection, pid):
     return result
 
 
+def resource_folder(p):
+    """Recognize only a single, real immediate output folder in native metadata."""
+    resources = p.get('projectResources', {}).get('resources', [])
+    if len(resources) != 1 or set(resources[0]) != {'folderUri'}:
+        return None
+    uri = urlsplit(resources[0]['folderUri'])
+    if uri.scheme != 'file' or uri.netloc not in ('', 'localhost') or uri.query or uri.fragment:
+        return None
+    path = Path(unquote(uri.path))
+    alias = OUTPUTS.parent.parent / 'home/Documents'
+    if path.parent == alias and alias.is_symlink() and os.readlink(alias) == str(OUTPUTS):
+        path = OUTPUTS / path.name
+    if path.parent != OUTPUTS:
+        return None
+    valid_name(path.name)
+    info = path.lstat()
+    if not stat.S_ISDIR(info.st_mode):
+        return None
+    return path.name
+
+
+def sync_project_folders(records):
+    candidates = {}
+    for pid, p in records.items():
+        if pid in ('default-cli-project', 'outside-of-project'):
+            continue
+        try:
+            folder = resource_folder(p)
+        except (OSError, ValueError, TypeError, AttributeError, native.NativeError):
+            continue
+        if folder:
+            candidates.setdefault(folder, set()).add(pid)
+    if not candidates:
+        return read_state().get('folders', {})
+    with preference_lock():
+        state = read_state()
+        bindings = state.setdefault('folders', {})
+        changed = False
+        for folder, ids in candidates.items():
+            if len(ids) != 1:
+                continue
+            pid = next(iter(ids))
+            if pid not in bindings and folder not in bindings.values():
+                bindings[pid] = folder
+                changed = True
+        if changed:
+            write_state(state)
+        return bindings
+
+
 def projects(connection):
     # The CLI's local files, not a cloud-wide project inventory.
     result = []
-    bindings = read_state().get('folders', {})
-    for pid, p in saved.project_records().items():
+    records = saved.project_records()
+    bindings = sync_project_folders(records)
+    for pid, p in records.items():
         if pid == 'outside-of-project':
             continue
         result.append({'id': pid, 'name': p.get('name', pid), 'archived': p.get('archived', False),
@@ -101,6 +153,7 @@ def ensure_folder(connection, pid):
     if not pid or pid == 'outside-of-project':
         return str(OUTPUTS)
     p = project(connection, pid)
+    sync_project_folders(saved.project_records())
     state = read_state()
     bindings = state.setdefault('folders', {})
     name = valid_name(bindings.get(pid) or p['name'])
@@ -229,9 +282,13 @@ def action(payload):
                     if any(p['id'] != obj['id'] and p['name'].casefold() == payload['name'].casefold() for p in projects(connection)):
                         raise native.NativeError('Another project already uses that name.')
                     if old and old != payload['name']:
+                        # Native remote projects keep their folder in projectResources.
+                        linked = resource_folder(obj) == old
                         with files.directory('') as root:
                             files.rename_new(root, old, root, payload['name'])
                         renamed = True
+                        if linked:
+                            obj['projectResources']['resources'][0]['folderUri'] = (OUTPUTS / payload['name']).as_uri()
                     obj['name'] = payload['name']
                 else:
                     obj['archived'] = operation == 'archive'
