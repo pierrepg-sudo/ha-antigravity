@@ -556,14 +556,15 @@ their targets are never followed. Stop active writers before deleting their fold
 A permissions error or active writer may cause a partial deletion; the UI reports
 this honestly and asks you to refresh before retrying.
 
-**Download** (or **ZIP** for folders) starts a standard browser download.
+**Download** starts a standard browser download. **ZIP** first prepares the folder
+and then shows a **Download ZIP** link with its compressed size.
 Downloads stream in bounded chunks rather than holding the entire file in the
 file service or the page's JavaScript memory. ZIPs are prepared in a temporary
 spooled file before transfer; allow time and free disk space for large folders.
 Some in-app browsers preview files or open another tab. Open Home Assistant in
-Safari if the app does not handle a download correctly. Server-side preparation
-errors may appear in the download tab; the Files page reports only that a download
-was requested, not that it completed. No share-sheet or extra save dialog is used.
+Safari if the app does not handle a download correctly. ZIP preparation errors
+appear in Files without starting a download. The page cannot confirm that the
+browser finished saving the file. No share-sheet or extra save dialog is used.
 
 
 ## Scrolling terminal output (0.1.9)
@@ -796,7 +797,10 @@ schema may change between upstream releases.
 
 In **Files**, choose **Download ZIP** beside a folder, or **Download folder ZIP**
 to download the folder currently open. All nested files and folders, including hidden files, hidden folders and empty
-folders, are included. The archive downloads after preparation. ZIP generation is limited to
+folders, are included. When preparation succeeds, Files shows the compressed size and a **Download ZIP**
+link. Tap that link within five minutes; it works once. Preparation failures appear
+on the page and do not start a download. At most three prepared archives are held;
+unused archives are removed automatically after five minutes. ZIP generation is limited to
 500 MiB of uncompressed file contents, 10,000 entries and 64 levels. A link, special
 file, unreadable item or detected source change aborts the archive with an error;
 contents are never silently skipped. This is not a snapshot of actively edited data.

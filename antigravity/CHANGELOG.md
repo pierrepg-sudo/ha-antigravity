@@ -1,3 +1,9 @@
+## 0.10.5
+
+- Prepare folder ZIPs before showing a download link, so archive errors appear in Files instead of being saved as tiny invalid ZIP files.
+- Stream the completed archive from a bounded, temporary cache with five-minute single-use links and automatic cleanup.
+- Add a compatible filename header and verify ZIP integrity through the download endpoint and disk-spooled archives.
+
 ## 0.10.4
 
 - Add folder selection to Files uploads, preserving relative paths and browser-supplied hidden files.

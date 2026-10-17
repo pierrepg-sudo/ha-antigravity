@@ -132,6 +132,25 @@ class FolderTests(unittest.TestCase):
                         self.assertIn('project/empty/',z.namelist())
                         self.assertIn('project/.config/.empty/',z.namelist())
                         self.assertEqual(z.read('project/.config/nested/.settings'),b'settings')
+                # Prepare before offering a link, then stream the exact completed archive.
+                with urlopen(Request(base+'/folder-download?area=outputs&path=project&prepare=1',headers=headers)) as r:
+                    ready=json.load(r)
+                with urlopen(Request(base+'/folder-download?area=outputs&path=project&ticket='+ready['ticket'],headers=headers)) as r:
+                    data=r.read()
+                    self.assertEqual(len(data),ready['size'])
+                    self.assertEqual(r.headers['Content-Type'],'application/zip')
+                    self.assertIn('filename="project.zip"',r.headers['Content-Disposition'])
+                    with zipfile.ZipFile(io.BytesIO(data)) as z:
+                        self.assertIsNone(z.testzip())
+                        self.assertEqual(z.read('project/.config/nested/.settings'),b'settings')
+                with self.assertRaises(HTTPError):
+                    urlopen(Request(base+'/folder-download?area=outputs&path=project&ticket='+ready['ticket'],headers=headers))
+                (self.root/'project/link').symlink_to(self.root/'project/sub/code.txt')
+                with self.assertRaises(HTTPError) as failure:
+                    urlopen(Request(base+'/folder-download?area=outputs&path=project&prepare=1',headers=headers))
+                self.assertIn('error',json.load(failure.exception))
+                self.assertEqual(file_server.PREPARED_ZIPS,{})
+                (self.root/'project/link').unlink()
                 payload={'action':'copy','sourceArea':'legacy','source':'old.txt','path':'','name':'new.txt'}
                 with urlopen(Request(base+'/file-action?area=outputs',data=json.dumps(payload).encode(),headers=headers)) as r:
                     self.assertTrue(json.load(r)['ok'])
@@ -185,3 +204,21 @@ class FolderTests(unittest.TestCase):
             remove.avoids_symlink_attacks=True
             with self.assertRaisesRegex(files.FileOperationError,'Some contents may have been removed'):
                 files.change({'action':'delete','name':'project','kind':'folder','confirm':True})
+
+    def test_prepared_zip_expiry_scope_and_spooled_archive(self):
+        (self.root/'project/large').write_bytes(os.urandom(9*1024*1024))
+        ready=file_server.prepare_zip('project','outputs')
+        item=file_server.PREPARED_ZIPS[ready['ticket']]
+        archive=item['archive']
+        try:
+            self.assertGreater(ready['size'],8*1024*1024)
+            with self.assertRaises(files.FileOperationError):
+                file_server.take_zip(ready['ticket'],'project','inputs')
+            with zipfile.ZipFile(archive) as z:
+                self.assertIsNone(z.testzip())
+                self.assertEqual(z.read('project/large'),(self.root/'project/large').read_bytes())
+        finally:
+            file_server.expire_zip(ready['ticket'])
+        self.assertTrue(archive.closed)
+        with self.assertRaises(files.FileOperationError):
+            file_server.take_zip(ready['ticket'],'project','outputs')

@@ -62,10 +62,19 @@ async function archiveProject(entry){
 async function downloadItem(path,name,folder){
  // A native download avoids retaining a 500 MiB Blob in the mobile page.
  const link=document.createElement('a');
+ if(folder){
+  status.textContent='Preparing ZIP…';
+  const prepared=await request('folder-download?path='+encodeURIComponent(path)+'&prepare=1');
+  if(!prepared.ticket||!prepared.name||!Number.isSafeInteger(prepared.size)||prepared.size<22)throw new Error('The server did not return a prepared ZIP. Try again.');
+  link.href=scoped('folder-download?path='+encodeURIComponent(path)+'&ticket='+encodeURIComponent(prepared.ticket));
+  link.download=prepared.name;link.textContent='Download ZIP';link.className='button';
+  status.textContent='ZIP ready ('+size(prepared.size)+'). Link is valid for five minutes. ';
+  status.append(link);return;
+ }
  link.href=scoped((folder?'folder-download':'file-download')+'?path='+encodeURIComponent(path));
  link.download=name;link.target='_blank';link.rel='noopener';
  document.body.append(link);link.click();link.remove();
- status.textContent='Download requested. ZIP preparation may take a moment. If the app does not handle downloads, open Files in Safari.';
+ status.textContent='Download requested. If the app does not handle downloads, open Files in Safari.';
 }
 const icons={folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v9H3Z"/></svg>',file:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 3h8l4 4v14H6Z M14 3v5h4 M9 12h6 M9 16h6"/></svg>'};
 function size(bytes){return bytes<1024?bytes+' B':bytes<1048576?(bytes/1024).toFixed(1)+' KB':(bytes/1048576).toFixed(1)+' MB';}

@@ -12,6 +12,52 @@ import workspace_files
 CSRF = secrets.token_hex(32)
 PROXY_KEY = None
 TRANSFER_LOCK = threading.Lock()
+PREPARED_LOCK = threading.Lock()
+PREPARED_ZIPS = {}
+ZIP_TTL = 300
+
+
+def expire_zip(ticket):
+    with PREPARED_LOCK:
+        item = PREPARED_ZIPS.pop(ticket, None)
+    if item:
+        item['archive'].close()
+
+
+def prepare_zip(path, area):
+    # Reserve a bounded slot before generating; archives spill to disk at 8 MiB.
+    ticket = secrets.token_hex(24)
+    with PREPARED_LOCK:
+        if len(PREPARED_ZIPS) >= 3:
+            raise workspace_files.FileOperationError('Three ZIP downloads are waiting. Download one or wait five minutes, then retry.')
+        PREPARED_ZIPS[ticket] = None
+    archive = None
+    try:
+        archive, name = workspace_files.folder_zip(path)
+        archive.seek(0, 2)
+        length = archive.tell()
+        archive.seek(0)
+        with PREPARED_LOCK:
+            PREPARED_ZIPS[ticket] = dict(archive=archive, name=name, length=length, area=area, path=path)
+        timer = threading.Timer(ZIP_TTL, expire_zip, args=(ticket,))
+        timer.daemon = True
+        timer.start()
+        return dict(ticket=ticket, name=name, size=length)
+    except BaseException:
+        with PREPARED_LOCK:
+            PREPARED_ZIPS.pop(ticket, None)
+        if archive:
+            archive.close()
+        raise
+
+
+def take_zip(ticket, path, area):
+    with PREPARED_LOCK:
+        item = PREPARED_ZIPS.get(ticket)
+        if not item or item['path'] != path or item['area'] != area:
+            raise workspace_files.FileOperationError('This ZIP link expired or was already used. Prepare the folder download again.')
+        return PREPARED_ZIPS.pop(ticket)
+
 AREAS = {'inputs': '/data/inputs', 'outputs': '/data/workspace/outputs', 'archived': '/data/workspace/outputs', 'legacy': '/data/workspace'}
 
 
@@ -69,7 +115,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Referrer-Policy', 'no-referrer')
-        self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(name, safe=''))
+        self.send_header('Content-Disposition', 'attachment; filename="' + re.sub(r'[^A-Za-z0-9._-]', '_', name) + '"; filename*=UTF-8\'\'' + quote(name, safe=''))
         self.send_header('Content-Length', str(length))
         self.end_headers()
         # Never read a growing file beyond the advertised size or buffer it in RAM.
@@ -109,6 +155,11 @@ class Handler(BaseHTTPRequestHandler):
             area = select_area(query)
             token = workspace_files.ACTIVE_ROOT.set(AREAS[area])
             path = query.get('path', [''])[0]
+            if route == '/folder-download' and 'ticket' in query:
+                item = take_zip(query['ticket'][0], path, area)
+                with item['archive'] as archive:
+                    self.stream_download(archive, item['name'], item['length'], 'application/zip')
+                return
             projects = project_folders() if area in ('outputs', 'archived') and (not path or area == 'archived') else {}
             if area == 'archived' and path:
                 names = workspace_files.parts(path)
@@ -120,6 +171,10 @@ class Handler(BaseHTTPRequestHandler):
                 if not TRANSFER_LOCK.acquire(blocking=False):
                     raise workspace_files.FileOperationError('Another folder operation is running. Try again shortly.')
                 try:
+                    if query.get('prepare') == ['1']:
+                        result = prepare_zip(path, area)
+                        self.respond(200, json.dumps(result).encode())
+                        return
                     archive, name = workspace_files.folder_zip(path)
                 finally:
                     TRANSFER_LOCK.release()
