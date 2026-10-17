@@ -274,9 +274,6 @@ def extract_zip(payload):
     name = payload.get('name')
     if not isinstance(name, str) or len(parts(name)) != 1 or not name.lower().endswith('.zip'):
         raise FileOperationError('Choose a ZIP file to extract.')
-    label = name[:-4]
-    if not label or len(parts(label)) != 1 or len(label.encode()) > 240:
-        raise FileOperationError('Rename the ZIP to a valid folder name first.')
     with directory(payload.get('path', '')) as parent:
         with open_regular(parent, name) as source:
             before = os.fstat(source.fileno())
@@ -327,8 +324,23 @@ def extract_zip(payload):
                                 target.write(data)
                 if snapshot(before) != snapshot(os.fstat(source.fileno())):
                     raise FileOperationError('The ZIP changed during extraction. Try again when it is idle.')
-                os.fchmod(stage, 0o2750 if INPUT_MODE.get() else 0o2770)
-                rename_new(parent, temp, parent, label)
+                # Validate every top-level destination before publishing anything.
+                # Preserve archive folders, but do not add an archive-name wrapper.
+                entries = sorted(os.listdir(stage))
+                for entry in entries:
+                    try:
+                        os.stat(entry, dir_fd=parent, follow_symlinks=False)
+                    except FileNotFoundError:
+                        continue
+                    raise FileOperationError('An extracted file or folder already exists. Move the ZIP to an empty folder before extracting.')
+                published = 0
+                try:
+                    for entry in entries:
+                        rename_new(stage, entry, parent, entry)
+                        published += 1
+                except OSError as error:
+                    raise FileOperationError('Extraction could not finish. Existing items were not overwritten. '
+                                             + ('Some contents were extracted; check this folder before retrying.' if published else 'Check this folder before retrying.')) from error
             except (zipfile.BadZipFile, NotImplementedError, RuntimeError, EOFError, zlib.error) as error:
                 raise FileOperationError('ZIP is damaged, encrypted or uses unsupported compression.') from error
             finally:
@@ -337,7 +349,7 @@ def extract_zip(payload):
                     shutil.rmtree(temp, dir_fd=parent)
                 except FileNotFoundError:
                     pass
-    return {'ok': True, 'name': label}
+    return {'ok': True}
 
 
 def rename_new(source_fd, source, target_fd, target):

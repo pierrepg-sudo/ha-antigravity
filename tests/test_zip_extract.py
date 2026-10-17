@@ -29,11 +29,12 @@ class ExtractTests(unittest.TestCase):
         self.archive([('.deps/package/file', b'content'), ('.env', b'hidden'), ('empty/', b'')])
         original = (self.root / 'project.zip').read_bytes()
         self.extract()
-        self.assertEqual((self.root / 'project/.deps/package/file').read_bytes(), b'content')
-        self.assertEqual((self.root / 'project/.env').read_bytes(), b'hidden')
-        self.assertTrue((self.root / 'project/empty').is_dir())
+        self.assertFalse((self.root / 'project').exists())
+        self.assertEqual((self.root / '.deps/package/file').read_bytes(), b'content')
+        self.assertEqual((self.root / '.env').read_bytes(), b'hidden')
+        self.assertTrue((self.root / 'empty').is_dir())
         self.assertEqual((self.root / 'project.zip').read_bytes(), original)
-        with self.assertRaises(FileExistsError):
+        with self.assertRaises(files.FileOperationError):
             self.extract()
         self.assertFalse(list(self.root.glob('.extract-*')))
 
@@ -56,11 +57,27 @@ class ExtractTests(unittest.TestCase):
         for setting, limit in [('TREE_LIMIT', 3), ('ENTRY_LIMIT', 1), ('DEPTH_LIMIT', 1)]:
             with patch.object(files, setting, limit), self.assertRaises(files.FileOperationError):
                 self.extract()
-            self.assertFalse((self.root / 'project').exists())
+            self.assertEqual(sorted(p.name for p in self.root.iterdir()), ['project.zip'])
             self.assertFalse(list(self.root.glob('.extract-*')))
         self.archive([('file', b'1234')])
         data = (self.root / 'project.zip').read_bytes().replace(b'1234', b'1235')
         (self.root / 'project.zip').write_bytes(data)
         with self.assertRaises(files.FileOperationError):
             self.extract()
+        self.assertFalse((self.root / 'project').exists())
+
+    def test_conflict_preflight_does_not_publish_other_entries(self):
+        self.archive([('a-new', b'new'), ('z-existing/file', b'new')])
+        (self.root / 'z-existing').mkdir()
+        (self.root / 'z-existing/keep').write_bytes(b'keep')
+        with self.assertRaises(files.FileOperationError):
+            self.extract()
+        self.assertFalse((self.root / 'a-new').exists())
+        self.assertEqual((self.root / 'z-existing/keep').read_bytes(), b'keep')
+        self.assertFalse(list(self.root.glob('.extract-*')))
+
+    def test_archive_top_folder_is_preserved(self):
+        self.archive([('original/file', b'content')])
+        self.extract()
+        self.assertEqual((self.root / 'original/file').read_bytes(), b'content')
         self.assertFalse((self.root / 'project').exists())

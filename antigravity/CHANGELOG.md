@@ -1,3 +1,7 @@
+## 0.10.11
+
+- Extract ZIP contents directly into the current folder without adding a folder named after the ZIP. Preserve folders inside the archive and reject existing destination names before publishing contents.
+
 ## 0.10.10
 
 - Add Files → More → Extract ZIP, creating a new folder named after the archive while retaining the original ZIP.
