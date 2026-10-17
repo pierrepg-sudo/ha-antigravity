@@ -1,3 +1,7 @@
+## 0.10.8
+
+- Enable Home Assistant ingress request streaming so large uploads can reach the app's 500 MiB upload endpoint without Supervisor's default buffered request limit returning HTTP 413.
+
 ## 0.10.7
 
 - Show upload progress with transferred bytes, percentage and speed for files and folder selections.

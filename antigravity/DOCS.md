@@ -536,6 +536,10 @@ text, download files, and copy a path for an Antigravity prompt. Use Terminal
 to return. File uploads live on this separate screen, not in the terminal toolbar.
 
 Uploads are limited to 500 MiB each, downloads to 500 MiB, previews to 256 KiB.
+Home Assistant ingress request streaming is enabled so Supervisor forwards large
+uploads to the app without its default buffered request size limit. If an older
+installation returns HTTP 413 for a file below 500 MiB, update to 0.10.8 or later
+and reopen the Web UI. Additional external proxies may impose their own limits.
 Duplicate filenames are rejected; existing content is never overwritten.
 Files are not executed or submitted to Google just by uploading. Text editing is not provided. Existing workspace
 files are preserved. Symbolic links and special files cannot be opened.
