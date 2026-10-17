@@ -17,6 +17,47 @@ PREPARED_ZIPS = {}
 ZIP_TTL = 300
 
 
+class ChunkedUpload:
+    """Decode a bounded HTTP chunk stream forwarded by streaming ingress."""
+    def __init__(self, source):
+        self.source = source
+        self.remaining = 0
+        self.done = False
+
+    def line(self):
+        line = self.source.readline(8193)
+        if len(line) > 8192 or not line.endswith(b'\r\n'):
+            raise ValueError('Invalid chunk framing')
+        return line[:-2]
+
+    def read(self, size):
+        if self.done:
+            return b''
+        if not self.remaining:
+            header = self.line().split(b';', 1)[0]
+            if not re.fullmatch(rb'[0-9a-fA-F]{1,16}', header):
+                raise ValueError('Invalid chunk size')
+            self.remaining = int(header, 16)
+            if not self.remaining:
+                total = 0
+                while True:
+                    trailer = self.line()
+                    total += len(trailer) + 2
+                    if total > 8192:
+                        raise ValueError('Oversized trailers')
+                    if not trailer:
+                        break
+                self.done = True
+                return b''
+        data = self.source.read(min(size, self.remaining))
+        if not data:
+            raise ValueError('Truncated chunk')
+        self.remaining -= len(data)
+        if not self.remaining and self.source.read(2) != b'\r\n':
+            raise ValueError('Invalid chunk terminator')
+        return data
+
+
 def expire_zip(ticket):
     with PREPARED_LOCK:
         item = PREPARED_ZIPS.pop(ticket, None)
@@ -220,10 +261,18 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(403, b'{"error":"Existing files are read-only in this menu. Download a copy and upload it to Inputs or Outputs."}')
                 return
             if route == '/file-upload':
-                if self.headers.get('Content-Type') != 'application/octet-stream' or self.headers.get('Transfer-Encoding'):
+                if self.headers.get('Content-Type') != 'application/octet-stream':
                     raise ValueError('Expected a file with a known length')
-                length = int(self.headers.get('Content-Length', '-1'))
-                if not 0 <= length <= workspace_files.UPLOAD_LIMIT:
+                encoding = self.headers.get('Transfer-Encoding', '').lower().strip()
+                if encoding:
+                    if encoding != 'chunked' or self.headers.get('Content-Length') is not None:
+                        raise ValueError('Ambiguous upload framing')
+                    length = None
+                    source = ChunkedUpload(self.rfile)
+                else:
+                    length = int(self.headers.get('Content-Length', '-1'))
+                    source = self.rfile
+                if length is not None and not 0 <= length <= workspace_files.UPLOAD_LIMIT:
                     raise workspace_files.FileOperationError('Upload limit is 500 MiB per file.')
                 query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
                 path = query.get('path', [''])[0]
@@ -235,7 +284,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not names or not project_folders().get(names[0], {}).get('archived'):
                         raise workspace_files.FileOperationError('Open an archived project folder before uploading.')
                 self.connection.settimeout(300)
-                result = workspace_files.upload_stream(path, name, self.rfile, length)
+                result = workspace_files.upload_stream(path, name, source, length)
                 self.respond(200, json.dumps(result).encode())
                 return
             if self.headers.get('Content-Type') != 'application/json':

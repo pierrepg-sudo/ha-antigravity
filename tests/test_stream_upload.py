@@ -1,4 +1,5 @@
 import io
+import http.client
 import tempfile
 from pathlib import Path
 import threading
@@ -11,6 +12,27 @@ import file_server
 
 
 class StreamUploadTests(unittest.TestCase):
+    def test_chunked_upload_framing_limits_and_cleanup(self):
+        with tempfile.TemporaryDirectory() as root:
+            token = files.ACTIVE_ROOT.set(root)
+            try:
+                for name, body in [('truncated', b'4\r\nab'),
+                                   ('terminator', b'2\r\nabXX0\r\n\r\n'),
+                                   ('missing_end', b'2\r\nab\r\n'),
+                                   ('bad_size', b'xyz\r\n')]:
+                    with self.assertRaises(ValueError):
+                        files.upload_stream('', name, file_server.ChunkedUpload(io.BytesIO(body)), None)
+                    self.assertFalse((Path(root)/name).exists())
+                with patch.object(files, 'UPLOAD_LIMIT', 3):
+                    with self.assertRaises(files.FileOperationError):
+                        files.upload_stream('', 'over', file_server.ChunkedUpload(io.BytesIO(b'4\r\nabcd\r\n0\r\n\r\n')), None)
+                    files.upload_stream('', 'exact', file_server.ChunkedUpload(io.BytesIO(b'3;ext=yes\r\nabc\r\n0\r\n\r\n')), None)
+                self.assertEqual((Path(root)/'exact').read_bytes(), b'abc')
+                self.assertFalse((Path(root)/'over').exists())
+                self.assertFalse(list(Path(root).glob('.upload-*')))
+            finally:
+                files.ACTIVE_ROOT.reset(token)
+
     def test_stream_limits_truncation_collisions_and_cleanup(self):
         with tempfile.TemporaryDirectory() as root:
             token=files.ACTIVE_ROOT.set(root)
@@ -46,6 +68,13 @@ class StreamUploadTests(unittest.TestCase):
                     with urlopen(Request(url,data=data,headers=headers)) as response:self.assertEqual(response.status,200)
                     self.assertEqual((Path(root)/'large').read_bytes(),data)
                     self.assertEqual((Path(root)/'large').stat().st_mode & 0o777,0o640)
+                    connection = http.client.HTTPConnection('127.0.0.1', server.server_port)
+                    connection.request('POST', '/file-upload?area=inputs&name=chunked',
+                                       body=iter([data[:100], data[100:]]), headers=headers, encode_chunked=True)
+                    response = connection.getresponse()
+                    self.assertEqual(response.status, 200, response.read())
+                    connection.close()
+                    self.assertEqual((Path(root)/'chunked').read_bytes(), data)
                     for changed in ({**headers,'X-Antigravity-CSRF':'bad'},{**headers,'X-Antigravity-File-Key':'bad'}):
                         with self.assertRaises(HTTPError) as error:urlopen(Request(url,data=b'x',headers=changed))
                         self.assertEqual(error.exception.code,403)

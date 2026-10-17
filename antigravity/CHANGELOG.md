@@ -1,3 +1,8 @@
+## 0.10.9
+
+- Accept chunked file uploads forwarded by streaming ingress, fixing the Invalid request error after enabling large uploads.
+- Enforce the 500 MiB limit while decoding and reject incomplete or malformed uploads before publishing the destination file.
+
 ## 0.10.8
 
 - Enable Home Assistant ingress request streaming so large uploads can reach the app's 500 MiB upload endpoint without Supervisor's default buffered request limit returning HTTP 413.

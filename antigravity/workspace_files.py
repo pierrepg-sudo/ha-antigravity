@@ -79,20 +79,25 @@ def read_file(path, preview=False):
 def upload_stream(path, name, source, length):
     if not isinstance(name, str) or not name or len(name.encode()) > 240 or len(parts(name)) != 1:
         raise ValueError('Use a single filename.')
-    if not 0 <= length <= UPLOAD_LIMIT:
+    if length is not None and not 0 <= length <= UPLOAD_LIMIT:
         raise FileOperationError('Upload limit is 500 MiB per file.')
     with directory(path) as fd:
         temp = '.upload-' + secrets.token_hex(16)
         handle = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o640 if INPUT_MODE.get() else 0o660, dir_fd=fd)
         try:
             with os.fdopen(handle, 'wb') as target:
-                remaining = length
-                while remaining:
-                    chunk = source.read(min(64 * 1024, remaining))
+                received = 0
+                while length is None or received < length:
+                    chunk = source.read(min(64 * 1024, UPLOAD_LIMIT - received + 1,
+                                            length - received if length is not None else 64 * 1024))
                     if not chunk:
+                        if length is None:
+                            break
                         raise FileOperationError('Upload interrupted. No destination file was created.')
+                    received += len(chunk)
+                    if received > UPLOAD_LIMIT:
+                        raise FileOperationError('Upload limit is 500 MiB per file.')
                     target.write(chunk)
-                    remaining -= len(chunk)
             os.link(temp, name, src_dir_fd=fd, dst_dir_fd=fd, follow_symlinks=False)
         finally:
             os.unlink(temp, dir_fd=fd)
