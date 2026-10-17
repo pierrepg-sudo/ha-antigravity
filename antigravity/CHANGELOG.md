@@ -1,3 +1,9 @@
+## 0.10.4
+
+- Add folder selection to Files uploads, preserving relative paths and browser-supplied hidden files.
+- Validate selections before uploading; show file progress and report retained partial uploads on failure. Existing destination folders are never merged or overwritten.
+- Document browser picker limitations and folder upload limits.
+
 ## 0.10.3
 
 - Keep conversation titles readable when More is expanded: stack actions below details on mobile and bound their width on larger screens.

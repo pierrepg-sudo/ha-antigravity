@@ -878,3 +878,21 @@ This avoids accumulating empty startup conversations during normal restarts;
 existing conversations are not automatically deleted. This reopens context without
 submitting a new prompt. Use /new when you want a fresh conversation.
 See https://antigravity.google/docs/cli/commands/resume for the native cache behavior.
+
+## Upload a folder (0.10.4)
+
+In Files, open the destination, select **Upload**, then choose **Folder** from
+Upload type. Choose the local folder and press **Upload**. Its name becomes a new
+folder in the current location; nested paths and any hidden files supplied by the
+browser are preserved. An existing destination name stops the upload instead of
+merging or overwriting. Inputs retain their existing agent read-only permissions.
+
+The selection is checked before uploading: 8 MiB per file, 500 MiB total,
+10,000 file/folder entries and 64 levels. Files upload one at a time with progress.
+Keep the page open until completion. Interrupted uploads retain their partial
+folder; inspect and rename or remove it before retrying. Nothing is automatically
+deleted after a failed transfer.
+
+Folder selection depends on the browser. Empty directories and files omitted by
+the picker cannot be uploaded. If folder selection is unavailable on your phone,
+use a desktop browser. Uploading a ZIP as a file does not extract it.
