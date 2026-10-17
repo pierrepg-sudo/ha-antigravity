@@ -1,3 +1,7 @@
+## 0.10.13
+
+- Add read-only startup diagnostics for the remote project-directory issue: Documents link status, agent access, and both native directory API responses. This release diagnoses the issue; it does not change the official remote folder picker.
+
 ## 0.10.12
 
 - Recognize native remote projects linked to real immediate Output folders, enabling the same Files project protections and management controls.

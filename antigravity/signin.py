@@ -20,6 +20,39 @@ LOCK = threading.Lock()
 KEYS = {'Tab', 'BTab', 'Up', 'Down', 'Left', 'Right', 'S-Up', 'S-Down', 'Enter', 'Escape', 'BSpace'}
 
 
+def project_directory_diagnostics():
+    """Read-only startup probe from the agent UID; never log connection secrets."""
+    import os
+    import time
+    import native_connection as native
+    documents = Path('/data/home/Documents')
+    try:
+        info = {'documentsExists': documents.exists(), 'documentsIsLink': documents.is_symlink(),
+                'documentsReadable': os.access(documents, os.R_OK | os.X_OK),
+                'outputsWritable': os.access('/data/workspace/outputs', os.W_OK | os.X_OK)}
+        if documents.is_symlink():
+            info['documentsTarget'] = os.readlink(documents)
+        print('Project directory diagnostics v0.10.13: ' + json.dumps(info), flush=True)
+    except OSError:
+        print('Project directory diagnostics: filesystem check unavailable.', flush=True)
+    for _ in range(60):
+        try:
+            connection = native.load()
+            break
+        except (native.NativeError, OSError):
+            time.sleep(1)
+    else:
+        print('Project directory diagnostics: CLI did not connect within 60 seconds.', flush=True)
+        return
+    for method, field in [('GetDefaultProjectDir', 'defaultProjectDirUri'), ('GetLocalUserInfo', 'homeDirUri')]:
+        try:
+            value = native.rpc(connection, method, {}).get(field)
+            # Only the directory field is logged, never the full response or errors.
+            print('Project directory diagnostics: ' + method + ' = ' + json.dumps(value), flush=True)
+        except (native.NativeError, OSError, ValueError, AttributeError):
+            print('Project directory diagnostics: ' + method + ' unavailable.', flush=True)
+
+
 def tmux(*args, **kwargs):
     return subprocess.run(['tmux', *args], check=True, timeout=5,
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kwargs)
@@ -262,4 +295,5 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
+    threading.Thread(target=project_directory_diagnostics, daemon=True).start()
     ThreadingHTTPServer(('127.0.0.1', 7682), Handler).serve_forever()

@@ -22,6 +22,9 @@ def remote_project_directory(base):
     outputs = base / 'workspace/outputs'
     if not os.path.lexists(documents):
         documents.symlink_to(outputs, target_is_directory=True)
+        print('Project directory: created Documents link to Outputs.', flush=True)
+    elif documents.is_symlink() and os.readlink(documents) == str(outputs):
+        print('Project directory: Documents link to Outputs is present.', flush=True)
     elif not documents.is_symlink() or os.readlink(documents) != str(outputs):
         # Do not replace or relocate existing user documents during startup.
         print('Remote project default unchanged: home/Documents already exists. '
