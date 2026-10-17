@@ -32,7 +32,7 @@ def project_directory_diagnostics():
                 'outputsWritable': os.access('/data/workspace/outputs', os.W_OK | os.X_OK)}
         if documents.is_symlink():
             info['documentsTarget'] = os.readlink(documents)
-        print('Project directory diagnostics v0.10.13: ' + json.dumps(info), flush=True)
+        print('Project directory diagnostics v0.10.14: ' + json.dumps(info), flush=True)
     except OSError:
         print('Project directory diagnostics: filesystem check unavailable.', flush=True)
     for _ in range(60):

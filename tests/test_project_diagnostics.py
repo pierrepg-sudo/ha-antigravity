@@ -1,4 +1,5 @@
 import io
+import json
 import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
@@ -24,3 +25,24 @@ class DiagnosticTests(unittest.TestCase):
         self.assertIn('GetDefaultProjectDir unavailable',output.getvalue())
         self.assertIn('file:///data/home',output.getvalue())
         self.assertNotIn('secret',output.getvalue())
+
+    def test_diagnostics_use_real_rpc_wrapper(self):
+        from unittest.mock import MagicMock
+        output = io.StringIO()
+        connection = {'host': '127.0.0.1', 'port': 1234, 'token': 'secret'}
+        client = MagicMock()
+        response = client.getresponse.return_value
+        response.status = 200
+        response.read.side_effect = [json.dumps({'defaultProjectDirUri': 'file:///data/home/Documents'}).encode(),
+                                     json.dumps({'homeDirUri': 'file:///data/home'}).encode()]
+        with patch.object(native, 'load', return_value=connection), patch.object(native, 'validate'), patch.object(native.http.client, 'HTTPConnection', return_value=client), redirect_stdout(output):
+            signin.project_directory_diagnostics()
+        self.assertEqual([call.args[1] for call in client.request.call_args_list],
+                         [native.SERVICE + 'GetDefaultProjectDir', native.SERVICE + 'GetLocalUserInfo'])
+        self.assertIn('file:///data/home/Documents', output.getvalue())
+        self.assertNotIn('unavailable', output.getvalue())
+        self.assertNotIn('secret', output.getvalue())
+
+    def test_unknown_rpc_remains_rejected(self):
+        with self.assertRaises(native.NativeError):
+            native.rpc({}, 'UnknownOperation', {})

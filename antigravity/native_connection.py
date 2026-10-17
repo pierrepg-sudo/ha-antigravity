@@ -51,7 +51,8 @@ def validate(connection):
 
 def rpc(connection, method, payload):
     if method not in {LIST, DELETE, LOAD, START, 'ReadProject', 'CreateProject', 'UpdateProject',
-                      'DeleteProject', 'UpdateConversationAnnotations'}:
+                      'DeleteProject', 'UpdateConversationAnnotations',
+                      'GetDefaultProjectDir', 'GetLocalUserInfo'}:
         raise NativeError('Unsupported native operation.')
     validate(connection)
     client = http.client.HTTPConnection(connection['host'], connection['port'], timeout=8)
