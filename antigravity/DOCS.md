@@ -535,7 +535,7 @@ create folders, upload from iPhone Files (including .c/.cpp), preview UTF-8
 text, download files, and copy a path for an Antigravity prompt. Use Terminal
 to return. File uploads live on this separate screen, not in the terminal toolbar.
 
-Uploads are limited to 8 MiB each, downloads to 500 MiB, previews to 256 KiB.
+Uploads are limited to 500 MiB each, downloads to 500 MiB, previews to 256 KiB.
 Duplicate filenames are rejected; existing content is never overwritten.
 Files are not executed or submitted to Google just by uploading. Text editing is not provided. Existing workspace
 files are preserved. Symbolic links and special files cannot be opened.
@@ -836,7 +836,7 @@ folder. No change grants the agent additional access to Inputs or credentials.
 
 File downloads and file/folder copies support 500 MiB (524,288,000 bytes).
 Folder ZIPs have the same limit on total uncompressed file contents; the existing
-10,000-entry and 64-level limits remain. Uploads remain 8 MiB and text previews
+10,000-entry and 64-level limits remain. Uploads allow 500 MiB and text previews
 256 KiB. Pause active writers when a consistent copy or archive matters.
 The worker's separate resource limits have not changed.
 
@@ -891,7 +891,7 @@ folder in the current location; nested paths and any hidden files supplied by th
 browser are preserved. An existing destination name stops the upload instead of
 merging or overwriting. Inputs retain their existing agent read-only permissions.
 
-The selection is checked before uploading: 8 MiB per file, 500 MiB total,
+The selection is checked before uploading: 500 MiB per file, 500 MiB total,
 10,000 file/folder entries and 64 levels. Files upload one at a time with progress.
 Keep the page open until completion. Interrupted uploads retain their partial
 folder; inspect and rename or remove it before retrying. Nothing is automatically
@@ -900,3 +900,16 @@ deleted after a failed transfer.
 Folder selection depends on the browser. Empty directories and files omitted by
 the picker cannot be uploaded. If folder selection is unavailable on your phone,
 use a desktop browser. Uploading a ZIP as a file does not extract it.
+
+## Shared navigation and large uploads (0.10.6)
+
+Files, Conversations and Terminal keep their navigation links at the upper right;
+on narrow screens the links stack vertically. Files and Conversations use the
+same collapsed **More** disclosure. Project Rename, Archive/Restore and Delete
+are inside the project's **More** menu.
+
+The Files uploader sends the file body directly to the file service, which writes
+in 64 KiB chunks and publishes the destination only after the complete upload.
+The browser does not base64-encode the file. The app proxy accepts up to 500 MiB
+per file and streams the request. An interrupted individual file upload removes
+its temporary file; earlier completed files in a folder upload remain intact.

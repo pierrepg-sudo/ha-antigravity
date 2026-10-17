@@ -1,3 +1,9 @@
+## 0.10.6
+
+- Raise individual uploads to 500 MiB using raw streamed requests, bounded disk writes and atomic no-overwrite publication. Folder selections retain a 500 MiB total limit.
+- Keep workspace navigation at the upper right on mobile and desktop.
+- Use the same collapsed More menus in Files and Conversations; place project Rename, Archive/Restore and Delete inside More.
+
 ## 0.10.5
 
 - Prepare folder ZIPs before showing a download link, so archive errors appear in Files instead of being saved as tiny invalid ZIP files.

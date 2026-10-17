@@ -25,3 +25,16 @@ input,select,textarea{box-sizing:border-box;font:16px/1.4 system-ui!important;ba
 @media(max-width:640px){.conversations #list .row{grid-template-columns:minmax(0,1fr);gap:16px}.conversations #list .row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.conversations #list .row-actions details{grid-column:1/-1}.conversations #list .more-actions{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}}
 a.button{display:inline-flex;justify-content:center;align-items:center;min-height:44px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--accent);color:#182b45;font:600 15px/1.35 system-ui;text-decoration:none}
 @media(max-width:420px){header>.app-links,header>.top-links{width:100%;justify-content:flex-start}.model-controls{grid-template-columns:minmax(0,1fr)}.model-controls button{justify-self:start}}
+
+/* Shared navigation and disclosure menus across the three workspace pages. */
+header.app-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
+header.app-header>.app-links,header.app-header>.top-links{width:auto;justify-content:flex-end;justify-self:end;margin-left:auto}
+.action-more{min-width:0;margin:0;width:100%;color:var(--muted);font-size:13px}
+.action-more>summary{display:list-item;list-style:disclosure-closed inside;min-height:44px;padding:12px 0;cursor:pointer;text-align:left}
+.action-more[open]>summary{list-style-type:disclosure-open}
+.more-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px}
+.more-actions button{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.project-more{margin:0 0 12px}
+.files-page .row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.files-page .row-actions>.action-more{grid-column:1/-1}
+@media(max-width:640px){header.app-header>.app-links,header.app-header>.top-links{flex-direction:column;align-items:stretch}header.app-header h1{font-size:25px}}

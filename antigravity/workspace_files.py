@@ -9,7 +9,7 @@ from contextvars import ContextVar
 ROOT = '/data/workspace/outputs'
 ACTIVE_ROOT = ContextVar('file_root', default=None)
 INPUT_MODE = ContextVar('input_mode', default=False)
-UPLOAD_LIMIT = 8 * 1024 * 1024
+UPLOAD_LIMIT = 500 * 1024 * 1024
 DOWNLOAD_LIMIT = 500 * 1024 * 1024
 
 
@@ -76,6 +76,29 @@ def read_file(path, preview=False):
             return data, names[-1]
 
 
+def upload_stream(path, name, source, length):
+    if not isinstance(name, str) or not name or len(name.encode()) > 240 or len(parts(name)) != 1:
+        raise ValueError('Use a single filename.')
+    if not 0 <= length <= UPLOAD_LIMIT:
+        raise FileOperationError('Upload limit is 500 MiB per file.')
+    with directory(path) as fd:
+        temp = '.upload-' + secrets.token_hex(16)
+        handle = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o640 if INPUT_MODE.get() else 0o660, dir_fd=fd)
+        try:
+            with os.fdopen(handle, 'wb') as target:
+                remaining = length
+                while remaining:
+                    chunk = source.read(min(64 * 1024, remaining))
+                    if not chunk:
+                        raise FileOperationError('Upload interrupted. No destination file was created.')
+                    target.write(chunk)
+                    remaining -= len(chunk)
+            os.link(temp, name, src_dir_fd=fd, dst_dir_fd=fd, follow_symlinks=False)
+        finally:
+            os.unlink(temp, dir_fd=fd)
+    return {'ok': True}
+
+
 def change(payload, expected_identity=None):
     action = payload.get('action')
     path = payload.get('path', '')
@@ -122,7 +145,7 @@ def change(payload, expected_identity=None):
                 raise ValueError('Invalid upload.')
             data = base64.b64decode(encoded, validate=True)
             if len(data) > UPLOAD_LIMIT:
-                raise ValueError('Upload limit is 8 MiB per file.')
+                raise ValueError('Upload limit is 500 MiB per file.')
             temp = '.upload-' + secrets.token_hex(16)
             handle = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o640 if INPUT_MODE.get() else 0o660, dir_fd=fd)
             try:

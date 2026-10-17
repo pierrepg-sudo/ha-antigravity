@@ -205,7 +205,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.authenticated_proxy():
             return
-        if urlsplit(self.path).path != '/file-action':
+        route = urlsplit(self.path).path
+        if route not in ('/file-action', '/file-upload'):
             self.send_error(404)
             return
         tokens = []
@@ -217,6 +218,25 @@ class Handler(BaseHTTPRequestHandler):
             area = select_area(parse_qs(urlsplit(self.path).query, keep_blank_values=True))
             if area == 'legacy':
                 self.respond(403, b'{"error":"Existing files are read-only in this menu. Download a copy and upload it to Inputs or Outputs."}')
+                return
+            if route == '/file-upload':
+                if self.headers.get('Content-Type') != 'application/octet-stream' or self.headers.get('Transfer-Encoding'):
+                    raise ValueError('Expected a file with a known length')
+                length = int(self.headers.get('Content-Length', '-1'))
+                if not 0 <= length <= workspace_files.UPLOAD_LIMIT:
+                    raise workspace_files.FileOperationError('Upload limit is 500 MiB per file.')
+                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                path = query.get('path', [''])[0]
+                name = query.get('name', [''])[0]
+                tokens = [(workspace_files.ACTIVE_ROOT, workspace_files.ACTIVE_ROOT.set(AREAS[area])),
+                          (workspace_files.INPUT_MODE, workspace_files.INPUT_MODE.set(area == 'inputs'))]
+                if area == 'archived':
+                    names = workspace_files.parts(path)
+                    if not names or not project_folders().get(names[0], {}).get('archived'):
+                        raise workspace_files.FileOperationError('Open an archived project folder before uploading.')
+                self.connection.settimeout(300)
+                result = workspace_files.upload_stream(path, name, self.rfile, length)
+                self.respond(200, json.dumps(result).encode())
                 return
             if self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Expected JSON')

@@ -10,7 +10,7 @@ body.terminal-expanded .terminal-shell{position:fixed;inset:0;z-index:1000;width
 body.terminal-expanded .terminal-heading{flex-shrink:0}
 body.terminal-expanded iframe,body.terminal-expanded #history{flex:1;min-height:0;height:0}
 </style><link rel="stylesheet" href="ui.css"></head><body>
-<header><div><p class="eyebrow">ANTIGRAVITY</p><h1>Terminal</h1></div><div class="top-links"><a href="conversations">Conversations</a><a href="files">Files</a></div></header>
+<header class="app-header"><div><p class="eyebrow">ANTIGRAVITY</p><h1>Terminal</h1></div><div class="top-links"><a href="conversations">Conversations</a><a href="files">Files</a></div></header>
 <div class="statusbar"><details class="worker"><summary id="workerSummary">Checking worker…</summary><p id="workerStatus" role="status">Checking restricted worker…</p><button id="refreshWorker">Refresh worker status</button></details><details class="connections"><summary>Connections</summary><a href="signin">Google sign-in</a><a href="github">GitHub</a></details></div>
 <section class="terminal-shell" aria-label="Terminal display"><div class="terminal-heading"><span>CONSOLE</span><button id="toggleFullscreen" type="button" aria-pressed="false">Full-screen terminal ↗</button></div>
 <div class="model-controls"><label for="modelSelect">Saved model for this conversation</label><select id="modelSelect" disabled><option>Loading…</option></select><button id="reloadModels">Refresh models</button><p id="modelStatus" role="status"></p></div>
