@@ -9,7 +9,7 @@ body.terminal-expanded>:not(.terminal-shell){display:none!important}
 body.terminal-expanded .terminal-shell{position:fixed;inset:0;z-index:1000;width:100%;height:100%;height:100dvh;display:flex;flex-direction:column;border:0;border-radius:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
 body.terminal-expanded .terminal-heading{flex-shrink:0}
 body.terminal-expanded iframe,body.terminal-expanded #history{flex:1;min-height:0;height:0}
-</style><link rel="stylesheet" href="ui.css"></head><body>
+</style><link rel="stylesheet" href="ui.css"></head><body class="terminal-page">
 <header class="app-header"><div><p class="eyebrow">ANTIGRAVITY</p><h1>Terminal</h1></div><div class="top-links"><a href="conversations">Conversations</a><a href="files">Files</a></div></header>
 <div class="statusbar"><details class="worker"><summary id="workerSummary">Checking worker…</summary><p id="workerStatus" role="status">Checking restricted worker…</p><button id="refreshWorker">Refresh worker status</button></details><details class="connections"><summary>Connections</summary><a href="signin">Google sign-in</a><a href="github">GitHub</a></details></div>
 <section class="terminal-shell" aria-label="Terminal display"><div class="terminal-heading"><span>CONSOLE</span><button id="toggleFullscreen" type="button" aria-pressed="false">Full-screen terminal ↗</button></div>

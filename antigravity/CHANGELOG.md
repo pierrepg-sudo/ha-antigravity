@@ -1,3 +1,9 @@
+## 0.10.7
+
+- Show upload progress with transferred bytes, percentage and speed for files and folder selections.
+- Distinguish transfer from server finalization, allow cancellation, and report inactivity, lost connections and proxy errors instead of waiting indefinitely.
+- Unify workspace panel spacing, headings, More menus, navigation, dialogs and primary/secondary controls.
+
 ## 0.10.6
 
 - Raise individual uploads to 500 MiB using raw streamed requests, bounded disk writes and atomic no-overwrite publication. Folder selections retain a 500 MiB total limit.

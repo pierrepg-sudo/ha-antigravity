@@ -3,10 +3,11 @@ const source=fs.readFileSync('antigravity/files.html','utf8');
 new vm.Script(source.match(/<script>([\s\S]*?)<\/script>/)[1]);
 const script=source.slice(source.indexOf('function folderUploadPlan'),source.indexOf("$('#uploadKind').onchange"));
 let calls=[],failAt='',collision=false;
-const context=vm.createContext({TextEncoder,Uint8Array,btoa, csrf:'test', scoped:x=>x, fetch:async(url,options)=>{const q=new URL(url,'http://test').searchParams;const body={action:'upload',path:q.get('path'),name:q.get('name'),file:options.body};calls.push(body);if(body.name===failAt)throw Error('Rejected');return {ok:true,json:async()=>({ok:true})};}, current:'destination', $:()=>({}),request:async(_,body)=>{
+const context=vm.createContext({window:{addEventListener(){}},TextEncoder,Uint8Array,btoa, csrf:'test', scoped:x=>x, fetch:async(url,options)=>{const q=new URL(url,'http://test').searchParams;const body={action:'upload',path:q.get('path'),name:q.get('name'),file:options.body};calls.push(body);if(body.name===failAt)throw Error('Rejected');return {ok:true,json:async()=>({ok:true})};}, current:'destination', $:()=>({}),request:async(_,body)=>{
  calls.push(body);if(collision||body.name===failAt)throw Error('Rejected');
 }});
 vm.runInContext(script,context);
+vm.runInContext("sendUpload=async(file,path,name)=>{checkUploadCancelled();await fetch('file-upload?path='+encodeURIComponent(path)+'&name='+encodeURIComponent(name),{body:file});}",context);
 function file(path,size=1){return {webkitRelativePath:path,size,arrayBuffer:async()=>new Uint8Array([65]).buffer};}
 async function run(files){context.files=files;return vm.runInContext('uploadFolder(files)',context);}
 (async()=>{

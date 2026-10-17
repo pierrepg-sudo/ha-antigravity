@@ -913,3 +913,21 @@ in 64 KiB chunks and publishes the destination only after the complete upload.
 The browser does not base64-encode the file. The app proxy accepts up to 500 MiB
 per file and streams the request. An interrupted individual file upload removes
 its temporary file; earlier completed files in a folder upload remain intact.
+
+## Upload feedback and shared workspace styling (0.10.7)
+
+Uploads show a progress bar, transferred/total bytes and average transfer speed.
+Folder uploads report progress across the selected files. After all bytes are
+sent, the screen says **Finalizing** until the server confirms that the file was
+saved. Bytes sent do not by themselves confirm a saved file. Keep the page open.
+
+**Cancel upload** stops the active transfer and any remaining folder uploads.
+Previously completed files stay in place. Check the destination before retrying
+when cancellation happens during finalization or the connection is lost.
+The page reports no recent progress after 15 seconds, aborts a transfer after
+two minutes without progress, and allows three minutes for server confirmation.
+Proxy errors include the HTTP status when no JSON error is available.
+
+Files, Conversations and Terminal share panel borders, spacing, typography,
+button roles, dialog styling and More disclosures. Navigation remains at the
+upper right; Files toolbar controls use two columns on small screens.

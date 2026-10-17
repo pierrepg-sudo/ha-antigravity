@@ -9,7 +9,7 @@
 <section id="clipboardBar" hidden aria-label="Selected item"><p id="clipboardStatus" aria-live="polite"></p><div class="actions"><button id="pasteItem" class="primary">Paste here</button><button id="clearClipboard" class="quiet">Cancel</button></div></section>
 <div class="section-title"><h2>Your files</h2><span id="count"></span></div><p id="status" role="status" aria-live="polite"></p><main id="list" aria-label="Files and folders"></main>
 <details class="help"><summary>File limits &amp; permissions</summary><p>Uploads: 500 MiB per file. File downloads: 500 MiB. Folder ZIPs include hidden files and folders, nested contents and empty folders. Folder ZIPs and copies: 500 MiB, 10,000 entries, 64 levels. Links and special files cannot be copied or archived.</p><p>Existing names are never overwritten. Move stays within Inputs or Outputs; use Copy between locations. Existing files are read-only. Deleting a folder permanently removes its contents.</p></details>
-<dialog id="uploadDialog" aria-labelledby="uploadTitle"><h3 id="uploadTitle">Upload files or a folder</h3><label for="uploadKind">Upload type</label><select id="uploadKind"><option value="file">File</option><option value="folder">Folder</option></select><p>500 MiB per file. Folders: up to 500 MiB, 10,000 entries and 64 levels. Existing names are never overwritten.</p><input id="file" type="file" aria-label="Choose file"><input id="folderFiles" type="file" webkitdirectory multiple hidden aria-label="Choose folder"><p id="folderUploadHint" hidden>Choose a folder to preserve its files and subfolders. Empty folders and files omitted by your browser cannot be included. If your browser cannot choose folders, use a desktop browser.</p><p id="uploadProgress" role="status" aria-live="polite"></p><p id="uploadError" class="modal-error" role="alert"></p><div class="actions"><button id="uploadClose" class="quiet">Cancel</button><button id="upload" class="primary">Upload</button></div></dialog>
+<dialog id="uploadDialog" aria-labelledby="uploadTitle"><h3 id="uploadTitle">Upload files or a folder</h3><label for="uploadKind">Upload type</label><select id="uploadKind"><option value="file">File</option><option value="folder">Folder</option></select><p>500 MiB per file. Folders: up to 500 MiB, 10,000 entries and 64 levels. Existing names are never overwritten.</p><input id="file" type="file" aria-label="Choose file"><input id="folderFiles" type="file" webkitdirectory multiple hidden aria-label="Choose folder"><p id="folderUploadHint" hidden>Choose a folder to preserve its files and subfolders. Empty folders and files omitted by your browser cannot be included. If your browser cannot choose folders, use a desktop browser.</p><progress id="uploadBar" max="100" value="0" hidden aria-label="Upload progress"></progress><p id="uploadProgress" role="status" aria-live="polite"></p><p id="uploadError" class="modal-error" role="alert"></p><div class="actions"><button id="uploadCancel" class="danger" hidden>Cancel upload</button><button id="uploadClose" class="quiet">Cancel</button><button id="upload" class="primary">Upload</button></div></dialog>
 <dialog id="preview" aria-labelledby="title"><h3 id="title"></h3><p id="note"></p><textarea id="text" readonly aria-label="File preview"></textarea><div class="actions"><button id="close">Close</button></div></dialog>
 <dialog id="pathDialog" aria-labelledby="pathTitle"><h3 id="pathTitle">File path</h3><p>Copy this path to use in your conversation.</p><textarea id="pathText" rows="3" readonly aria-label="Workspace file path"></textarea><div class="actions"><button id="pathClose" class="quiet">Close</button><button id="copy" class="primary">Copy path</button></div></dialog>
 <dialog id="deleteDialog" aria-labelledby="deleteTitle"><h3 id="deleteTitle">Delete item?</h3><p id="deleteName"></p><p id="deleteWarning"></p><p id="deleteError" class="modal-error" role="alert"></p><div class="actions"><button id="deleteCancel" class="quiet" autofocus>Cancel</button><button id="deleteConfirm" class="danger">Delete permanently</button></div></dialog>
@@ -139,7 +139,7 @@ $('#deleteConfirm').onclick=()=>act(async()=>{
 $('#deleteDialog').addEventListener('cancel',()=>{pendingDelete=null;});
 $('#refresh').onclick=()=>act(()=>browse(current));
 $('#folder').onclick=()=>act(async()=>{const name=prompt('New folder name');if(!name)return;await request('file-action',{action:'mkdir',path:current,name});await browse(current);});
-$('#uploadOpen').onclick=()=>{$('#uploadError').textContent='';$('#uploadDialog').showModal();};
+$('#uploadOpen').onclick=()=>{$('#uploadError').textContent='';$('#uploadProgress').textContent='';$('#uploadBar').hidden=true;$('#uploadDialog').showModal();};
 $('#uploadClose').onclick=()=>$('#uploadDialog').close();
 function folderUploadPlan(files){
  if(!files.length)throw new Error('Choose a non-empty folder first.');
@@ -157,27 +157,53 @@ function folderUploadPlan(files){
  if(entries.some(e=>dirs.has(e.path)))throw new Error('A file and folder have the same path.');
  return {rootName,entries,dirs:[...dirs].sort((a,b)=>a.split('/').length-b.split('/').length)};
 }
-async function sendUpload(file,path,name){
- const response=await fetch(scoped('file-upload?path='+encodeURIComponent(path)+'&name='+encodeURIComponent(name)),{method:'POST',headers:{'Content-Type':'application/octet-stream','X-Antigravity-CSRF':csrf},body:file});
- let data;try{data=await response.json();}catch{throw new Error('Upload failed at the proxy or connection. Reopen Files and check the destination before retrying.');}
- if(!response.ok)throw new Error(data.error||'Upload failed');
+let uploadState=null;
+function checkUploadCancelled(){if(uploadState?.cancelled)throw new Error('Upload cancelled. Check the destination before retrying.');}
+function sendUpload(file,path,name){
+ checkUploadCancelled();
+ return new Promise((resolve,reject)=>{
+  const xhr=new XMLHttpRequest(),started=Date.now();let lastActivity=started,loaded=0,waiting=false,finished=false,timer;
+  const state=uploadState||{done:0,total:file.size};state.xhr=xhr;
+  const paint=()=>{
+   const total=state.total,transferred=state.done+loaded,percent=total?Math.min(100,100*transferred/total):0;
+   $('#uploadBar').hidden=false;$('#uploadBar').value=percent;
+   const speed=loaded/Math.max(1,(Date.now()-started)/1000);
+   $('#uploadProgress').textContent=(waiting?'Finalizing '+name+' — waiting for server confirmation. ':name+' — ')+Math.floor(percent)+'% · '+size(transferred)+' / '+size(total)+(waiting?'':' · '+size(speed)+'/s')+(Date.now()-lastActivity>15000?' · No progress recently; checking connection…':'');
+  };
+  const finish=error=>{if(finished)return;finished=true;clearInterval(timer);state.xhr=null;if(error)reject(error);else{state.done+=file.size;resolve();}};
+  xhr.open('POST',scoped('file-upload?path='+encodeURIComponent(path)+'&name='+encodeURIComponent(name)));
+  xhr.setRequestHeader('Content-Type','application/octet-stream');xhr.setRequestHeader('X-Antigravity-CSRF',csrf);
+  xhr.upload.onprogress=e=>{if(e.loaded>loaded)lastActivity=Date.now();loaded=Math.min(file.size,e.loaded);paint();};
+  xhr.upload.onload=()=>{loaded=file.size;waiting=true;lastActivity=Date.now();paint();};
+  xhr.onload=()=>{let data;try{data=JSON.parse(xhr.responseText);}catch{finish(new Error('Upload failed: server returned HTTP '+xhr.status+'. Check the destination before retrying.'));return;}if(xhr.status<200||xhr.status>=300||!data.ok){finish(new Error(data.error||'Upload failed (HTTP '+xhr.status+').'));return;}finish();};
+  xhr.onerror=()=>finish(new Error('Upload connection lost. Check the destination before retrying.'));
+  xhr.onabort=()=>finish(new Error('Upload cancelled. Check the destination before retrying.'));
+  timer=setInterval(()=>{paint();if(Date.now()-lastActivity>(waiting?180000:120000)){finish(new Error(waiting?'Server confirmation timed out. The file may have arrived; check the destination before retrying.':'Upload stalled for two minutes. Check your connection and retry.'));xhr.abort();}},1000);
+  paint();try{xhr.send(file);}catch(e){finish(e);}
+ });
 }
 async function uploadFolder(files){
  const plan=folderUploadPlan(files),base=current;let created=false,completed=0;
  const at=p=>base?base+'/'+p:p;
  try{
-  for(const dir of plan.dirs){const parts=dir.split('/'),name=parts.pop();await request('file-action',{action:'mkdir',path:parts.length?at(parts.join('/')):base,name});created=true;}
+  for(const dir of plan.dirs){checkUploadCancelled();const parts=dir.split('/'),name=parts.pop();await request('file-action',{action:'mkdir',path:parts.length?at(parts.join('/')):base,name});created=true;}
   for(const entry of plan.entries){const parts=entry.path.split('/'),name=parts.pop();$('#uploadProgress').textContent='Uploading '+(completed+1)+' of '+plan.entries.length+': '+entry.path;await sendUpload(entry.file,at(parts.join('/')),name);completed++;}
  }catch(e){if(created)throw new Error('Folder upload stopped after '+completed+' of '+plan.entries.length+' files. Partial folder retained at '+at(plan.rootName)+'. Check it before retrying. '+e.message);throw e;}
  return plan.rootName;
 }
+$('#uploadCancel').onclick=()=>{if(uploadState){uploadState.cancelled=true;uploadState.xhr?.abort();$('#uploadCancel').disabled=true;}};
+window.addEventListener('beforeunload',e=>{if(uploadState){e.preventDefault();e.returnValue='';}});
 $('#uploadKind').onchange=()=>{const folder=$('#uploadKind').value==='folder';$('#file').hidden=folder;$('#folderFiles').hidden=!folder;$('#folderUploadHint').hidden=!folder;$('#uploadError').textContent='';$('#uploadProgress').textContent='';};
 $('#uploadDialog').addEventListener('cancel',e=>{if(busy)e.preventDefault();});
 $('#upload').onclick=()=>act(async()=>{
  $('#uploadError').textContent='';let name;
+ const selection=$('#uploadKind').value==='folder'?Array.from($('#folderFiles').files):Array.from($('#file').files);
+ uploadState={done:0,total:selection.reduce((sum,f)=>sum+f.size,0),cancelled:false,xhr:null};$('#uploadCancel').hidden=false;$('#uploadCancel').disabled=false;$('#uploadBar').value=0;$('#file').disabled=true;$('#folderFiles').disabled=true;
+ try{
  if($('#uploadKind').value==='folder')name=await uploadFolder(Array.from($('#folderFiles').files));
  else{const f=$('#file').files[0];if(!f)throw new Error('Choose a file first.');if(f.size>524288000)throw new Error('Upload limit is 500 MiB.');await sendUpload(f,current,f.name);name=f.name;}
  $('#uploadDialog').close();await browse(current);status.textContent='Uploaded '+name;$('#file').value='';$('#folderFiles').value='';$('#uploadProgress').textContent='';
+ }finally{uploadState=null;$('#uploadCancel').hidden=true;$('#file').disabled=false;$('#folderFiles').disabled=false;}
 });
 $('#close').onclick=()=>$('#preview').close();$('#pathClose').onclick=()=>$('#pathDialog').close();$('#copy').onclick=async()=>{try{await navigator.clipboard.writeText($('#pathText').value);$('#copy').textContent='Copied';}catch{ $('#pathText').focus();$('#pathText').select();$('#copy').textContent='Select and copy above';}};
 act(()=>browse(''));
