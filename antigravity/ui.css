@@ -12,7 +12,7 @@ button:hover:not(:disabled),.app-links a:hover,.top-links a:hover{border-color:v
 header{flex-wrap:wrap;gap:14px!important}
 .eyebrow{color:var(--accent)!important;font-size:11px!important;font-weight:600!important;letter-spacing:.16em!important}
 input,select,textarea{box-sizing:border-box;font:16px/1.4 system-ui!important;background:var(--bg)!important;color:var(--text)!important;border:1px solid var(--line)!important;border-radius:12px!important;padding:10px 14px!important;max-width:100%}
-.model-controls{background:var(--panel);padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.model-controls{background:var(--panel);padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;margin-top:12px;border:1px solid var(--line);border-radius:16px}
 .model-controls label,.model-controls p{grid-column:1/-1;margin:0;font-size:13px;color:var(--muted)}
 .model-controls select{width:100%;min-width:0}
 /* Keep expanded conversation actions from shrinking the title column. */

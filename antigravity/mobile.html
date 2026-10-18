@@ -13,7 +13,6 @@ body.terminal-expanded iframe,body.terminal-expanded #history{flex:1;min-height:
 <header class="app-header"><div><p class="eyebrow">ANTIGRAVITY</p><h1>Terminal</h1></div><div class="top-links"><a href="conversations">Conversations</a><a href="files">Files</a></div></header>
 <div class="statusbar"><details class="worker"><summary id="workerSummary">Checking worker…</summary><p id="workerStatus" role="status">Checking restricted worker…</p><button id="refreshWorker">Refresh worker status</button></details><details class="connections"><summary>Connections</summary><a href="signin">Google sign-in</a><a href="github">GitHub</a></details></div>
 <section class="terminal-shell" aria-label="Terminal display"><div class="terminal-heading"><span>CONSOLE</span><button id="toggleFullscreen" type="button" aria-pressed="false">Full-screen terminal ↗</button></div>
-<div class="model-controls"><label for="modelSelect">Saved model for this conversation</label><select id="modelSelect" disabled><option>Loading…</option></select><button id="reloadModels">Refresh models</button><p id="modelStatus" role="status"></p></div>
 <iframe src="./" title="Live Antigravity terminal"></iframe>
 <div id="history" hidden tabindex="0" role="region" aria-label="Terminal output history"><pre id="historyText"></pre></div></section>
 <div id="historyTools"><button id="showHistory">Scroll history</button><button id="older" hidden>Page up</button><button id="newer" hidden>Page down</button><button id="refreshHistory" hidden>Refresh history</button><button id="live" hidden>Live terminal</button></div>
@@ -22,6 +21,7 @@ body.terminal-expanded iframe,body.terminal-expanded #history{flex:1;min-height:
 <button data-key="Left" aria-label="Left">←</button><button data-key="Up" aria-label="Up">↑</button><button data-key="Down" aria-label="Down">↓</button><button data-key="Right" aria-label="Right">→</button>
 <details class="extra-keys"><summary>More keys</summary><div class="extra-grid"><button data-key="BTab">Shift+Tab</button><button data-key="S-Up">Shift+↑</button><button data-key="S-Down">Shift+↓</button><button data-key="BSpace" aria-label="Backspace">⌫</button></div></details>
 </nav><div id="status" role="status" aria-live="polite"></div>
+<div class="model-controls"><label for="modelSelect">Saved model for this conversation</label><select id="modelSelect" disabled><option>Loading…</option></select><button id="reloadModels">Refresh models</button><p id="modelStatus" role="status"></p></div>
 
 <dialog id="pasteDialog" aria-labelledby="pasteTitle"><h2 id="pasteTitle">Paste text</h2><p>Touch and hold in the box, then choose Paste.</p><textarea id="pasteText" rows="6" aria-label="Text to paste" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea><p id="pasteError" role="alert"></p><div class="dialog-actions"><button id="cancelPaste">Cancel</button><button id="insertPaste" class="primary">Insert in terminal</button></div></dialog>
 <script>

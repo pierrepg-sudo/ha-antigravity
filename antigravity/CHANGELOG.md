@@ -1,3 +1,7 @@
+## 0.10.18
+
+- Move the saved conversation model selector, refresh button and status below the terminal keys in a matching panel.
+
 ## 0.10.17
 
 - Remove the Existing files location and its legacy workspace browsing/copy access. Keep files on disk intact; Files offers Outputs, Archived projects and Inputs.

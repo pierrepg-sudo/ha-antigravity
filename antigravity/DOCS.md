@@ -686,7 +686,7 @@ refresh their session defaults. Project metadata and filesystem updates are not 
 single native transaction; if the API fails, the folder binding remains accurate
 and the UI reports failure. Refresh before retrying.
 
-Terminal has a **Saved model for this conversation** dropdown. Its options come
+Terminal has a **Saved model for this conversation** dropdown below the terminal keys. Its options come
 from the signed-in CLI's `agy models` catalog, not a hard-coded list.
 The catalog reader accepts name-first and slug-first reports, tab/table formatting
 and output on either stream. Failed or timed-out requests show **Models unavailable**
