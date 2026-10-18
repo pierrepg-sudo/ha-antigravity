@@ -1,3 +1,9 @@
+## 0.10.15
+
+- Show native project folder paths in Conversations and a Projects directory in Files, including projects created in the official remote outside Outputs. External locations are labelled and are not relocated or exposed for file operations.
+- Add Files shortcuts to create projects and start conversations through Conversations, with project selection prefilled.
+- Recognize single output-folder resources carrying additional native metadata.
+
 ## 0.10.14
 
 - Fix startup directory diagnostics being rejected by the native API allowlist. Permit the two read-only directory queries and test the real RPC wrapper. The official remote default-path issue remains under investigation.

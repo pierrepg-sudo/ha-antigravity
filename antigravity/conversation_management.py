@@ -86,10 +86,30 @@ def project(connection, pid):
     return result
 
 
+def project_paths(p):
+    """Display native folder locations without granting Files access outside Outputs."""
+    result = []
+    resources = p.get('projectResources', {})
+    if not isinstance(resources, dict):
+        return result
+    entries = resources.get('resources', [])
+    if not isinstance(entries, list):
+        return result
+    for resource in entries:
+        if not isinstance(resource, dict) or not isinstance(resource.get('folderUri'), str):
+            continue
+        uri = urlsplit(resource['folderUri'])
+        if uri.scheme == 'file' and uri.netloc in ('', 'localhost') and not uri.query and not uri.fragment:
+            path = unquote(uri.path)
+            if path.startswith('/') and not any(ord(c) < 32 for c in path) and path not in result:
+                result.append(path)
+    return result
+
+
 def resource_folder(p):
     """Recognize only a single, real immediate output folder in native metadata."""
     resources = p.get('projectResources', {}).get('resources', [])
-    if len(resources) != 1 or set(resources[0]) != {'folderUri'}:
+    if len(resources) != 1 or not isinstance(resources[0], dict) or not isinstance(resources[0].get('folderUri'), str):
         return None
     uri = urlsplit(resources[0]['folderUri'])
     if uri.scheme != 'file' or uri.netloc not in ('', 'localhost') or uri.query or uri.fragment:
@@ -145,7 +165,7 @@ def projects(connection):
         if pid == 'outside-of-project':
             continue
         result.append({'id': pid, 'name': p.get('name', pid), 'archived': p.get('archived', False),
-                       'folder': bindings.get(pid, '')})
+                       'folder': bindings.get(pid, ''), 'paths': project_paths(p)})
     return sorted(result, key=lambda p: p['name'].casefold())
 
 

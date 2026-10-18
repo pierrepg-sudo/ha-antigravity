@@ -128,3 +128,16 @@ class ManagementTests(unittest.TestCase):
         self.assertEqual(manager.sync_project_folders({'a':record(self.root/'link')}),{})
         self.assertEqual(manager.sync_project_folders({'a':record(self.root.parent)}),{})
         self.assertEqual(manager.sync_project_folders({'a':{'name':'Remote'}}),{})
+
+    def test_external_remote_project_path_is_visible_without_binding(self):
+        record={'id':'remote','name':'Remote','projectResources':{'resources':[{'folderUri':'file:///data/home/Remote'}]}}
+        with patch.object(manager.saved,'project_records',return_value={'remote':record}):
+            project=manager.projects(None)[0]
+            self.assertEqual(project['paths'],['/data/home/Remote'])
+            self.assertEqual(project['folder'],'')
+            self.assertFalse((self.root/'Remote').exists())
+
+    def test_remote_output_resource_extra_metadata(self):
+        folder=self.root/'Remote';folder.mkdir()
+        record={'id':'remote','name':'Remote','projectResources':{'resources':[{'folderUri':folder.as_uri(),'name':'Remote'}]}}
+        self.assertEqual(manager.sync_project_folders({'remote':record}),{'remote':'Remote'})
