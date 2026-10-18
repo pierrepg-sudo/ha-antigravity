@@ -1,3 +1,7 @@
+## 0.10.17
+
+- Remove the Existing files location and its legacy workspace browsing/copy access. Keep files on disk intact; Files offers Outputs, Archived projects and Inputs.
+
 ## 0.10.16
 
 - Remove the Files New conversation shortcut and Projects directory, including their listing code and styles. Keep New project and existing project-folder protections and actions.

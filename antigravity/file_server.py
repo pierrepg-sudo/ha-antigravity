@@ -99,7 +99,7 @@ def take_zip(ticket, path, area):
             raise workspace_files.FileOperationError('This ZIP link expired or was already used. Prepare the folder download again.')
         return PREPARED_ZIPS.pop(ticket)
 
-AREAS = {'inputs': '/data/inputs', 'outputs': '/data/workspace/outputs', 'archived': '/data/workspace/outputs', 'legacy': '/data/workspace'}
+AREAS = {'inputs': '/data/inputs', 'outputs': '/data/workspace/outputs', 'archived': '/data/workspace/outputs'}
 
 
 def project_folders():
@@ -230,7 +230,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 result = workspace_files.listing(path) if route == '/file-list' else workspace_files.read_file(path, preview=True)
                 if route == '/file-list':
-                    result.update(root=AREAS[area], readOnly=area == 'legacy')
+                    result.update(root=AREAS[area], readOnly=False)
                     if area in ('outputs', 'archived') and not path:
                         result['entries'] = [dict(entry, project=projects.get(entry['name'])) for entry in result['entries']
                                              if bool(projects.get(entry['name'], {}).get('archived')) == (area == 'archived')]
@@ -257,9 +257,6 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(403, b'{"error":"Reopen Files and try again."}')
                 return
             area = select_area(parse_qs(urlsplit(self.path).query, keep_blank_values=True))
-            if area == 'legacy':
-                self.respond(403, b'{"error":"Existing files are read-only in this menu. Download a copy and upload it to Inputs or Outputs."}')
-                return
             if route == '/file-upload':
                 if self.headers.get('Content-Type') != 'application/octet-stream':
                     raise ValueError('Expected a file with a known length')
@@ -306,7 +303,7 @@ class Handler(BaseHTTPRequestHandler):
                 source_area = payload.get('sourceArea')
                 if not isinstance(source_area, str) or source_area not in AREAS:
                     raise ValueError('Unknown source area')
-                if payload['action'] == 'move' and (source_area == 'legacy' or source_area != area):
+                if payload['action'] == 'move' and source_area != area:
                     raise workspace_files.FileOperationError('Move stays within Inputs or Outputs. Use Copy to transfer between locations.')
                 if not TRANSFER_LOCK.acquire(blocking=False):
                     raise workspace_files.FileOperationError('Another folder operation is running. Try again shortly.')

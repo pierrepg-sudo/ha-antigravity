@@ -365,7 +365,7 @@ def rename_new(source_fd, source, target_fd, target):
 
 
 def reject_descendant(source_info, target_fd):
-    """Compare inode ancestry, including aliased roots (legacy contains outputs)."""
+    """Compare inode ancestry, including overlapping source and destination roots."""
     current = os.dup(target_fd)
     try:
         while True:

@@ -47,9 +47,9 @@ class FileServerTests(unittest.TestCase):
             finally:
                 server.shutdown();server.server_close();thread.join()
 
-    def test_areas_csrf_upload_and_readonly_legacy(self):
+    def test_areas_csrf_upload_and_removed_area(self):
         with tempfile.TemporaryDirectory() as folder:
-            areas = {key: str(Path(folder) / key) for key in ('inputs', 'outputs', 'legacy')}
+            areas = {key: str(Path(folder) / key) for key in ('inputs', 'outputs')}
             for root in areas.values():
                 Path(root).mkdir()
             server = file_server.ThreadingHTTPServer(('127.0.0.1', 0), file_server.Handler)
@@ -77,12 +77,13 @@ class FileServerTests(unittest.TestCase):
                     with urlopen(Request(base + '/file-download?area=inputs&path=hello.c', headers=headers)) as r:
                         self.assertEqual(r.read(), b'hello')
                         self.assertIn('attachment', r.headers['Content-Disposition'])
-                    for query, expected in (('area=legacy', 403), ('area=../../home', 400), ('area=inputs&area=outputs', 400)):
+                    for query, expected in (('area=legacy', 400), ('area=../../home', 400), ('area=inputs&area=outputs', 400)):
                         with self.assertRaises(HTTPError) as denied:
                             urlopen(Request(base + '/file-action?' + query, data=body, headers=headers))
                         self.assertEqual(denied.exception.code, expected)
-                    with urlopen(Request(base + '/file-list?area=legacy', headers=headers)) as r:
-                        self.assertTrue(json.load(r)['readOnly'])
+                    with self.assertRaises(HTTPError) as removed:
+                        urlopen(Request(base + '/file-list?area=legacy', headers=headers))
+                    self.assertEqual(removed.exception.code, 400)
             finally:
                 server.shutdown();server.server_close();thread.join()
 

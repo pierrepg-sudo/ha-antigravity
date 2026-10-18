@@ -117,9 +117,9 @@ class FolderTests(unittest.TestCase):
         self.assertFalse(list(self.root.glob('.copy-*')))
 
     def test_http_zip_copy_and_move_area_rules(self):
-        areas={'outputs':str(self.root),'inputs':str(Path(self.temp.name)/'inputs'),'legacy':str(Path(self.temp.name)/'legacy')}
-        for key in ('inputs','legacy'):Path(areas[key]).mkdir()
-        (Path(areas['legacy'])/'old.txt').write_text('old')
+        areas={'outputs':str(self.root),'inputs':str(Path(self.temp.name)/'inputs')}
+        for key in ('inputs',):Path(areas[key]).mkdir()
+        (Path(areas['inputs'])/'old.txt').write_text('old')
         server=file_server.ThreadingHTTPServer(('127.0.0.1',0),file_server.Handler)
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         base='http://127.0.0.1:'+str(server.server_port)
@@ -151,11 +151,11 @@ class FolderTests(unittest.TestCase):
                 self.assertIn('error',json.load(failure.exception))
                 self.assertEqual(file_server.PREPARED_ZIPS,{})
                 (self.root/'project/link').unlink()
-                payload={'action':'copy','sourceArea':'legacy','source':'old.txt','path':'','name':'new.txt'}
+                payload={'action':'copy','sourceArea':'inputs','source':'old.txt','path':'','name':'new.txt'}
                 with urlopen(Request(base+'/file-action?area=outputs',data=json.dumps(payload).encode(),headers=headers)) as r:
                     self.assertTrue(json.load(r)['ok'])
                 self.assertEqual((self.root/'new.txt').read_text(),'old')
-                for area,body,status in [('outputs',dict(payload,action='move'),400),('legacy',payload,403),('inputs',dict(payload,action='move',sourceArea='outputs',source='new.txt'),400)]:
+                for area,body,status in [('outputs',dict(payload,action='move'),400),('legacy',payload,400),('inputs',dict(payload,action='move',sourceArea='outputs',source='new.txt'),400)]:
                     with self.assertRaises(HTTPError) as error:
                         urlopen(Request(base+'/file-action?area='+area,data=json.dumps(body).encode(),headers=headers))
                     self.assertEqual(error.exception.code,status)
@@ -166,7 +166,7 @@ class FolderTests(unittest.TestCase):
                 deletion={'action':'delete','name':'project','path':'','kind':'folder','confirm':True}
                 with self.assertRaises(HTTPError) as error:
                     urlopen(Request(base+'/file-action?area=legacy',data=json.dumps(deletion).encode(),headers=headers))
-                self.assertEqual(error.exception.code,403)
+                self.assertEqual(error.exception.code,400)
                 with self.assertRaises(HTTPError) as error:
                     urlopen(Request(base+'/file-action?area=outputs',data=json.dumps(dict(deletion,confirm=False)).encode(),headers=headers))
                 self.assertEqual(error.exception.code,400)

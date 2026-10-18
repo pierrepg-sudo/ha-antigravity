@@ -530,7 +530,7 @@ requires confirmation on the target device.
 
 ## Version 0.1.7: file manager
 
-Open Web UI and tap Files at the top. Browse /data/workspace and subfolders,
+Open Web UI and tap Files at the top. Browse Inputs, Outputs and archived project folders,
 create folders, upload from iPhone Files (including .c/.cpp), preview UTF-8
 text, download files, and copy a path for an Antigravity prompt. Use Terminal
 to return. File uploads live on this separate screen, not in the terminal toolbar.
@@ -555,8 +555,7 @@ including /data/home authentication data, are not exposed by these endpoints.
 
 Tap **Delete** on a file or folder card, then confirm in the dialog. Folder deletion
 permanently removes all nested contents; the confirmation names the selected item.
-Only Inputs and Outputs permit deletion. Existing files remain read-only, and the
-workspace roots themselves cannot be deleted. The API requires explicit confirmation,
+Inputs and Outputs permit deletion. The workspace roots themselves cannot be deleted. The API requires explicit confirmation,
 a folder-specific kind value for recursive deletion, and the page CSRF token.
 Symbolic links at the selected path are blocked. Nested links are removed as links;
 their targets are never followed. Stop active writers before deleting their folders.
@@ -816,7 +815,7 @@ Pause writers when you need a consistent archive or copy.
 Choose **Copy** or **Move** beside a file/folder, browse to its destination, then
 select **Paste** and accept or change the name. **Cancel copy/move** clears the
 selection. The selection remains only in this browser page and is lost on reload.
-Copy supports Inputs, Outputs and the read-only Existing files as sources; destinations
+Copy supports Inputs and Outputs as sources; destinations
 must be Inputs or Outputs. Move is limited to the same writable location to preserve
 ownership and permission boundaries. To transfer between locations, use Copy; it
 leaves the source intact. Copy uses the destination area's normal permissions and retains owner/group executable bits.

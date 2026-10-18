@@ -79,5 +79,5 @@ class StreamUploadTests(unittest.TestCase):
                         with self.assertRaises(HTTPError) as error:urlopen(Request(url,data=b'x',headers=changed))
                         self.assertEqual(error.exception.code,403)
                     with self.assertRaises(HTTPError) as error:urlopen(Request(url.replace('area=inputs','area=legacy'),data=b'x',headers=headers))
-                    self.assertEqual(error.exception.code,403)
+                    self.assertEqual(error.exception.code,400)
             finally:server.shutdown();server.server_close();thread.join()
