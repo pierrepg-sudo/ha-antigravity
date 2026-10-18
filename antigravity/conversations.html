@@ -8,6 +8,7 @@
 <dialog id="confirm" aria-labelledby="confirmTitle"><h2 id="confirmTitle">Delete conversation?</h2><p id="selected"></p><p>This removes the conversation and may clean up its associated data. There is no undo.</p><p id="error" role="alert"></p><div class="actions"><button id="cancel">Cancel</button><button id="apply" class="delete">Delete conversation</button></div></dialog>
 <dialog id="sessionDialog" aria-labelledby="sessionTitle"><h2 id="sessionTitle">New conversation</h2><p id="sessionSelected"></p><div id="projectField"><label for="project">Project</label><select id="project"><option value="">No project</option></select></div><p>This switches the terminal session. Save any unsent text first. Switching is unavailable while the CLI is working.</p><p id="sessionError" role="alert"></p><div class="actions"><button id="sessionCancel">Cancel</button><button id="sessionApply">Start conversation</button></div></dialog></main>
 <dialog id="projectDeleteDialog" aria-labelledby="projectDeleteTitle"><h2 id="projectDeleteTitle">Delete project?</h2><p id="projectDeleteName"></p><label for="projectDeleteFiles">Generated folder and files</label><select id="projectDeleteFiles"><option value="keep">Keep folder and files (recommended)</option><option value="delete">Permanently delete folder and all files</option></select><p>Project conversations will be permanently deleted. Stop any workers writing to this project first. You will review a final confirmation before deletion.</p><div class="actions"><button id="projectDeleteCancel">Cancel</button><button id="projectDeleteReview" class="delete">Review deletion</button></div></dialog>
+<details class="panel move-diagnostic"><summary>Project move diagnostic</summary><p>This experimental check uses two new test projects and one disposable conversation. It does not move your existing conversations.</p><ol><li>Choose Create test. Find “Disposable project move test” in the new “Move test A” project and open it in Terminal.</li><li>Send “Reply OK for the project move test”, wait for the reply, then open a different conversation.</li><li>Return here and choose Test move. Check both test projects in the official remote.</li><li>Reopen the test conversation and check its history. Restart the add-on, return here, then choose Check after restart.</li></ol><p>The test records evidence; it does not declare a fully verified move. Keep both test projects until the results have been reviewed.</p><div class="actions"><button id="moveSetup">Create test</button><button id="moveAttempt">Test move</button><button id="moveCheck">Check after restart</button><button id="moveReport">View saved results</button></div><p id="moveStatus" role="status"></p><label for="moveResults">Results to share</label><textarea id="moveResults" readonly rows="12" aria-label="Project move diagnostic results"></textarea></details>
 <script>
 const csrf='__CSRF__';let items=[],busy=false,pending=null,connected=false,timer=null,failures=0;
 const entryParams=new URLSearchParams(window.location.search||'');let entryAction=entryParams.get('action');
@@ -167,5 +168,21 @@ $('newProject').onclick=async()=>{
  if(busy)return;const name=window.prompt('Project name (also used for its output folder)');if(!name)return;
  setBusy(true);try{await managementRequest('project-create',{name});await refresh();$('status').textContent='Project and output folder created.';}catch(error){$('status').textContent=error.message;}finally{setBusy(false);schedule();}
 };
+async function moveDiagnostic(action){
+ if(busy)return;
+ if(action==='setup'&&!window.confirm('Create two disposable projects and a test conversation?'))return;
+ if(action==='attempt'&&!window.confirm('Try updating native project references for the disposable test conversation? This is an experiment; the test may remain in its original project or appear in both test projects.'))return;
+ clearTimeout(timer);setBusy(true);$('moveStatus').textContent='Checking…';
+ try{
+  const result=await managementRequest('move-diagnostic',{action,confirm:true});
+  $('moveResults').value=JSON.stringify(result,null,2);
+  const run=result.run,last=run?.checks?.at(-1);
+  $('moveStatus').textContent=!run?'No test created yet.':run.error||run.checkError||`Test stage: ${run.phase}.`+(last?` Actual project changed: ${last.actualProjectIsDestination?'yes':'no'}. History preserved: ${last.historyUnchanged?'yes':'not verified'}. CLI restarted since attempt: ${last.afterRestart?'yes':'no'}. Check the official remote separately.`:'');
+  if(action==='setup')await refresh();
+ }catch(error){$('moveStatus').textContent=error.message+' Use View saved results before retrying.';}
+ finally{setBusy(false);schedule();}
+}
+$('moveSetup').onclick=()=>moveDiagnostic('setup');$('moveAttempt').onclick=()=>moveDiagnostic('attempt');
+$('moveCheck').onclick=()=>moveDiagnostic('check');$('moveReport').onclick=()=>moveDiagnostic('report');
 render();load();
 </script></html>

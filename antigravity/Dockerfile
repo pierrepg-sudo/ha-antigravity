@@ -32,5 +32,6 @@ COPY run.sh services.sh session.sh /usr/local/bin/
 COPY launch_cli.py signin.py workspace_files.py native_connection.py conversation_history.py conversation_session.py conversation_management.py conversation_models.py saved_conversations.py mobile.html github.html files.html conversations.html /usr/local/bin/
 COPY nginx.conf /etc/nginx/antigravity.conf
 COPY ui.css /usr/local/bin/
+COPY move_diagnostic.py /usr/local/bin/
 RUN chmod 755 /usr/local/bin/run.sh /usr/local/bin/services.sh /usr/local/bin/session.sh
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/run.sh"]

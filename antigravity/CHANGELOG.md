@@ -1,3 +1,7 @@
+## 0.10.19
+
+- Add an opt-in project move diagnostic using two generated test projects and one disposable conversation. Record native project references, actual trajectory project ID, history digest and restart evidence. Persist uncertain outcomes and refuse automatic retries. This is an experiment, not a general conversation move feature.
+
 ## 0.10.18
 
 - Move the saved conversation model selector, refresh button and status below the terminal keys in a matching panel.
