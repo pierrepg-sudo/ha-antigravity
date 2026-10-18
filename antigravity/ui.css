@@ -15,7 +15,6 @@ input,select,textarea{box-sizing:border-box;font:16px/1.4 system-ui!important;ba
 .model-controls{background:var(--panel);padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;margin-top:12px;border:1px solid var(--line);border-radius:16px}
 .model-controls label,.model-controls p{grid-column:1/-1;margin:0;font-size:13px;color:var(--muted)}
 .model-controls select{width:100%;min-width:0}
-.move-diagnostic{max-width:928px;margin:20px auto}.move-diagnostic textarea{box-sizing:border-box;width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;resize:vertical;font:12px/1.5 monospace}.move-diagnostic li{margin-block:8px}
 /* Keep expanded conversation actions from shrinking the title column. */
 .conversations #list .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,230px);align-items:start}
 .conversations #list .row-actions{min-width:0;width:100%}

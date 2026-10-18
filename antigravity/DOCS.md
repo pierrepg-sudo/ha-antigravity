@@ -686,27 +686,6 @@ refresh their session defaults. Project metadata and filesystem updates are not 
 single native transaction; if the API fails, the folder binding remains accurate
 and the UI reports failure. Refresh before retrying.
 
-### Project move diagnostic
-
-At the bottom of Conversations, expand **Project move diagnostic** and choose
-**Create test**. This creates two uniquely named Move test projects and a disposable
-conversation. Open that conversation, send the short message shown in the diagnostic,
-wait for its reply, then switch to another conversation. Choose **Test move** to
-attempt native UpdateProject reference changes only for these generated objects.
-No general Move action is enabled by this experiment. It may show that reference
-updates are unsupported or do not change the actual conversation project.
-
-Inspect both projects in the official remote and reopen the test conversation.
-Restart the add-on and choose **Check after restart**. Share **View saved results**
-along with what the official remote shows. The report compares the actual project
-ID, step count and history digest; absent history data is never counted as a pass.
-Full project settings and connection credentials are excluded from the report.
-The test saves its stage before mutations and does not repeat setup or move requests
-after an uncertain result. Do not rename the test projects or add other conversations
-to them. Keep the test objects until review; afterwards remove only these test objects
-using the existing deletion controls. No existing conversation or generated file is
-deleted by this diagnostic.
-
 Terminal has a **Saved model for this conversation** dropdown below the terminal keys. Its options come
 from the signed-in CLI's `agy models` catalog, not a hard-coded list.
 The catalog reader accepts name-first and slug-first reports, tab/table formatting

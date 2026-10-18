@@ -1,3 +1,7 @@
+## 0.10.20
+
+- Remove the experimental project move diagnostic UI, endpoint, implementation and tests. Existing projects, conversations, files and saved diagnostic records are preserved.
+
 ## 0.10.19
 
 - Add an opt-in project move diagnostic using two generated test projects and one disposable conversation. Record native project references, actual trajectory project ID, history digest and restart evidence. Persist uncertain outcomes and refuse automatic retries. This is an experiment, not a general conversation move feature.

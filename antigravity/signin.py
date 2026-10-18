@@ -2,7 +2,6 @@
 import github_connection
 import conversation_session
 import conversation_management
-import move_diagnostic
 import conversation_models
 import conversation_history
 import json
@@ -223,7 +222,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path not in {'/input', '/conversation-prepare', '/conversation-delete', '/conversation-session', '/management-prepare', '/management-action', '/project-create', '/move-diagnostic', '/github-action'}:
+        if self.path not in {'/input', '/conversation-prepare', '/conversation-delete', '/conversation-session', '/management-prepare', '/management-action', '/project-create', '/github-action'}:
             self.send_error(404)
             return
         status = 200
@@ -251,8 +250,6 @@ class Handler(BaseHTTPRequestHandler):
                 result = conversation_management.action(payload)
             elif self.path == '/project-create':
                 result = conversation_management.create(payload)
-            elif self.path == '/move-diagnostic':
-                result = move_diagnostic.action(payload)
             elif self.path == '/conversation-prepare':
                 result = conversation_history.prepare(payload)
             else:
