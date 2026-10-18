@@ -1,3 +1,7 @@
+## 0.10.16
+
+- Remove the Files New conversation shortcut and Projects directory, including their listing code and styles. Keep New project and existing project-folder protections and actions.
+
 ## 0.10.15
 
 - Show native project folder paths in Conversations and a Projects directory in Files, including projects created in the official remote outside Outputs. External locations are labelled and are not relocated or exposed for file operations.

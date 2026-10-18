@@ -950,4 +950,4 @@ The native CLI currently returns `~/Documents` as its default project directory 
 Files and Conversations automatically register projects whose native metadata references exactly one real immediate Output folder, including the managed Documents alias. They receive project archive/restore, rename and deletion protection on refresh. Names alone never establish a link: unrelated folders, symlinks, nested paths and folders claimed by multiple projects are not automatically adopted. Renaming a linked project also updates its native folder resource.
 
 
-Files includes a collapsible Projects directory for HAOS and official-remote projects. Managed Output projects provide Open files; native locations outside Outputs are shown as reference paths only. No files are moved automatically. Use New project or New conversation in Files to open the corresponding Conversations flow. New conversation on a project preselects that project.
+Use New project in Files to open the project creation flow in Conversations. Browse projects and start new conversations in the Conversations tool. Native folder paths are shown there; no files are moved automatically.

@@ -58,5 +58,4 @@ const destructiveChoice=vm.runInContext('chooseProjectFiles({name:"Test project"
 get('projectDeleteFiles').value='delete';get('projectDeleteReview').onclick();get('projectDeleteDialog').onclose();assert.equal(await destructiveChoice,'delete');
 const cancelChoice=vm.runInContext('chooseProjectFiles({name:"Test project",folder:"Test project"})',context);
 get('projectDeleteCancel').onclick();get('projectDeleteDialog').onclose();assert.equal(await cancelChoice,null);
-vm.runInContext("busy=false;connected=true;projects=[{id:'remote',name:'Remote'}];requestedProject='remote';showSession();",context);assert.equal(get('project').value,'remote');
 console.log('UI checks passed: refresh, search, confirmation/recheck safety, project file retention default, explicit deletion choice and cancellation.');})().catch(e=>{console.error(e);process.exit(1);});

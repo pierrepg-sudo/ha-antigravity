@@ -10,7 +10,7 @@
 <dialog id="projectDeleteDialog" aria-labelledby="projectDeleteTitle"><h2 id="projectDeleteTitle">Delete project?</h2><p id="projectDeleteName"></p><label for="projectDeleteFiles">Generated folder and files</label><select id="projectDeleteFiles"><option value="keep">Keep folder and files (recommended)</option><option value="delete">Permanently delete folder and all files</option></select><p>Project conversations will be permanently deleted. Stop any workers writing to this project first. You will review a final confirmation before deletion.</p><div class="actions"><button id="projectDeleteCancel">Cancel</button><button id="projectDeleteReview" class="delete">Review deletion</button></div></dialog>
 <script>
 const csrf='__CSRF__';let items=[],busy=false,pending=null,connected=false,timer=null,failures=0;
-const entryParams=new URLSearchParams(window.location.search||'');let entryAction=entryParams.get('action'),requestedProject=entryParams.get('project')||'';
+const entryParams=new URLSearchParams(window.location.search||'');let entryAction=entryParams.get('action');
 const folderState=new Map();let searching=false,projects=[],sessionRequest=null;
 const $=id=>document.getElementById(id),dialog=$('confirm');
 function setBusy(value){busy=value;document.querySelectorAll('button').forEach(b=>b.disabled=value||b.dataset.blocked==='true');$('apply').disabled=value||!pending;}
@@ -83,7 +83,7 @@ async function refresh(){
  }catch(e){items=[];connected=false;failures=Math.min(failures+1,2);render();$('connection').textContent='Not connected';$('updated').textContent='Retrying automatically';throw e;}
  finally{clearTimeout(timeout);}
 }
-async function load(){if(busy||dialog.open||$('sessionDialog').open||document.hidden)return;clearTimeout(timer);setBusy(true);try{await refresh();}catch(e){$('status').textContent=e.name==='AbortError'?'Connection timed out. Trying again shortly.':e.message;}finally{setBusy(false);schedule();}if(connected&&entryAction){const action=entryAction;entryAction=null;if(window.history)window.history.replaceState(null,'',window.location.pathname);if(action==='new-project')$('newProject').onclick();else if(action==='new-conversation')showSession();}}
+async function load(){if(busy||dialog.open||$('sessionDialog').open||document.hidden)return;clearTimeout(timer);setBusy(true);try{await refresh();}catch(e){$('status').textContent=e.name==='AbortError'?'Connection timed out. Trying again shortly.':e.message;}finally{setBusy(false);schedule();}if(connected&&entryAction){const action=entryAction;entryAction=null;if(window.history)window.history.replaceState(null,'',window.location.pathname);if(action==='new-project')$('newProject').onclick();}}
 $('refresh').onclick=load;$('search').oninput=render;$('cancel').onclick=()=>dialog.close();
 dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault();});dialog.addEventListener('close',()=>{pending=null;schedule();});
 document.addEventListener('visibilitychange',()=>{clearTimeout(timer);if(!document.hidden)load();});
@@ -119,7 +119,7 @@ function showSession(item=null){
  $('sessionSelected').textContent=item?item.title:'Choose a project, or leave this conversation unclassified.';
  $('projectField').hidden=Boolean(item);$('project').replaceChildren();
  for(const project of [{id:'',name:'No project'},...projects.filter(p=>!p.archived)]){const option=document.createElement('option');option.value=project.id;option.textContent=project.name;$('project').append(option);}
- $('project').value=projects.some(p=>p.id===requestedProject&&!p.archived)?requestedProject:'';$('sessionApply').textContent=item?'Open in terminal':'Start conversation';$('sessionError').textContent='';$('sessionDialog').showModal();
+ $('project').value='';$('sessionApply').textContent=item?'Open in terminal':'Start conversation';$('sessionError').textContent='';$('sessionDialog').showModal();
 }
 $('newConversation').onclick=()=>showSession();
 $('sessionCancel').onclick=()=>$('sessionDialog').close();
