@@ -1,4 +1,4 @@
-"""Workspace-only file operations; never follows symlinks or overwrites files."""
+"""Workspace-only file operations; no symlink traversal. Rules edits explicitly replace AGENTS.md."""
 import base64
 import os
 import secrets
@@ -453,3 +453,61 @@ def download_file(path):
             if size > DOWNLOAD_LIMIT:
                 raise FileOperationError('Download limit is 500 MiB per file.')
             yield source, names[-1], size
+
+
+RULES_LIMIT = 256 * 1024
+
+
+def project_rules(payload):
+    """Read or atomically update the fixed project-root instructions file."""
+    import hashlib
+    action = payload.get('action')
+    if action not in ('rules-read', 'rules-save', 'rules-delete'):
+        raise ValueError('Unknown rules action')
+    with directory(payload.get('path', '')) as parent:
+        try:
+            with open_regular(parent, 'AGENTS.md') as source:
+                info = os.fstat(source.fileno())
+                data = source.read(RULES_LIMIT + 1)
+            if len(data) > RULES_LIMIT:
+                raise FileOperationError('AGENTS.md exceeds the 256 KiB editor limit. Download it to edit.')
+            try:
+                text = data.decode('utf-8')
+            except UnicodeDecodeError:
+                raise FileOperationError('AGENTS.md is not UTF-8 text. Download it to edit.')
+            if '\0' in text:
+                raise FileOperationError('AGENTS.md contains binary data. Download it to edit.')
+            revision = hashlib.sha256(data).hexdigest()
+            exists = True
+        except FileNotFoundError:
+            text, revision, exists, info = '', 'missing', False, None
+        if action == 'rules-read':
+            return dict(text=text, revision=revision, exists=exists)
+        if payload.get('revision') != revision:
+            raise FileOperationError('AGENTS.md changed since you opened it. Close and reopen Rules before saving.')
+        if action == 'rules-delete':
+            if exists:
+                os.unlink('AGENTS.md', dir_fd=parent)
+            return dict(ok=True, exists=False, revision='missing')
+        text = payload.get('text')
+        if not isinstance(text, str) or '\0' in text:
+            raise ValueError('Rules must be text')
+        data = text.encode('utf-8')
+        if len(data) > RULES_LIMIT:
+            raise FileOperationError('Rules exceed the 256 KiB editor limit.')
+        temp = '.rules-' + secrets.token_hex(16)
+        handle = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o660, dir_fd=parent)
+        try:
+            with os.fdopen(handle, 'wb') as target:
+                if info is not None:
+                    os.fchmod(target.fileno(), stat.S_IMODE(info.st_mode) & 0o777)
+                target.write(data)
+                target.flush()
+                os.fsync(target.fileno())
+            os.replace(temp, 'AGENTS.md', src_dir_fd=parent, dst_dir_fd=parent)
+        finally:
+            try:
+                os.unlink(temp, dir_fd=parent)
+            except FileNotFoundError:
+                pass
+        return dict(ok=True, exists=True, revision=hashlib.sha256(data).hexdigest())

@@ -14,6 +14,7 @@
 <dialog id="preview" aria-labelledby="title"><h3 id="title"></h3><p id="note"></p><textarea id="text" readonly aria-label="File preview"></textarea><div class="actions"><button id="close">Close</button></div></dialog>
 <dialog id="pathDialog" aria-labelledby="pathTitle"><h3 id="pathTitle">File path</h3><p>Copy this path to use in your conversation.</p><textarea id="pathText" rows="3" readonly aria-label="Workspace file path"></textarea><div class="actions"><button id="pathClose" class="quiet">Close</button><button id="copy" class="primary">Copy path</button></div></dialog>
 <dialog id="deleteDialog" aria-labelledby="deleteTitle"><h3 id="deleteTitle">Delete item?</h3><p id="deleteName"></p><p id="deleteWarning"></p><p id="deleteError" class="modal-error" role="alert"></p><div class="actions"><button id="deleteCancel" class="quiet" autofocus>Cancel</button><button id="deleteConfirm" class="danger">Delete permanently</button></div></dialog>
+<dialog id="rulesDialog" aria-labelledby="rulesTitle"><h3 id="rulesTitle">Project rules</h3><p id="rulesPath"></p><p>Add, edit or remove instructions below. Saved in this project's root AGENTS.md. Start a new conversation to ensure updated rules are loaded.</p><textarea id="rulesText" rows="14" aria-label="Project instructions" spellcheck="false"></textarea><p id="rulesError" class="modal-error" role="alert"></p><div class="actions"><button id="rulesCancel">Cancel</button><button id="rulesDelete" class="danger">Delete rules</button><button id="rulesSave" class="primary">Save rules</button></div></dialog>
 <script>
 
 const csrf='__CSRF__';let current='';let area='outputs';let root='/data/workspace/outputs';let readOnly=false;let busy=false;let pendingDelete=null;let clipboard=null;const $=s=>document.querySelector(s);const status=$('#status');
@@ -129,6 +130,7 @@ async function browse(path){
    extra.append(button('Copy',async()=>{selectItem('copy',path,e.name);more.open=false;}));
    if(e.project&&!['default-cli-project','outside-of-project'].includes(e.project.id))extra.append(button(e.project.archived?'Restore project':'Archive project',()=>archiveProject(e)));
    if(!readOnly)extra.append(button('Rename',()=>renameItem(e)));
+   if(!readOnly&&e.project&&e.kind==='folder')extra.append(button('Rules',()=>openRules(path,e.project.name)));
    if(!readOnly&&e.kind==='file'&&e.name.toLowerCase().endsWith('.zip'))extra.append(button('Extract ZIP',async()=>{
     status.textContent='Extracting '+e.name+'…';more.open=false;
     await request('file-action',{action:'extract',path:current,name:e.name});
@@ -142,6 +144,27 @@ async function browse(path){
  clipboardControls();
 }
 $('#zipCurrent').onclick=()=>act(()=>downloadItem(current,(current.split('/').pop()||root.split('/').pop())+'.zip',true));
+let rulesState=null;
+async function openRules(path,name){
+ const data=await request('file-action',{action:'rules-read',path});
+ rulesState={path,revision:data.revision};$('#rulesTitle').textContent='Rules — '+name;$('#rulesPath').textContent=root+'/'+path+'/AGENTS.md';$('#rulesText').value=data.text;$('#rulesDelete').hidden=!data.exists;$('#rulesError').textContent='';$('#rulesDialog').showModal();
+}
+$('#rulesCancel').onclick=()=>{if(!busy)$('#rulesDialog').close();};
+$('#rulesDialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});
+$('#rulesDialog').addEventListener('close',()=>{rulesState=null;$('#rulesText').value='';});
+async function saveRules(remove=false){
+ if(!rulesState||busy)return;
+ if(remove&&!confirm('Delete this project’s AGENTS.md instructions file?'))return;
+ await act(async()=>{
+  $('#rulesError').textContent='';$('#rulesText').disabled=true;
+  try{
+   await request('file-action',{action:remove?'rules-delete':'rules-save',...rulesState,...(remove?{}:{text:$('#rulesText').value})});
+   $('#rulesDialog').close();await browse(current);status.textContent=remove?'Project rules deleted.':'Project rules saved in AGENTS.md.';
+  }catch(error){$('#rulesError').textContent=error.message;throw error;}
+  finally{$('#rulesText').disabled=false;}
+ });
+}
+$('#rulesSave').onclick=()=>saveRules();$('#rulesDelete').onclick=()=>saveRules(true);
 $('#clearClipboard').onclick=()=>{clipboard=null;clipboardControls();};
 $('#pasteItem').onclick=()=>act(async()=>{
  if(!clipboard||readOnly)return;

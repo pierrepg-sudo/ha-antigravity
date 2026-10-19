@@ -1,3 +1,7 @@
+## 0.10.26
+
+- Add Rules under More for linked project folders in Files. Create, edit or delete the project-root AGENTS.md with a UTF-8 editor, stale-edit checks, atomic saves and link protection.
+
 ## 0.10.25
 
 - Add New conversation to Terminal with the same project selection, unclassified option and guarded session creation used by Conversations. Reload Terminal after successful creation.

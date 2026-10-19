@@ -299,7 +299,13 @@ class Handler(BaseHTTPRequestHandler):
                 names = workspace_files.parts(payload.get('path', ''))
                 if not names or not project_folders().get(names[0], {}).get('archived'):
                     raise workspace_files.FileOperationError('Open an archived project folder to edit its contents. Use Archive/Restore for whole projects.')
-            if payload.get('action') in ('copy', 'move'):
+            if payload.get('action') in ('rules-read', 'rules-save', 'rules-delete'):
+                names = workspace_files.parts(payload.get('path', ''))
+                if area not in ('outputs', 'archived') or len(names) != 1 or not project_folders().get(names[0]):
+                    raise workspace_files.FileOperationError('Rules are available only for a linked project root folder.')
+                with TRANSFER_LOCK:
+                    result = workspace_files.project_rules(payload)
+            elif payload.get('action') in ('copy', 'move'):
                 source_area = payload.get('sourceArea')
                 if not isinstance(source_area, str) or source_area not in AREAS:
                     raise ValueError('Unknown source area')

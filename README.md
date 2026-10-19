@@ -1,6 +1,6 @@
 # Antigravity Home Assistant add-on
 
-Experimental v0.10.25. Public egress requires a successful HAOS startup isolation check.
+Experimental v0.10.26. Public egress requires a successful HAOS startup isolation check.
 
 ## Install
 

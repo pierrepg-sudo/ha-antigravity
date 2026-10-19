@@ -950,3 +950,10 @@ Files and Conversations automatically register projects whose native metadata re
 
 
 Use New project in Files to open the project creation flow in Conversations. Browse projects and start new conversations in the Conversations tool. Native folder paths are shown there; no files are moved automatically.
+
+
+## Project rules in Files
+
+Open **Files → Outputs → project folder → More → Rules** (use the folder card's More menu). The editor opens the project root's `AGENTS.md`, or starts empty if it does not exist. Edit the instructions and choose **Save rules**. **Delete rules** removes that file after confirmation; Cancel leaves it unchanged. Archived linked project folders offer the same editor.
+
+The editor supports up to 256 KiB of UTF-8 text, rejects links and special files, and checks for changes since opening to avoid overwriting a newer saved version. Start a new conversation after updating instructions so the CLI can load the new rules.
