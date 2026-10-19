@@ -145,7 +145,7 @@ def dispatch(request):
     params = request.get('params', {})
     if method == 'initialize':
         return {'protocolVersion': '2024-11-05', 'capabilities': {'tools': {}},
-                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.10.27'},
+                'serverInfo': {'name': 'ha-restricted-worker', 'version': '0.10.28'},
                 'instructions': INSTRUCTIONS + '\nThis session saves generated files by default in ' + project_output() + '. Use this absolute directory for native file writes. Worker commands start there; it is not a trusted configuration workspace.'}
     if method == 'ping':
         return {}

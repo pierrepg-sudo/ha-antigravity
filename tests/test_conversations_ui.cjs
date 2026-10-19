@@ -44,6 +44,28 @@ get('search').value='AirPrint';get('search').oninput();
 assert.equal(descendants(get('list')).filter(e=>e.className==='row').length,1);
 assert(get('list').children.some(e=>e.textContent==='Archived · 1'));
 get('search').value='';get('search').oninput();
+// Every conversation owns a footer, including blocked/active entries. Refreshes
+// and filtering must not move it into the project or reset its disclosure state.
+vm.runInContext(`items.push({id:'five',title:'Active',projectId:'p1',projectName:'Home Assistant',blocked:'Active conversation'});render();`,context);
+const rows=()=>descendants(get('list')).filter(e=>e.className==='row');
+const footer=id=>rows().map(r=>r.children[2]).find(e=>e.dataset.conversationId===id);
+for(const row of rows()){
+ assert.equal(row.children.length,3);
+ assert.equal(row.children[2].className,'conversation-more');
+ assert.equal(row.children[2].children[1].hidden,true);
+}
+assert(folders().every(f=>!f.children.some(c=>c.className==='conversation-more')));
+footer('one').children[0].onclick();
+assert.equal(footer('one').children[1].hidden,false);
+assert.equal(footer('five').children[1].hidden,true);
+vm.runInContext('render()',context);
+assert.equal(footer('one').children[1].hidden,false);
+get('search').value='Active';get('search').oninput();
+assert.equal(rows().length,1);assert(footer('five'));
+get('search').value='';get('search').oninput();
+assert.equal(footer('one').children[1].hidden,false);
+footer('one').children[0].onclick();vm.runInContext('render()',context);
+assert.equal(footer('one').children[1].hidden,true);
 fail=false;get('newConversation').onclick();assert(get('sessionDialog').open);assert.equal(get('project').value,'');
 assert.equal(timers.size,0);await vm.runInContext('load()',context);assert(get('sessionDialog').open);
 await get('sessionApply').onclick();assert.equal(context.window.location.href,'controls');

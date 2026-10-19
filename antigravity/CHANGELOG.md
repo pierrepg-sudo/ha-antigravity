@@ -1,3 +1,7 @@
+## 0.10.28
+
+- Keep each conversation's More control in a dedicated full-width card footer, avoiding nested native disclosure layout. Preserve its expanded state across automatic refreshes and filtering.
+
 ## 0.10.27
 
 - Add Associate folder to project More menus in Conversations. Link an existing immediate Outputs folder or create a new one, preserving existing files and updating HAOS output contexts. Reject shared folders and links; require fresh confirmation. Official remote workspace resources are unchanged.
