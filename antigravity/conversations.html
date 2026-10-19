@@ -39,7 +39,7 @@ function render(){
    folder.append(heading);$('list').append(folder);
    if(group.project.id&&!['default-cli-project','outside-of-project'].includes(group.project.id)){
     const menu=document.createElement('details');menu.className='action-more project-more';const summary=document.createElement('summary');summary.textContent='More ···';menu.append(summary);const actions=document.createElement('div');actions.className='more-actions';
-    for(const [action,text] of [['rename','Rename project'],[group.project.archived?'restore':'archive',group.project.archived?'Restore project':'Archive project'],['delete','Delete project']]){
+    for(const [action,text] of [['associate-folder','Associate folder'],['rename','Rename project'],[group.project.archived?'restore':'archive',group.project.archived?'Restore project':'Archive project'],['delete','Delete project']]){
      const button=document.createElement('button');button.textContent=text;button.onclick=()=>manage('project',group.project,action);if(action==='delete')button.className='delete';actions.append(button);
     }menu.append(actions);folder.append(menu);
     const paths=group.project.folder?['/data/workspace/outputs/'+group.project.folder]:(group.project.paths||[]);
@@ -156,9 +156,10 @@ async function manage(kind,item,action){
  try{
   const payload={kind,id:item.id,action};
   if(action==='delete'&&kind==='project'){payload.files=await chooseProjectFiles(item);if(payload.files===null)return;}
+  if(action==='associate-folder'){payload.destination=window.prompt('Output folder name (existing folder or a new folder under /data/workspace/outputs)',item.folder||item.name);if(!payload.destination)return;}
   if(action==='rename'){payload.name=window.prompt('New name',item.title||item.name);if(!payload.name)return;}
   const prepared=await managementRequest('management-prepare',payload);
-  const warning=action==='delete'?`Permanently delete ${prepared.count} conversation(s)${kind==='project'?' and project '+prepared.projectName:''}? ${payload.files==='delete'?'ALSO permanently delete /data/workspace/outputs/'+prepared.folder+' and EVERYTHING inside it.':'Keep the generated folder and files.'} This cannot be undone.`:action==='reset-model'?'Clear this conversation’s saved model preference? The CLI default will apply next time you open it.':action==='rename'&&kind==='project'?'Rename this project and its managed output folder? Stop any workers using this folder first, then reopen the conversation after renaming.':`${action==='archive'?'Archive':action==='restore'?'Restore':'Rename'} ${item.title||item.name}${kind==='project'?' in both Conversations and Files (paths stay unchanged)':''}?`;
+  const warning=action==='associate-folder'?`Associate ${item.name} with /data/workspace/outputs/${payload.destination}? An absent folder will be created. Existing files will not be moved or deleted. This changes the HAOS output-folder link, not the official remote workspace configuration. Stop workers using the old folder and reopen conversations afterward.`:action==='delete'?`Permanently delete ${prepared.count} conversation(s)${kind==='project'?' and project '+prepared.projectName:''}? ${payload.files==='delete'?'ALSO permanently delete /data/workspace/outputs/'+prepared.folder+' and EVERYTHING inside it.':'Keep the generated folder and files.'} This cannot be undone.`:action==='reset-model'?'Clear this conversation’s saved model preference? The CLI default will apply next time you open it.':action==='rename'&&kind==='project'?'Rename this project and its managed output folder? Stop any workers using this folder first, then reopen the conversation after renaming.':`${action==='archive'?'Archive':action==='restore'?'Restore':'Rename'} ${item.title||item.name}${kind==='project'?' in both Conversations and Files (paths stay unchanged)':''}?`;
   if(!window.confirm(warning))return;
   await managementRequest('management-action',{...payload,...prepared,confirm:true});await refresh();
  }catch(error){$('status').textContent=error.message;}finally{setBusy(false);schedule();}

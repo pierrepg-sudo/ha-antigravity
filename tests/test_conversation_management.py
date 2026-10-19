@@ -27,6 +27,35 @@ class ManagementTests(unittest.TestCase):
             self.assertEqual(manager.ensure_folder({},'p1'),folder)
             with self.assertRaises(native.NativeError):manager.ensure_folder({},'p2')
 
+    def test_associate_existing_or_new_folder_preserves_files(self):
+        (self.root/'old').mkdir()
+        (self.root/'old/keep').write_text('keep')
+        (self.root/'existing').mkdir()
+        (self.root/'existing/AGENTS.md').write_text('instructions')
+        manager.write_state({'folders':{'p1':'old'},'contexts':{'c1':str(self.root/'old')}})
+        with patch.object(native,'load',return_value={}),patch.object(manager.saved,'project_records',return_value={}),patch.object(manager,'selection',return_value=({'id':'p1'},[{'id':'c1'}],'revision')),patch.object(native,'rpc') as rpc:
+            for name in ('existing','new'):
+                manager.action({'kind':'project','id':'p1','action':'associate-folder','destination':name,'revision':'revision','confirm':True})
+                self.assertTrue((self.root/name).is_dir())
+                self.assertEqual(manager.read_state()['folders']['p1'],name)
+                self.assertEqual(manager.read_state()['contexts']['c1'],str(self.root/name))
+            rpc.assert_not_called()
+        self.assertEqual((self.root/'old/keep').read_text(),'keep')
+        self.assertEqual((self.root/'existing/AGENTS.md').read_text(),'instructions')
+
+    def test_association_target_rejects_shared_links_and_traversal(self):
+        (self.root/'used').mkdir()
+        (self.root/'link').symlink_to(self.root/'used',target_is_directory=True)
+        manager.write_state({'folders':{'other':'used'}})
+        with patch.object(manager.saved,'project_records',return_value={}):
+            for name in ('used','link','../escape'):
+                with self.assertRaises(native.NativeError):
+                    manager.association_target({'kind':'project','destination':name},{'id':'p1'})
+            name,identity=manager.association_target({'kind':'project','destination':'new'},{'id':'p1'})
+            self.assertIsNone(identity)
+            (self.root/'new').mkdir()
+            self.assertIsNotNone(manager.association_target({'kind':'project','destination':name},{'id':'p1'})[1])
+
     def test_rejects_unsafe_names(self):
         for name in ['../outside','a/b','a\\b','.hidden','a\ncommand',' x','',None]:
             with self.assertRaises(native.NativeError):manager.valid_name(name)

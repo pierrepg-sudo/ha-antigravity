@@ -957,3 +957,10 @@ Use New project in Files to open the project creation flow in Conversations. Bro
 Open **Files → Outputs → project folder → More → Rules** (use the folder card's More menu). The editor opens the project root's `AGENTS.md`, or starts empty if it does not exist. Edit the instructions and choose **Save rules**. **Delete rules** removes that file after confirmation; Cancel leaves it unchanged. Archived linked project folders offer the same editor.
 
 The editor supports up to 256 KiB of UTF-8 text, rejects links and special files, and checks for changes since opening to avoid overwriting a newer saved version. Start a new conversation after updating instructions so the CLI can load the new rules.
+
+
+## Associate a project output folder
+
+In **Conversations → project → More → Associate folder**, enter a single folder name under `/data/workspace/outputs`. Existing folders are linked without merging or moving files; missing folders are created. The old folder and its contents stay intact. Folders owned or referenced by another project and symbolic links are rejected. Existing active-conversation guards apply.
+
+This sets the HAOS managed output folder used by Files, Rules, archive/deletion protection and conversation output contexts. It does not rewrite native workspace resources in the official Antigravity remote. Stop workers using the previous location and reopen conversations after changing the association. Rules now appears on the newly linked folder's More menu after refreshing Files.

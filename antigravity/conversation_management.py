@@ -191,9 +191,29 @@ def ensure_folder(connection, pid):
     return str(OUTPUTS / name)
 
 
+def association_target(payload, obj):
+    if payload.get('kind') != 'project' or obj is None:
+        raise native.NativeError('Folder associations belong to projects.')
+    name = valid_name(payload.get('destination'))
+    bindings = sync_project_folders(saved.project_records())
+    if any(pid != obj['id'] and folder == name for pid, folder in bindings.items()):
+        raise native.NativeError('This folder is already associated with another project.')
+    for pid, record in saved.project_records().items():
+        if pid != obj['id'] and str(OUTPUTS / name) in project_paths(record):
+            raise native.NativeError('Another project already references this folder.')
+    with files.directory('') as root:
+        try:
+            info = os.stat(name, dir_fd=root, follow_symlinks=False)
+        except FileNotFoundError:
+            return name, None
+        if not stat.S_ISDIR(info.st_mode):
+            raise native.NativeError('Choose a real folder, not a file or symbolic link.')
+        return name, [info.st_dev, info.st_ino]
+
+
 def selection(payload, connection):
     import conversation_history as history
-    if payload.get('kind') not in ('project', 'conversation') or payload.get('action') not in ('rename', 'archive', 'restore', 'delete', 'reset-model'):
+    if payload.get('kind') not in ('project', 'conversation') or payload.get('action') not in ('rename', 'archive', 'restore', 'delete', 'reset-model', 'associate-folder'):
         raise native.NativeError('Invalid management action.')
     if payload['action'] == 'reset-model' and payload['kind'] != 'conversation':
         raise native.NativeError('Model preferences belong to individual conversations.')
@@ -230,7 +250,8 @@ def selection(payload, connection):
             if not stat.S_ISDIR(info.st_mode):
                 raise native.NativeError('The project folder changed or is a link. Files were not selected for deletion.')
             identity = [info.st_dev, info.st_ino]
-    revision = hashlib.sha256(json.dumps([obj, entries, read_state().get('folders', {}), payload.get('files', 'keep'), identity], sort_keys=True).encode()).hexdigest()
+    association = association_target(payload, obj) if payload['action'] == 'associate-folder' else None
+    revision = hashlib.sha256(json.dumps([obj, entries, read_state().get('folders', {}), payload.get('files', 'keep'), identity, association], sort_keys=True).encode()).hexdigest()
     return obj, entries, revision
 
 
@@ -255,6 +276,24 @@ def action(payload):
         operation = payload['action']
         completed = 0
         try:
+            if operation == 'associate-folder':
+                name, identity = association_target(payload, obj)
+                with files.directory('') as root:
+                    if identity is None:
+                        os.mkdir(name, 0o2770, dir_fd=root)
+                    fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=root)
+                    try:
+                        info = os.fstat(fd)
+                        if identity is not None and identity != [info.st_dev, info.st_ino]:
+                            raise native.NativeError('The folder changed. Refresh and confirm again.')
+                    finally:
+                        os.close(fd)
+                state = read_state()
+                state.setdefault('folders', {})[obj['id']] = name
+                for row in entries:
+                    state.setdefault('contexts', {})[row['id']] = str(OUTPUTS / name)
+                write_state(state)
+                return {'ok': True, 'folder': name}
             if operation == 'reset-model':
                 import conversation_models
                 conversation_models.remember(payload['id'], '')

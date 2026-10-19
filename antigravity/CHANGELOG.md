@@ -1,3 +1,7 @@
+## 0.10.27
+
+- Add Associate folder to project More menus in Conversations. Link an existing immediate Outputs folder or create a new one, preserving existing files and updating HAOS output contexts. Reject shared folders and links; require fresh confirmation. Official remote workspace resources are unchanged.
+
 ## 0.10.26
 
 - Add Rules under More for linked project folders in Files. Create, edit or delete the project-root AGENTS.md with a UTF-8 editor, stale-edit checks, atomic saves and link protection.
