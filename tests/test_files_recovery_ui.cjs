@@ -1,0 +1,21 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync('antigravity/files.html','utf8');
+const source=html.slice(html.indexOf('async function request('),html.indexOf('function showFilesError'));
+let response,options,timer,cleared=0,calls=0;
+const ctx=vm.createContext({AbortController,Error,JSON,csrf:'token',scoped:x=>x+'?area=outputs',setTimeout:fn=>{timer=fn;return 1;},clearTimeout:()=>cleared++,fetch:async(url,opts)=>{calls++;options=opts;if(response instanceof Error)throw response;return response;}});
+vm.runInContext(source,ctx);
+const call=()=>vm.runInContext("request('file-list')",ctx);
+(async()=>{
+ response={ok:true,status:200,headers:{get:()=> 'text/html'},json:()=>{throw Error('must not parse HTML');}};
+ await assert.rejects(call(),e=>e.reopen===true);
+ response={ok:false,status:403,headers:{get:()=> 'application/json'}};
+ await assert.rejects(call(),e=>e.reopen===true);
+ response={ok:true,status:200,headers:{get:()=> 'application/json'},json:async()=>({entries:[]})};
+ assert.deepEqual(await call(),{entries:[]});assert.equal(options.cache,'no-store');assert(options.signal);
+ response=Object.assign(new Error('aborted'),{name:'AbortError'});await assert.rejects(call(),/timed out/);
+ response={ok:true,status:200,headers:{get:()=> 'application/json'},json:async()=>{throw Error('bad JSON');}};
+ await assert.rejects(call(),/incomplete response/);
+ assert.equal(calls,5);assert.equal(cleared,5);
+ assert(html.includes("$('#count').textContent='Listing unavailable'"));
+ console.log('Files recovery checks passed: HTML/auth errors, timeout, malformed response, uncached success, no automatic retries.');
+})().catch(e=>{console.error(e);process.exit(1);});
