@@ -1,3 +1,7 @@
+## 0.10.21
+
+- Clarify the Files rename confirmation: renaming a managed folder also renames its linked project in Conversations.
+
 ## 0.10.20
 
 - Remove the experimental project move diagnostic UI, endpoint, implementation and tests. Existing projects, conversations, files and saved diagnostic records are preserved.

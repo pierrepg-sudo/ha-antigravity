@@ -43,7 +43,7 @@ async function renameItem(entry){
    const post=async(url,payload)=>{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':context.csrf},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok)throw new Error(d.error);return d;};
    const payload={kind:'project',id:project.id,action:'rename',name:newName};
    const prepared=await post('management-prepare',payload);
-   if(!confirm('Rename the project and its output folder together? Stop any workers using the folder first.'))return;
+   if(!confirm('Rename this folder and its linked project in Conversations together? Stop any workers using the folder first.'))return;
    await post('management-action',{...payload,...prepared,confirm:true});await browse(current);return;
   }
  }
