@@ -96,4 +96,24 @@ const destructiveChoice=vm.runInContext('chooseProjectFiles({name:"Test project"
 get('projectDeleteFiles').value='delete';get('projectDeleteReview').onclick();get('projectDeleteDialog').onclose();assert.equal(await destructiveChoice,'delete');
 const cancelChoice=vm.runInContext('chooseProjectFiles({name:"Test project",folder:"Test project"})',context);
 get('projectDeleteCancel').onclick();get('projectDeleteDialog').onclose();assert.equal(await cancelChoice,null);
-console.log('UI checks passed: refresh, search, confirmation/recheck safety, project file retention default, explicit deletion choice and cancellation.');})().catch(e=>{console.error(e);process.exit(1);});
+vm.runInContext('busy=false',context);
+const originalFetch=context.fetch;let associationFails=true,associationPayload;
+context.fetch=async(url,opts)=>{
+ if(url==='management-context')return {ok:true,json:async()=>({folders:[{name:'free',owners:[]},{name:'taken',owners:['other']}]})};
+ if(url==='management-prepare')return {ok:true,json:async()=>({revision:'r'})};
+ if(url==='management-action'){associationPayload=JSON.parse(opts.body);return {ok:!associationFails,json:async()=>associationFails?{error:'This folder is already associated with another project.'}:{ok:true}};}
+ return originalFetch(url,opts);
+};
+await vm.runInContext("showAssociation({id:'p1',name:'Project'})",context);
+assert(get('folderDialog').open);assert(get('folderSave').disabled);
+assert(get('existingFolder').children.find(o=>o.value==='taken').disabled);
+get('existingFolder').value='free';get('existingFolder').onchange();
+await get('folderSave').onclick();assert(get('folderDialog').open);
+assert(get('folderError').textContent.includes('another project'));assert(!get('folderSave').disabled);
+assert.equal(associationPayload.destination,'free');assert.equal(associationPayload.folderMode,'existing');
+associationFails=false;get('folderMode').value='new';get('folderMode').onchange();get('newFolderName').value='New project folder';
+await get('folderSave').onclick();assert(!get('folderDialog').open);
+assert.equal(associationPayload.destination,'New project folder');assert.equal(associationPayload.folderMode,'new');
+assert(get('status').textContent.includes('New project folder'));
+context.fetch=originalFetch;
+console.log('UI checks passed, including association picker, visible failure, retry and new folder submission.');})().catch(e=>{console.error(e);process.exit(1);});

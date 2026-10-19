@@ -1,3 +1,7 @@
+## 0.10.30
+
+- Replace folder-association popups with an in-page existing-folder picker and new-folder option. Show errors in the dialog, bound requests with timeouts, and recheck folder ownership and existence before saving.
+
 ## 0.10.29
 
 - Keep the existing project More menu first in an explicitly ordered project body, below the project heading and before its conversations. Retain the conversation-menu improvements from 0.10.28.

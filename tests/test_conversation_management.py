@@ -56,6 +56,28 @@ class ManagementTests(unittest.TestCase):
             (self.root/'new').mkdir()
             self.assertIsNotNone(manager.association_target({'kind':'project','destination':name},{'id':'p1'})[1])
 
+    def test_association_picker_and_save_share_ownership_gate(self):
+        for name in ('free', 'managed', 'native'):
+            (self.root/name).mkdir()
+        (self.root/'link').symlink_to(self.root/'free', target_is_directory=True)
+        manager.write_state({'folders': {'other': 'managed'}})
+        records = {'native-owner': {'projectResources': {'resources': [{'folderUri': (self.root/'native').as_uri()}]}}}
+        with patch.object(manager.saved, 'project_records', return_value=records):
+            choices = {entry['name']: entry['owners'] for entry in manager.association_folders()}
+            self.assertEqual(choices['free'], [])
+            self.assertEqual(choices['managed'], ['other'])
+            self.assertEqual(choices['native'], ['native-owner'])
+            self.assertNotIn('link', choices)
+            for name in ('managed', 'native'):
+                with self.assertRaisesRegex(native.NativeError, 'another project'):
+                    manager.association_target({'kind':'project','destination':name,'folderMode':'existing'}, {'id':'p1'})
+            for name, mode in [('free','new'), ('missing','existing')]:
+                with self.assertRaises(native.NativeError):
+                    manager.association_target({'kind':'project','destination':name,'folderMode':mode}, {'id':'p1'})
+            manager.write_state({'folders': {'other': 'free'}})
+            with self.assertRaisesRegex(native.NativeError, 'another project'):
+                manager.association_target({'kind':'project','destination':'free','folderMode':'existing'}, {'id':'p1'})
+
     def test_rejects_unsafe_names(self):
         for name in ['../outside','a/b','a\\b','.hidden','a\ncommand',' x','',None]:
             with self.assertRaises(native.NativeError):manager.valid_name(name)

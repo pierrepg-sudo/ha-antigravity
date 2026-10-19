@@ -179,10 +179,14 @@ class Handler(BaseHTTPRequestHandler):
                 result = conversation_models.listing() if route == '/conversation-models' else {'projects': conversation_management.projects(None)}
                 if route == '/management-context':
                     result['csrf'] = CSRF
+                    result['folders'] = conversation_management.association_folders()
                 code = 200
             except conversation_history.HistoryError as error:
                 result = {'error': str(error)}
                 code = 409
+            except OSError:
+                result = {'error': 'Output folders could not be read. Check workspace permissions.'}
+                code = 503
             body = json.dumps(result).encode()
             self.send_response(code)
             self.send_header('Content-Type', 'application/json')

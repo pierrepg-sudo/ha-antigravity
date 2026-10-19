@@ -961,6 +961,6 @@ The editor supports up to 256 KiB of UTF-8 text, rejects links and special files
 
 ## Associate a project output folder
 
-In **Conversations → project → More → Associate folder**, enter a single folder name under `/data/workspace/outputs`. Existing folders are linked without merging or moving files; missing folders are created. The old folder and its contents stay intact. Folders owned or referenced by another project and symbolic links are rejected. Existing active-conversation guards apply.
+In **Conversations → project → More → Associate folder**, select **Existing folder** and choose from the output folders, or select **Create new folder** and enter a name under `/data/workspace/outputs`. Folders linked to another project are disabled in the picker and checked again when saving. Existing files and the old folder stay intact. Errors remain visible in the dialog for correction and retry. Symbolic links are rejected; existing active-conversation guards apply.
 
 This sets the HAOS managed output folder used by Files, Rules, archive/deletion protection and conversation output contexts. It does not rewrite native workspace resources in the official Antigravity remote. Stop workers using the previous location and reopen conversations after changing the association. Rules now appears on the newly linked folder's More menu after refreshing Files.

@@ -191,21 +191,59 @@ def ensure_folder(connection, pid):
     return str(OUTPUTS / name)
 
 
+def folder_owners(records, bindings):
+    owners = {}
+    for pid, name in bindings.items():
+        owners.setdefault(name, set()).add(pid)
+    for pid, record in records.items():
+        for value in project_paths(record):
+            path = Path(os.path.normpath(value))
+            if path.parent == OUTPUTS:
+                owners.setdefault(path.name, set()).add(pid)
+        try:
+            name = resource_folder(record)
+        except (OSError, ValueError, TypeError, AttributeError, native.NativeError):
+            name = None
+        if name:
+            owners.setdefault(name, set()).add(pid)
+    return owners
+
+
+def association_folders():
+    records = saved.project_records()
+    owners = folder_owners(records, sync_project_folders(records))
+    result = []
+    for entry in files.listing('')['entries']:
+        if entry['kind'] != 'folder':
+            continue
+        try:
+            name = valid_name(entry['name'])
+        except native.NativeError:
+            continue
+        result.append({'name': name, 'owners': sorted(owners.get(name, set()))})
+    return result
+
+
 def association_target(payload, obj):
     if payload.get('kind') != 'project' or obj is None:
         raise native.NativeError('Folder associations belong to projects.')
     name = valid_name(payload.get('destination'))
-    bindings = sync_project_folders(saved.project_records())
-    if any(pid != obj['id'] and folder == name for pid, folder in bindings.items()):
+    records = saved.project_records()
+    owners = folder_owners(records, sync_project_folders(records))
+    if owners.get(name, set()) - {obj['id']}:
         raise native.NativeError('This folder is already associated with another project.')
-    for pid, record in saved.project_records().items():
-        if pid != obj['id'] and str(OUTPUTS / name) in project_paths(record):
-            raise native.NativeError('Another project already references this folder.')
+    mode = payload.get('folderMode', 'auto')
+    if mode not in ('auto', 'existing', 'new'):
+        raise native.NativeError('Choose an existing folder or create a new folder.')
     with files.directory('') as root:
         try:
             info = os.stat(name, dir_fd=root, follow_symlinks=False)
         except FileNotFoundError:
+            if mode == 'existing':
+                raise native.NativeError('This folder no longer exists. Reload the folder list.')
             return name, None
+        if mode == 'new':
+            raise native.NativeError('A folder with this name already exists. Choose Existing folder to link it.')
         if not stat.S_ISDIR(info.st_mode):
             raise native.NativeError('Choose a real folder, not a file or symbolic link.')
         return name, [info.st_dev, info.st_ino]

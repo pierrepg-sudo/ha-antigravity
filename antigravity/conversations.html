@@ -8,6 +8,7 @@
 <dialog id="confirm" aria-labelledby="confirmTitle"><h2 id="confirmTitle">Delete conversation?</h2><p id="selected"></p><p>This removes the conversation and may clean up its associated data. There is no undo.</p><p id="error" role="alert"></p><div class="actions"><button id="cancel">Cancel</button><button id="apply" class="delete">Delete conversation</button></div></dialog>
 <dialog id="sessionDialog" aria-labelledby="sessionTitle"><h2 id="sessionTitle">New conversation</h2><p id="sessionSelected"></p><div id="projectField"><label for="project">Project</label><select id="project"><option value="">No project</option></select></div><p>This switches the terminal session. Save any unsent text first. Switching is unavailable while the CLI is working.</p><p id="sessionError" role="alert"></p><div class="actions"><button id="sessionCancel">Cancel</button><button id="sessionApply">Start conversation</button></div></dialog></main>
 <dialog id="projectDeleteDialog" aria-labelledby="projectDeleteTitle"><h2 id="projectDeleteTitle">Delete project?</h2><p id="projectDeleteName"></p><label for="projectDeleteFiles">Generated folder and files</label><select id="projectDeleteFiles"><option value="keep">Keep folder and files (recommended)</option><option value="delete">Permanently delete folder and all files</option></select><p>Project conversations will be permanently deleted. Stop any workers writing to this project first. You will review a final confirmation before deletion.</p><div class="actions"><button id="projectDeleteCancel">Cancel</button><button id="projectDeleteReview" class="delete">Review deletion</button></div></dialog>
+<dialog id="folderDialog" aria-labelledby="folderTitle"><h2 id="folderTitle">Associate folder</h2><p id="folderProject"></p><label for="folderMode">Folder choice</label><select id="folderMode"><option value="existing">Existing folder</option><option value="new">Create new folder</option></select><div id="existingFolderField"><label for="existingFolder">Output folder</label><select id="existingFolder"></select></div><div id="newFolderField" hidden><label for="newFolderName">New folder name</label><input id="newFolderName" autocomplete="off"></div><p>Folders are under /data/workspace/outputs. Folders linked to another project cannot be selected. Existing files stay in place.</p><p>This updates the HAOS output-folder link. The official remote workspace configuration is unchanged. Stop workers using the old folder and reopen conversations afterward.</p><p id="folderError" role="alert" style="color:#ffb7bf"></p><div class="actions"><button id="folderCancel">Cancel</button><button id="folderReload">Reload folders</button><button id="folderSave" class="primary">Associate folder</button></div></dialog>
 <script>
 const csrf='__CSRF__';let items=[],busy=false,pending=null,connected=false,timer=null,failures=0;
 const entryParams=new URLSearchParams(window.location.search||'');let entryAction=entryParams.get('action');
@@ -144,9 +145,45 @@ $('sessionApply').onclick=async()=>{
  finally{setBusy(false);}
 };
 async function managementRequest(endpoint,payload){
- const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(payload)}),d=await r.json();
- if(!r.ok)throw new Error(d.error||'Operation failed. Refresh before retrying.');return d;
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
+ try{const r=await fetch(endpoint,{method:payload===undefined?'GET':'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},...(payload===undefined?{}:{body:JSON.stringify(payload)})});
+ let d;try{d=await r.json();}catch{throw new Error('Unexpected server response. Reopen Conversations and retry.');}
+ if(!r.ok||d.ok===false)throw new Error(d.error||'Operation failed. Refresh before retrying.');return d;
+ }catch(error){if(error.name==='AbortError')throw new Error('The request timed out. Check the project folder link before retrying.');throw error;}finally{clearTimeout(timeout);}
 }
+let folderProject=null,folderWorking=false;
+function folderControls(working){
+ folderWorking=working;
+ for(const id of ['folderCancel','folderReload','folderSave','folderMode','existingFolder','newFolderName'])$(id).disabled=working;
+ $('folderSave').disabled=working||($('folderMode').value==='existing'&&!$('existingFolder').value);
+ $('existingFolderField').hidden=$('folderMode').value!=='existing';$('newFolderField').hidden=$('folderMode').value!=='new';
+}
+async function reloadAssociationFolders(){
+ folderControls(true);$('folderError').textContent='Loading folders…';
+ try{const data=await managementRequest('management-context');if(!Array.isArray(data.folders))throw new Error('Folder list unavailable. Update and restart the add-on.');
+ $('existingFolder').replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select a folder';$('existingFolder').append(placeholder);
+ for(const folder of data.folders){const option=document.createElement('option');option.value=folder.name;option.disabled=folder.owners.some(id=>id!==folderProject.id);option.textContent=folder.name+(option.disabled?' — linked to another project':'');$('existingFolder').append(option);}
+ $('existingFolder').value='';$('folderError').textContent='';
+ }catch(error){$('existingFolder').replaceChildren();$('existingFolder').value='';$('folderError').textContent=error.message;}finally{folderControls(false);}
+}
+async function showAssociation(item){
+ if(busy)return;clearTimeout(timer);setBusy(true);folderProject=item;
+ $('folderProject').textContent=item.name;$('folderMode').value='existing';$('newFolderName').value='';$('folderDialog').showModal();await reloadAssociationFolders();
+}
+$('folderMode').onchange=()=>folderControls(folderWorking);
+$('existingFolder').onchange=()=>folderControls(folderWorking);
+$('folderReload').onclick=reloadAssociationFolders;
+$('folderCancel').onclick=()=>{if(!folderWorking)$('folderDialog').close();};
+$('folderDialog').addEventListener('cancel',e=>{if(folderWorking)e.preventDefault();});
+$('folderDialog').addEventListener('close',()=>{folderProject=null;setBusy(false);schedule();});
+$('folderSave').onclick=async()=>{
+ if(folderWorking||!folderProject)return;
+ const payload={kind:'project',id:folderProject.id,action:'associate-folder',folderMode:$('folderMode').value,destination:$('folderMode').value==='new'?$('newFolderName').value:$('existingFolder').value};
+ if(!payload.destination){$('folderError').textContent='Choose a folder or enter a new folder name.';return;}
+ folderControls(true);$('folderError').textContent='Associating folder…';
+ try{const prepared=await managementRequest('management-prepare',payload);await managementRequest('management-action',{...payload,...prepared,confirm:true});$('folderDialog').close();await refresh();$('status').textContent='Project linked to /data/workspace/outputs/'+payload.destination+'.';}
+ catch(error){$('folderError').textContent=error.message;}finally{folderControls(false);}
+};
 function chooseProjectFiles(item){
  return new Promise(resolve=>{
   const dialog=$('projectDeleteDialog');$('projectDeleteName').textContent=item.name;$('projectDeleteFiles').value='keep';
@@ -159,14 +196,14 @@ function chooseProjectFiles(item){
  });
 }
 async function manage(kind,item,action){
+ if(action==='associate-folder'){await showAssociation(item);return;}
  if(busy)return;clearTimeout(timer);setBusy(true);
  try{
   const payload={kind,id:item.id,action};
   if(action==='delete'&&kind==='project'){payload.files=await chooseProjectFiles(item);if(payload.files===null)return;}
-  if(action==='associate-folder'){payload.destination=window.prompt('Output folder name (existing folder or a new folder under /data/workspace/outputs)',item.folder||item.name);if(!payload.destination)return;}
   if(action==='rename'){payload.name=window.prompt('New name',item.title||item.name);if(!payload.name)return;}
   const prepared=await managementRequest('management-prepare',payload);
-  const warning=action==='associate-folder'?`Associate ${item.name} with /data/workspace/outputs/${payload.destination}? An absent folder will be created. Existing files will not be moved or deleted. This changes the HAOS output-folder link, not the official remote workspace configuration. Stop workers using the old folder and reopen conversations afterward.`:action==='delete'?`Permanently delete ${prepared.count} conversation(s)${kind==='project'?' and project '+prepared.projectName:''}? ${payload.files==='delete'?'ALSO permanently delete /data/workspace/outputs/'+prepared.folder+' and EVERYTHING inside it.':'Keep the generated folder and files.'} This cannot be undone.`:action==='reset-model'?'Clear this conversation’s saved model preference? The CLI default will apply next time you open it.':action==='rename'&&kind==='project'?'Rename this project and its managed output folder? Stop any workers using this folder first, then reopen the conversation after renaming.':`${action==='archive'?'Archive':action==='restore'?'Restore':'Rename'} ${item.title||item.name}${kind==='project'?' in both Conversations and Files (paths stay unchanged)':''}?`;
+  const warning=action==='delete'?`Permanently delete ${prepared.count} conversation(s)${kind==='project'?' and project '+prepared.projectName:''}? ${payload.files==='delete'?'ALSO permanently delete /data/workspace/outputs/'+prepared.folder+' and EVERYTHING inside it.':'Keep the generated folder and files.'} This cannot be undone.`:action==='reset-model'?'Clear this conversation’s saved model preference? The CLI default will apply next time you open it.':action==='rename'&&kind==='project'?'Rename this project and its managed output folder? Stop any workers using this folder first, then reopen the conversation after renaming.':`${action==='archive'?'Archive':action==='restore'?'Restore':'Rename'} ${item.title||item.name}${kind==='project'?' in both Conversations and Files (paths stay unchanged)':''}?`;
   if(!window.confirm(warning))return;
   await managementRequest('management-action',{...payload,...prepared,confirm:true});await refresh();
  }catch(error){$('status').textContent=error.message;}finally{setBusy(false);schedule();}
