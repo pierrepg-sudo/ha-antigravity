@@ -48,6 +48,23 @@ class FolderTests(unittest.TestCase):
             self.assertIn('outputs/project/empty/',z.namelist())
             self.assertEqual(z.read('outputs/project/.config/nested/.settings'),b'settings')
 
+    def test_zip_exceeds_old_entry_limit_and_preserves_hidden_contents(self):
+        deps = self.root/'project/.deps'
+        deps.mkdir()
+        for index in range(10001):
+            (deps/str(index)).write_bytes(b'x')
+        archive, _ = files.folder_zip('project')
+        with archive, zipfile.ZipFile(archive) as z:
+            self.assertGreater(len(z.infolist()), 10000)
+            self.assertEqual(z.read('project/.deps/10000'), b'x')
+            self.assertIsNone(z.testzip())
+        with patch.object(files, 'ZIP_ENTRY_LIMIT', 10):
+            with self.assertRaisesRegex(files.FileOperationError, 'more than 10 files and folders'):
+                files.folder_zip('project')
+        with patch.object(files, 'DEPTH_LIMIT', 0):
+            with self.assertRaisesRegex(files.FileOperationError, 'nesting exceeds 0 levels'):
+                files.folder_zip('project')
+
     def test_copy_move_and_collision_preserve_source(self):
         self.transfer()
         self.assertEqual((self.root/'duplicate/sub/code.txt').read_text(),'hello')
@@ -89,9 +106,9 @@ class FolderTests(unittest.TestCase):
         for operation in (lambda:files.folder_zip('project'),self.transfer):
             with self.assertRaises(ValueError):operation()
         (self.root/'project/pipe').unlink()
-        for constant in ('TREE_LIMIT','ENTRY_LIMIT','DEPTH_LIMIT'):
-            with patch.object(files,constant,1):
-                for operation in (lambda:files.folder_zip('project'),self.transfer):
+        for operation, entry_limit in ((lambda:files.folder_zip('project'),'ZIP_ENTRY_LIMIT'),(self.transfer,'ENTRY_LIMIT')):
+            for constant in ('TREE_LIMIT',entry_limit,'DEPTH_LIMIT'):
+                with patch.object(files,constant,1):
                     with self.assertRaises(files.FileOperationError):operation()
         self.assertFalse((self.root/'duplicate').exists())
         self.assertFalse(list(self.root.glob('.copy-*')))

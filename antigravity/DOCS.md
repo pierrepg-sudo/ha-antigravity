@@ -807,7 +807,7 @@ folders, are included. When preparation succeeds, Files shows the compressed siz
 link. Tap that link within five minutes; it works once. Preparation failures appear
 on the page and do not start a download. At most three prepared archives are held;
 unused archives are removed automatically after five minutes. ZIP generation is limited to
-500 MiB of uncompressed file contents, 10,000 entries and 64 levels. A link, special
+500 MiB of uncompressed file contents, 100,000 entries and 64 levels. A link, special
 file, unreadable item or detected source change aborts the archive with an error;
 contents are never silently skipped. This is not a snapshot of actively edited data.
 Pause writers when you need a consistent archive or copy.
@@ -841,8 +841,8 @@ folder. No change grants the agent additional access to Inputs or credentials.
 ## Larger downloads and terminal layout (0.8.0)
 
 File downloads and file/folder copies support 500 MiB (524,288,000 bytes).
-Folder ZIPs have the same limit on total uncompressed file contents; the existing
-10,000-entry and 64-level limits remain. Uploads allow 500 MiB and text previews
+Folder ZIPs have the same limit on total uncompressed file contents, with
+100,000 entries and 64 levels. Copies retain a 10,000-entry limit. Uploads allow 500 MiB and text previews
 256 KiB. Pause active writers when a consistent copy or archive matters.
 The worker's separate resource limits have not changed.
 

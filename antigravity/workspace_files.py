@@ -168,6 +168,7 @@ def change(payload, expected_identity=None):
 # Bound recursive work on the HA host. ZIPs are spooled to disk after 8 MiB.
 TREE_LIMIT = 500 * 1024 * 1024
 ENTRY_LIMIT = 10000
+ZIP_ENTRY_LIMIT = 100000
 DEPTH_LIMIT = 64
 
 
@@ -176,14 +177,17 @@ class FileOperationError(ValueError):
 
 
 class Budget:
-    def __init__(self):
+    def __init__(self, entry_limit=None):
+        self.entry_limit = ENTRY_LIMIT if entry_limit is None else entry_limit
         self.bytes = 0
         self.entries = 0
 
     def entry(self, depth):
         self.entries += 1
-        if self.entries > ENTRY_LIMIT or depth > DEPTH_LIMIT:
-            raise FileOperationError('Folder limit: 10,000 entries and 64 levels.')
+        if self.entries > self.entry_limit:
+            raise FileOperationError(f'Folder contains more than {self.entry_limit:,} files and folders. Select a smaller subfolder.')
+        if depth > DEPTH_LIMIT:
+            raise FileOperationError(f'Folder nesting exceeds {DEPTH_LIMIT} levels. Select a deeper subfolder to download or copy.')
 
     def consume(self, size):
         self.bytes += size
@@ -250,7 +254,7 @@ def folder_zip(path):
     label = names[-1] if names else os.path.basename(ACTIVE_ROOT.get() or ROOT)
     archive = tempfile.SpooledTemporaryFile(max_size=8*1024*1024)
     try:
-        budget = Budget()
+        budget = Budget(entry_limit=ZIP_ENTRY_LIMIT)
         with directory(path) as source, zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=1) as zip_file:
             def folder(name):
                 zip_file.writestr(name+'/', b'')

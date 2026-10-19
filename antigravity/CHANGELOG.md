@@ -1,3 +1,7 @@
+## 0.10.24
+
+- Allow up to 100,000 entries in folder ZIP downloads, including hidden contents. Report entry-count and nesting limits separately. Retain the 500 MiB content and 64-level nesting limits; copy, upload and extraction limits are unchanged.
+
 ## 0.10.23
 
 - Close the Files copy/move selection bar immediately after a successful paste. Keep the selection when the operation fails or is cancelled.
