@@ -820,7 +820,7 @@ must be Inputs or Outputs. Move is limited to the same writable location to pres
 ownership and permission boundaries. To transfer between locations, use Copy; it
 leaves the source intact. Copy uses the destination area's normal permissions and retains owner/group executable bits.
 
-Existing names are never replaced. Copies are built in a private temporary folder
+Paste uses the original file or folder name without a rename prompt. Existing names are never replaced; use Rename separately to resolve a conflict. Copies are built in a private temporary folder
 and published atomically; failed copies clean up temporary data and preserve the
 source. Copy shares the ZIP size/entry/depth limits. Moving uses an atomic no-replace
 rename and does not read the contents. A folder cannot be pasted into itself or a
@@ -961,6 +961,6 @@ The editor supports up to 256 KiB of UTF-8 text, rejects links and special files
 
 ## Associate a project output folder
 
-In **Conversations → project → More → Associate folder**, select **Existing folder** and choose from the output folders, or select **Create new folder** and enter a name under `/data/workspace/outputs`. Folders linked to another project are disabled in the picker and checked again when saving. Existing files and the old folder stay intact. Errors remain visible in the dialog for correction and retry. Symbolic links are rejected; existing active-conversation guards apply.
+In **Conversations → project → More → Associate folder**, select **Existing folder** and choose from the output folders, or select **Create new folder** and enter a name under `/data/workspace/outputs`. Folders already linked to this or another project are disabled in the picker and checked again when saving. Existing files and the old folder stay intact. Errors remain visible in the dialog for correction and retry. Symbolic links are rejected; existing active-conversation guards apply.
 
 This sets the HAOS managed output folder used by Files, Rules, archive/deletion protection and conversation output contexts. It does not rewrite native workspace resources in the official Antigravity remote. Stop workers using the previous location and reopen conversations after changing the association. Rules now appears on the newly linked folder's More menu after refreshing Files.

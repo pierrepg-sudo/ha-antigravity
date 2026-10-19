@@ -169,7 +169,7 @@ $('#clearClipboard').onclick=()=>{clipboard=null;clipboardControls();};
 $('#pasteItem').onclick=()=>act(async()=>{
  if(!clipboard||readOnly)return;
  if(clipboard.action==='move'&&clipboard.sourceArea!==area)throw new Error('Move stays within one location. Use Copy to transfer between Inputs and Outputs.');
- const name=prompt('Destination name (existing items are never overwritten)',clipboard.name);if(!name)return;
+ const name=clipboard.name;
  const item={...clipboard};
  await request('file-action',{action:item.action,sourceArea:item.sourceArea,source:item.source,path:current,name});
  clipboard=null;clipboardControls();

@@ -232,6 +232,8 @@ def association_target(payload, obj):
     owners = folder_owners(records, sync_project_folders(records))
     if owners.get(name, set()) - {obj['id']}:
         raise native.NativeError('This folder is already associated with another project.')
+    if obj['id'] in owners.get(name, set()):
+        raise native.NativeError('This folder is already associated with this project. Choose a different folder.')
     mode = payload.get('folderMode', 'auto')
     if mode not in ('auto', 'existing', 'new'):
         raise native.NativeError('Choose an existing folder or create a new folder.')

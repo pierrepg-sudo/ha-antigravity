@@ -162,7 +162,7 @@ async function reloadAssociationFolders(){
  folderControls(true);$('folderError').textContent='Loading folders…';
  try{const data=await managementRequest('management-context');if(!Array.isArray(data.folders))throw new Error('Folder list unavailable. Update and restart the add-on.');
  $('existingFolder').replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select a folder';$('existingFolder').append(placeholder);
- for(const folder of data.folders){const option=document.createElement('option');option.value=folder.name;option.disabled=folder.owners.some(id=>id!==folderProject.id);option.textContent=folder.name+(option.disabled?' — linked to another project':'');$('existingFolder').append(option);}
+ for(const folder of data.folders){const option=document.createElement('option');option.value=folder.name;const current=folder.owners.includes(folderProject.id);option.disabled=folder.owners.length>0;option.textContent=folder.name+(current?' — already linked to this project':option.disabled?' — linked to another project':'');$('existingFolder').append(option);}
  $('existingFolder').value='';$('folderError').textContent='';
  }catch(error){$('existingFolder').replaceChildren();$('existingFolder').value='';$('folderError').textContent=error.message;}finally{folderControls(false);}
 }

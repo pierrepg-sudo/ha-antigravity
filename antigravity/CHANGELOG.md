@@ -1,3 +1,7 @@
+## 0.10.31
+
+- Disable folders already linked to the selected project in Associate folder, with a matching server-side check. Paste copied or moved files and folders using their original names without a rename prompt; existing destinations are still protected.
+
 ## 0.10.30
 
 - Replace folder-association popups with an in-page existing-folder picker and new-folder option. Show errors in the dialog, bound requests with timeouts, and recheck folder ownership and existence before saving.

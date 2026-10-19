@@ -99,7 +99,7 @@ get('projectDeleteCancel').onclick();get('projectDeleteDialog').onclose();assert
 vm.runInContext('busy=false',context);
 const originalFetch=context.fetch;let associationFails=true,associationPayload;
 context.fetch=async(url,opts)=>{
- if(url==='management-context')return {ok:true,json:async()=>({folders:[{name:'free',owners:[]},{name:'taken',owners:['other']}]})};
+ if(url==='management-context')return {ok:true,json:async()=>({folders:[{name:'free',owners:[]},{name:'taken',owners:['other']},{name:'current',owners:['p1']}]})};
  if(url==='management-prepare')return {ok:true,json:async()=>({revision:'r'})};
  if(url==='management-action'){associationPayload=JSON.parse(opts.body);return {ok:!associationFails,json:async()=>associationFails?{error:'This folder is already associated with another project.'}:{ok:true}};}
  return originalFetch(url,opts);
@@ -107,6 +107,7 @@ context.fetch=async(url,opts)=>{
 await vm.runInContext("showAssociation({id:'p1',name:'Project'})",context);
 assert(get('folderDialog').open);assert(get('folderSave').disabled);
 assert(get('existingFolder').children.find(o=>o.value==='taken').disabled);
+assert(get('existingFolder').children.find(o=>o.value==='current').disabled);
 get('existingFolder').value='free';get('existingFolder').onchange();
 await get('folderSave').onclick();assert(get('folderDialog').open);
 assert(get('folderError').textContent.includes('another project'));assert(!get('folderSave').disabled);

@@ -66,6 +66,8 @@ class ManagementTests(unittest.TestCase):
             choices = {entry['name']: entry['owners'] for entry in manager.association_folders()}
             self.assertEqual(choices['free'], [])
             self.assertEqual(choices['managed'], ['other'])
+            with self.assertRaisesRegex(native.NativeError, 'already associated with this project'):
+                manager.association_target({'kind':'project','destination':'managed','folderMode':'existing'}, {'id':'other'})
             self.assertEqual(choices['native'], ['native-owner'])
             self.assertNotIn('link', choices)
             for name in ('managed', 'native'):
