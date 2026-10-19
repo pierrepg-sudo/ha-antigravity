@@ -1,3 +1,7 @@
+## 0.10.25
+
+- Add New conversation to Terminal with the same project selection, unclassified option and guarded session creation used by Conversations. Reload Terminal after successful creation.
+
 ## 0.10.24
 
 - Allow up to 100,000 entries in folder ZIP downloads, including hidden contents. Report entry-count and nesting limits separately. Retain the 500 MiB content and 64-level nesting limits; copy, upload and extraction limits are unchanged.
