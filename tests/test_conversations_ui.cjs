@@ -66,6 +66,22 @@ get('search').value='';get('search').oninput();
 assert.equal(footer('one').children[1].hidden,false);
 footer('one').children[0].onclick();vm.runInContext('render()',context);
 assert.equal(footer('one').children[1].hidden,true);
+function checkProjectMenus(){
+ for(const folder of folders()){
+  assert.equal(folder.children[0].className,'group-heading');
+  const body=folder.children[1];assert.equal(body.className,'project-content');
+  const menu=body.children.find(e=>e.className==='action-more project-more');
+  if(menu)assert.equal(body.children[0],menu,'Project More precedes paths and all conversations');
+  for(const row of body.children.filter(e=>e.className==='row')){
+   assert.equal(row.children.length,3,'Conversation footer retained');
+   assert.equal(row.children[2].className,'conversation-more');
+  }
+ }
+}
+checkProjectMenus();
+folders().forEach(f=>f.open=true);vm.runInContext('render()',context);checkProjectMenus();
+get('search').value='Home Assistant';get('search').oninput();checkProjectMenus();
+get('search').value='';get('search').oninput();checkProjectMenus();
 fail=false;get('newConversation').onclick();assert(get('sessionDialog').open);assert.equal(get('project').value,'');
 assert.equal(timers.size,0);await vm.runInContext('load()',context);assert(get('sessionDialog').open);
 await get('sessionApply').onclick();assert.equal(context.window.location.href,'controls');

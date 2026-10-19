@@ -38,6 +38,9 @@ header.app-header>.app-links,header.app-header>.top-links{width:auto;justify-con
 .more-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px}
 .more-actions button{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}
 .project-more{margin:0 0 12px}
+.conversations .project-content{display:flex;flex-direction:column;min-width:0}
+.conversations .project-content>.project-more{order:-1;flex:none}
+.conversations .project-content>.row{margin-top:4px;flex:none}
 .files-page .row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .files-page .row-actions>.action-more{grid-column:1/-1}
 @media(max-width:640px){header.app-header>.app-links,header.app-header>.top-links{flex-direction:column;align-items:stretch}header.app-header h1{font-size:25px}}

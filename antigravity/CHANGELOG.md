@@ -1,3 +1,7 @@
+## 0.10.29
+
+- Keep the existing project More menu first in an explicitly ordered project body, below the project heading and before its conversations. Retain the conversation-menu improvements from 0.10.28.
+
 ## 0.10.28
 
 - Keep each conversation's More control in a dedicated full-width card footer, avoiding nested native disclosure layout. Preserve its expanded state across automatic refreshes and filtering.

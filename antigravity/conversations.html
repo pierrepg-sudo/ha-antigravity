@@ -37,14 +37,17 @@ function render(){
    folder.open=searching||(folderState.get(folder.dataset.key)??false);
    const heading=document.createElement('summary');heading.className='group-heading';heading.textContent=group.project.name+' · '+group.length;
    folder.append(heading);$('list').append(folder);
+   // One normal-flow body keeps the project menu ahead of every conversation,
+   // including when the outer native details is reopened on mobile browsers.
+   const content=document.createElement('div');content.className='project-content';folder.append(content);
    if(group.project.id&&!['default-cli-project','outside-of-project'].includes(group.project.id)){
     const menu=document.createElement('details');menu.className='action-more project-more';const summary=document.createElement('summary');summary.textContent='More ···';menu.append(summary);const actions=document.createElement('div');actions.className='more-actions';
     for(const [action,text] of [['associate-folder','Associate folder'],['rename','Rename project'],[group.project.archived?'restore':'archive',group.project.archived?'Restore project':'Archive project'],['delete','Delete project']]){
      const button=document.createElement('button');button.textContent=text;button.onclick=()=>manage('project',group.project,action);if(action==='delete')button.className='delete';actions.append(button);
-    }menu.append(actions);folder.append(menu);
+    }menu.append(actions);content.append(menu);
     const paths=group.project.folder?['/data/workspace/outputs/'+group.project.folder]:(group.project.paths||[]);
-    for(const value of paths){const path=document.createElement('p');path.className='meta';path.textContent=value;folder.append(path);}
-    if(!group.project.folder){const note=document.createElement('p');note.className='meta';note.textContent=paths.length?'Native project folder · outside managed Outputs':'No linked folder reported by the CLI';folder.append(note);}
+    for(const value of paths){const path=document.createElement('p');path.className='meta';path.textContent=value;content.append(path);}
+    if(!group.project.folder){const note=document.createElement('p');note.className='meta';note.textContent=paths.length?'Native project folder · outside managed Outputs':'No linked folder reported by the CLI';content.append(note);}
    }
  for(const item of group){
   const el=document.createElement('article');el.className='row';const info=document.createElement('div');info.className='info';
@@ -70,7 +73,7 @@ function render(){
   const updateMore=()=>{const expanded=conversationMoreState.get(item.id)===true;moreTitle.textContent=(expanded?'▾':'▸')+' More ···';moreTitle.setAttribute('aria-expanded',String(expanded));moreActions.hidden=!expanded;};
   moreTitle.onclick=()=>{conversationMoreState.set(item.id,!conversationMoreState.get(item.id));updateMore();};updateMore();
   for(const [action,text] of [['rename','Rename'],[item.archived?'restore':'archive',item.archived?'Restore':'Archive'],['reset-model','Reset model preference']]){const control=document.createElement('button');control.textContent=text;control.onclick=()=>manage('conversation',item,action);moreActions.append(control);}more.append(moreActions);
-  el.append(info,actions,more);folder.append(el);
+  el.append(info,actions,more);content.append(el);
  }
   }
   if(!entries.length){const empty=document.createElement('p');empty.className='meta';empty.textContent=label==='Archived'?'No archived conversations match.':'No conversations match.';$('list').append(empty);}
