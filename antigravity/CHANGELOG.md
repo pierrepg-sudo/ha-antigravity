@@ -1,3 +1,7 @@
+## 0.10.23
+
+- Close the Files copy/move selection bar immediately after a successful paste. Keep the selection when the operation fails or is cancelled.
+
 ## 0.10.22
 
 - Refresh Files after returning from an idle page, bypass cached listings, and bound requests with a timeout. Detect expired/non-JSON sessions with a Reopen Files recovery button and clear stale listings after refresh failures. File mutations are never automatically retried.

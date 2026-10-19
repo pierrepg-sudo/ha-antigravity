@@ -149,7 +149,7 @@ $('#pasteItem').onclick=()=>act(async()=>{
  const name=prompt('Destination name (existing items are never overwritten)',clipboard.name);if(!name)return;
  const item={...clipboard};
  await request('file-action',{action:item.action,sourceArea:item.sourceArea,source:item.source,path:current,name});
- if(item.action==='move')clipboard=null;
+ clipboard=null;clipboardControls();
  await browse(current);status.textContent=(item.action==='copy'?'Copied ':'Moved ')+name;
 });
 $('#area').onchange=()=>act(async()=>{const previous=area;area=$('#area').value;try{await browse('');}catch(e){area=previous;$('#area').value=previous;throw e;}});
