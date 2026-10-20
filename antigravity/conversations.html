@@ -12,11 +12,17 @@
 <script>
 const csrf='__CSRF__';let items=[],busy=false,pending=null,connected=false,timer=null,failures=0;
 const entryParams=new URLSearchParams(window.location.search||'');let entryAction=entryParams.get('action');
-const folderState=new Map(),conversationMoreState=new Map();let searching=false,projects=[],sessionRequest=null;
+const folderState=new Map(),conversationMoreState=new Map(),projectMoreState=new Map();let searching=false,projects=[],sessionRequest=null;
 const $=id=>document.getElementById(id),dialog=$('confirm');
 function setBusy(value){busy=value;document.querySelectorAll('button').forEach(b=>b.disabled=value||b.dataset.blocked==='true');$('apply').disabled=value||!pending;}
 function schedule(){clearTimeout(timer);if(!document.hidden&&!dialog.open&&!$('sessionDialog').open)timer=setTimeout(load,Math.min(60000,15000*2**failures));}
 function render(){
+ for(const folder of $('list').children){
+  if(folder.className!=='project-folder')continue;
+  const content=Array.from(folder.children).find(child=>child.className==='project-content');
+  const menu=content&&Array.from(content.children).find(child=>child.className==='action-more project-more');
+  if(menu)projectMoreState.set(menu.dataset.projectId,menu.open);
+ }
  if(!searching)for(const folder of $('list').children){if(folder.className==='project-folder')folderState.set(folder.dataset.key,folder.open);}
  $('list').replaceChildren();const query=$('search').value.toLocaleLowerCase();
  searching=Boolean(query);
@@ -42,7 +48,7 @@ function render(){
    // including when the outer native details is reopened on mobile browsers.
    const content=document.createElement('div');content.className='project-content';folder.append(content);
    if(group.project.id&&!['default-cli-project','outside-of-project'].includes(group.project.id)){
-    const menu=document.createElement('details');menu.className='action-more project-more';const summary=document.createElement('summary');summary.textContent='More ···';menu.append(summary);const actions=document.createElement('div');actions.className='more-actions';
+    const menu=document.createElement('details');menu.className='action-more project-more';menu.dataset.projectId=group.project.id;menu.open=projectMoreState.get(group.project.id)??false;const summary=document.createElement('summary');summary.textContent='More ···';menu.append(summary);const actions=document.createElement('div');actions.className='more-actions';
     for(const [action,text] of [['associate-folder','Associate folder'],['rename','Rename project'],[group.project.archived?'restore':'archive',group.project.archived?'Restore project':'Archive project'],['delete','Delete project']]){
      const button=document.createElement('button');button.textContent=text;button.onclick=()=>manage('project',group.project,action);if(action==='delete')button.className='delete';actions.append(button);
     }menu.append(actions);content.append(menu);

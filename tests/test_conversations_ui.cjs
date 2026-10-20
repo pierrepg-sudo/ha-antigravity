@@ -79,6 +79,18 @@ function checkProjectMenus(){
  }
 }
 checkProjectMenus();
+const projectMenu=id=>descendants(get('list')).find(e=>e.className==='action-more project-more'&&e.dataset.projectId===id);
+projectMenu('p1').open=true;
+vm.runInContext('render()',context);
+assert.equal(projectMenu('p1').open,true);
+assert.equal(projectMenu('p3').open,false); // Same project name, different ID.
+get('search').value='AirPrint';get('search').oninput();
+get('search').value='';get('search').oninput();
+assert.equal(projectMenu('p1').open,true);
+projectMenu('p1').open=false;projectMenu('p2').open=true;
+vm.runInContext('render()',context);
+assert.equal(projectMenu('p1').open,false);
+assert.equal(projectMenu('p2').open,true); // Archived project state is independent.
 folders().forEach(f=>f.open=true);vm.runInContext('render()',context);checkProjectMenus();
 get('search').value='Home Assistant';get('search').oninput();checkProjectMenus();
 get('search').value='';get('search').oninput();checkProjectMenus();
