@@ -1,3 +1,7 @@
+## 0.10.33
+- Retry transient Files listing failures twice after resuming, without replaying file operations. Also refresh on focus and queue a return refresh if a request is still busy.
+- Reopen Home Assistant from the recovery button to renew ingress through the enclosing page when accessible. Preserve the selected folder across reloads. Persistent session failures still require this user-initiated recovery.
+
 ## 0.10.32
 
 - Preserve each project's More menu open/closed state across automatic refreshes and search filtering, keyed by project ID independently of conversation menus and outer project expansion.

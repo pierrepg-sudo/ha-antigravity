@@ -26,16 +26,34 @@ async function request(url,body){
   const r=await fetch(scoped(url),{cache:'no-store',signal:controller.signal,...(body?{method:'POST',headers:{'Content-Type':'application/json','X-Antigravity-CSRF':csrf},body:JSON.stringify(body)}:{})});
   const type=r.headers.get('content-type')||'';
   if([401,403].includes(r.status)||!type.includes('application/json')){
-   const error=new Error('Files session expired or the server is unavailable. Reopen Files to reconnect.');error.reopen=true;throw error;
+   const error=new Error('Files could not reconnect. Reopen Home Assistant to renew the connection.');error.reopen=true;error.retryable=true;throw error;
   }
   let d;try{d=await r.json();}catch{throw new Error('The server returned an incomplete response. Refresh to try again.');}
-  if(!r.ok)throw new Error(d.error||'Request failed (HTTP '+r.status+').');return d;
- }catch(e){if(e.name==='AbortError')throw new Error(body?'Server confirmation timed out. Check the destination before retrying; the action may have completed.':'Files request timed out. Refresh to try again.');throw e;}
+  if(!r.ok){const error=new Error(d.error||'Request failed (HTTP '+r.status+').');error.retryable=r.status>=500;throw error;}return d;
+ }catch(e){if(e.name==='AbortError'){const error=new Error(body?'Server confirmation timed out. Check the destination before retrying; the action may have completed.':'Files request timed out. Refresh to try again.');error.retryable=!body;throw error;}if(e instanceof TypeError){e.retryable=true;e.message='Files connection is unavailable. Check your connection and try again.';}throw e;}
  finally{clearTimeout(timeout);}
+}
+// Only listing reads may be retried; never replay a file mutation.
+async function requestListing(path){
+ for(let attempt=0;;attempt++){
+  try{return await request('file-list?path='+encodeURIComponent(path));}
+  catch(e){
+   if(!e.retryable||attempt>=2||document.hidden)throw e;
+   status.textContent='Reconnecting to Files…';
+   await new Promise(resolve=>setTimeout(resolve,[1000,3000][attempt]));
+   if(document.hidden)throw e;
+  }
+ }
+}
+function reopenFiles(){
+ // Reload the HA shell so its ingress panel can acquire a fresh session.
+ // A reload of only this iframe can reuse the expired ingress URL.
+ try{sessionStorage.setItem('antigravity-files-location',JSON.stringify({area,path:current}));}catch{}
+ try{window.top.location.reload();}catch{window.location.reload();}
 }
 function showFilesError(e){
  status.textContent=e.message;status.classList.add('error');
- if(e.reopen){const reopen=document.createElement('button');reopen.textContent='Reopen Files';reopen.onclick=()=>window.location.reload();status.append(document.createTextNode(' '),reopen);}
+ if(e.reopen){const reopen=document.createElement('button');reopen.textContent='Reopen Home Assistant';reopen.onclick=reopenFiles;status.append(document.createTextNode(' '),reopen);}
 }
 async function act(fn){
  if(busy)return;busy=true;status.classList.remove('error');document.body.classList.add('loading');document.querySelectorAll('button,select').forEach(b=>b.disabled=true);
@@ -98,9 +116,10 @@ const icons={folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 function size(bytes){return bytes<1024?bytes+' B':bytes<1048576?(bytes/1024).toFixed(1)+' KB':(bytes/1048576).toFixed(1)+' MB';}
 async function browse(path){
  let d;
- try{d=await request('file-list?path='+encodeURIComponent(path));}
+ try{d=await requestListing(path);}
  catch(e){$('#list').replaceChildren();$('#count').textContent='Listing unavailable';throw e;}
  current=d.path;root=d.root;readOnly=d.readOnly;
+ try{sessionStorage.setItem('antigravity-files-location',JSON.stringify({area,path:current}));}catch{}
  for(const id of ['folder','uploadOpen','zipCurrent'])$('#'+id).hidden=readOnly||(area==='archived'&&!current);
  $('#areaHint').textContent={inputs:'Original files · protected from direct agent edits',outputs:'Working files · archived projects are shown separately',archived:'Archived projects · Restore returns a project to Outputs and Conversations. Paths stay unchanged.'}[area];
  $('#where').textContent=root+(current?'/'+current:'');$('#breadcrumbs').replaceChildren();
@@ -254,14 +273,23 @@ $('#upload').onclick=()=>act(async()=>{
  }finally{uploadState=null;$('#uploadCancel').hidden=true;$('#file').disabled=false;$('#folderFiles').disabled=false;}
 });
 $('#close').onclick=()=>$('#preview').close();$('#pathClose').onclick=()=>$('#pathDialog').close();$('#copy').onclick=async()=>{try{await navigator.clipboard.writeText($('#pathText').value);$('#copy').textContent='Copied';}catch{ $('#pathText').focus();$('#pathText').select();$('#copy').textContent='Select and copy above';}};
-let lastRefresh=Date.now();
+let lastRefresh=Date.now(),returnTimer=null;
 function refreshOnReturn(){
- if(document.hidden||busy||document.querySelector('dialog[open]')||Date.now()-lastRefresh<15000)return;
+ if(document.hidden)return;
+ if(busy){clearTimeout(returnTimer);returnTimer=setTimeout(refreshOnReturn,1000);return;}
+ if(document.querySelector('dialog[open]')||Date.now()-lastRefresh<15000)return;
  lastRefresh=Date.now();act(()=>browse(current));
 }
 document.addEventListener('visibilitychange',refreshOnReturn);
 window.addEventListener('pageshow',refreshOnReturn);
-window.addEventListener('online',refreshOnReturn);
-act(()=>browse(''));
+window.addEventListener('online',()=>{lastRefresh=0;refreshOnReturn();});
+window.addEventListener('focus',refreshOnReturn);
+try{
+ const saved=JSON.parse(sessionStorage.getItem('antigravity-files-location')||'null');
+ if(saved&&['outputs','inputs','archived'].includes(saved.area)&&typeof saved.path==='string'){
+  area=saved.area;current=saved.path;$('#area').value=area;
+ }
+}catch{}
+act(()=>browse(current));
 
 </script></body></html>
